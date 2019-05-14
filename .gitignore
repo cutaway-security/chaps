@@ -1,0 +1,10 @@
+# VIM Swap Files
+*.swp
+
+# Output files
+*.csv
+*.xml
+*.txt
+*.rtf
+*.xlsx
+*.json
