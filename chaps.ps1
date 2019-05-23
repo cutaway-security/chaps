@@ -233,24 +233,30 @@ Catch{
 }
 
 # Check AlwaysInstallElevated Registry Keys
+# BugFix 20190523: Mike Saunders - RedSiege, LLC
 <#
 Resources:
 Windows Privilege Escalation Fundamentals: http://www.fuzzysecurity.com/tutorials/16.html
 #>
 Write-Info; Write-Host "Checking if users can install software as NT AUTHORITY\SYSTEM"
 Try{
-    $ressysele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
-    $resusrele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
+    Try{
+        $ressysele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
+    }
+    Catch{
+        $ressysele = $null;
+    }
+    Try{
+        $resusrele = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated' -ErrorAction stop
+    }
+    Catch{
+        $resusrele = $null;
+    }
 
-    if ($ressysele -ne $null -and $resusrele -ne $null){
-        $resvs = $vs.VolumeStatus
-        if ($ressysele -and $resusrele){
+    if ($ressysele -or $resusrele){
             Write-Neg; Write-Host "Users can install software as NT AUTHORITY\SYSTEM."
-        } else {
-            Write-Pos; Write-Host "Users cannot install software as NT AUTHORITY\SYSTEM."
-        }
     } else {
-        Write-Pos; Write-Host "Users cannot install software as NT AUTHORITY\SYSTEM."
+            Write-Pos; Write-Host "Users cannot install software as NT AUTHORITY\SYSTEM."
     }
 }
 Catch{
@@ -630,13 +636,15 @@ Catch{
 
 ###############################
 ########## Local Administrator Accounts ##############
+###############################
+# BugFix 20190523: Mike Saunders - RedSiege, LLC
 <#
 Resources:
     Get-LocalGroupMember: https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/get-localgroupmember?view=powershell-5.1
 #>
 Write-Info; Write-Host "Testing Local Administrator Accounts."
 Try{
-    $numadmin = (Get-LocalGroupMember -Group "Administrators").Name.count
+    $numadmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction Stop).Name.count
     if ([int]$numadmin -gt 1){
         Write-Neg; Write-Host "More than one account is in local Administrators group:" $numadmin
     } else {
@@ -645,6 +653,22 @@ Try{
 
     foreach ($n in (Get-LocalGroupMember -Group "Administrators").Name) {
         Write-Info; Write-Host "Account in local Administrator group:" $n
+    }
+}
+# No PS Cmdlet, use net command
+Catch [System.InvalidOperationException]{
+    $netout = (net localgroup Administrators)
+    foreach ($item in $netout){
+        if ($item -match '----') {
+            $index = $netout.IndexOf($item)
+        }
+    }
+
+    $numadmin = $netout[($index + 1)..($netout.Length - 3)]
+    if ($content.length -gt 1){
+        Write-Neg; Write-Host "More than one account is in local Administrators group:" $numadmin.length
+    } else {
+        Write-Pos; Write-Host "One account in local Administrators group."
     }
 }
 Catch{

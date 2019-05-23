@@ -127,6 +127,11 @@ There are lots of ways to run this script. For instance [15 Ways to Bypass the P
 * ```Get-Content C:\Users\<user>\Documents\chaps.ps1 | PowerShell.exe -noprofile -```
 * ```PowerShell.exe -ExecutionPolicy Bypass -File .\chaps.ps1```
 
+## Collaborators
+I would like to thank those invdividuals who have helped troubleshoot and add features to this project.
+
+* Mike Saunders [@hardwaterhacker](https://twitter.com/hardwaterhacker) - [RedSiege, LLC.](https://www.redsiege.com/)
+
 ## TODO:
 Here are a list of things that aren't working, need to be addressed, or are possible function requests.
 * Issues
