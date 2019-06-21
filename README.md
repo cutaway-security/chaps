@@ -138,7 +138,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
   * Add checks from Carlos Perez's HoneyBadger plugin. Must be converted from Ruby to PowerShell.
 
 ## CHAPS PowerSploit Security Checks
-The PowerSploit project can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
+The PowerSploit project (dev branch is preferred) can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
 
 ### How to use chaps-powersploit.ps1
 This script should be placed in the same directory as the PowerSploit tools. To run, follow the these steps:
