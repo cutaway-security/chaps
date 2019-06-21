@@ -112,27 +112,13 @@ This script was developed using information from several sources \(noted in Usef
 * Configure NTLM session security
   * Check NTLM Session Server Security settings to determine if it requires NTLMv2 and 128-bit encryption.
   * Check NTLM Session Client Security settings to determine if it requires NTLMv2 and 128-bit encryption.
-  
-## Useful Resources:
-* [Securing Windows Workstations: Developing a Secure Baseline]( https://adsecurity.org/?p=3299)
-* [Windows Privilege Escalation Fundamentals](http://www.fuzzysecurity.com/tutorials/16.html)
-* [New tool: Policy Analyzer]( https://blogs.technet.microsoft.com/secguide/2016/01/22/new-tool-policy-analyzer/)
-* [Use PowerShell to Explore Active Directory Security](https://blogs.technet.microsoft.com/heyscriptingguy/2012/03/12/use-powershell-to-explore-active-directory-security/)
-* [Penetration Testers’ Guide to Windows 10 Privacy & Security](https://hackernoon.com/the-2017-pentester-guide-to-windows-10-privacy-security-cf734c510b8d)
-* [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
-* **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
 
-## How to use:
+## How to use CHAPS:
 There are lots of ways to run this script. For instance [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
 * ```Get-Content C:\Users\<user>\Documents\chaps.ps1 | PowerShell.exe -noprofile -```
 * ```PowerShell.exe -ExecutionPolicy Bypass -File .\chaps.ps1```
 
-## Collaborators
-I would like to thank those invdividuals who have helped troubleshoot and add features to this project.
-
-* Mike Saunders [@hardwaterhacker](https://twitter.com/hardwaterhacker) - [RedSiege, LLC.](https://www.redsiege.com/)
-
-## TODO:
+## CHAPS TODO:
 Here are a list of things that aren't working, need to be addressed, or are possible function requests.
 * Issues
   * WMI remoting and firewall rules may be required by Vulnerability scanning tools. Thus, if enabled, test for limiting to users and specific systems.
@@ -149,3 +135,41 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * Nice-To-Haves
   * Update with Domain tests, as a user specified option.
   * CMD-only (non-PowerShell) version.
+  * Add checks from Carlos Perez's HoneyBadger plugin. Must be converted from Ruby to PowerShell.
+
+## CHAPS PowerSploit Security Checks
+The PowerSploit project can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
+
+### How to use chaps-powersploit.ps1
+This script should be placed in the same directory as the PowerSploit tools. To run, follow the these steps:
+
+* Change directory into the directory with the chaps-powersploit.ps1 script.
+* List the directory and check that script is in the same directory as PowerSploit.
+* Open a PowerSploit window in the PowerSploit directory (hold shit, right-click, select "Open PowerShell Window Here". PowerShell running as Administrator is prefered, but not necessary.
+* Allow the current user to run scripts
+  * ```Set-ExecutionPolicy -scope currentuser bypass```
+* Run the script:
+  * ```..\chaps-powersploit.ps1```
+* When script finishes there should be two new files in the same directory as the chaps-powersploit.ps1 script.
+  * ```$env:computername-sysinfo.txt```
+  * ```$env:computername-powersploit.txt```
+
+### chaps-powersploit.ps1 TODO:
+Here are a list of things that aren't working, need to be addressed, or are possible function requests.
+* Needs to be tested in a Domain environment.
+* Handle errors gracefully.
+* Identify new cmdlets to run, such as ```Find-InterestingFiles``` with a list of specific files related to ICS project files.
+  
+## Useful Resources:
+* [Securing Windows Workstations: Developing a Secure Baseline]( https://adsecurity.org/?p=3299)
+* [Windows Privilege Escalation Fundamentals](http://www.fuzzysecurity.com/tutorials/16.html)
+* [New tool: Policy Analyzer]( https://blogs.technet.microsoft.com/secguide/2016/01/22/new-tool-policy-analyzer/)
+* [Use PowerShell to Explore Active Directory Security](https://blogs.technet.microsoft.com/heyscriptingguy/2012/03/12/use-powershell-to-explore-active-directory-security/)
+* [Penetration Testers’ Guide to Windows 10 Privacy & Security](https://hackernoon.com/the-2017-pentester-guide-to-windows-10-privacy-security-cf734c510b8d)
+* [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
+* **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
+
+## Collaborators
+I would like to thank those invdividuals who have helped troubleshoot and add features to this project.
+
+* Mike Saunders [@hardwaterhacker](https://twitter.com/hardwaterhacker) - [RedSiege, LLC.](https://www.redsiege.com/)
