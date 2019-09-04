@@ -7,6 +7,23 @@ This script runs in PowerShell and should be PowerShell-version independent. Som
 
 This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
 
+## How To Use
+Steps to follow for scripts:
+
+* Locate a directory on the target system that is excluded by Windows Defender or other AV.	If the user can exclude directories or disable AV, do it and note AV bypass.
+* Copy or extract PS-Scripts to that directory.
+* Run PowerShell as current user (different users will produce different results according to their privileges).
+  *	PS> cd chaps
+  *	PS> Set-ExecutionPolicy -scope currentuser bypass
+  *	PS> Start-Transcript -Path ".\$Env:ComputerName-chaps-trans.txt" -NoClobber
+  *	PS> .\chaps.ps1 > .\$Env:ComputerName-chaps.txt
+  *	PS> Stop-Transcript
+  *	PS> cd PowerSploit
+  *	PS> Start-Transcript -Path "..\$Env:ComputerName-chaps-powersploit-trans.txt" -NoClobber
+  *	PS> ..\chaps-powersploit.ps1
+  *	PS> Stop-Transcript
+* Copy out the "<computername>-chaps.txt", "<computername>-sysinfo.txt", "<computername>-chaps-trans.txt", "<computername>-powersploit.txt", and "<computername>-chaps-powersploit-trans.txt" files and provide back.
+
 ## System Configuration Checks
 ### System Information
 * Administrator rights
@@ -55,6 +72,15 @@ This script was developed using information from several sources \(noted in Usef
    * Check the Windows Firewall configuration to see if the rules to permit WinRM are enabled.
 * Local Administrator Accounts
   * Determine if more than one user is a member of the Local Administrator group.
+
+## CHAPS PowerSploit Security Checks
+The PowerSploit project (dev branch is preferred) can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
+
+### chaps-powersploit.ps1 TODO:
+Here are a list of things that aren't working, need to be addressed, or are possible function requests.
+* Needs to be tested in a Domain environment.
+* Handle errors gracefully.
+* Identify new cmdlets to run, such as ```Find-InterestingFiles``` with a list of specific files related to ICS project files.
 
 ### Secure Baseline Checks - Securing Windows Workstations
 
@@ -113,21 +139,16 @@ This script was developed using information from several sources \(noted in Usef
   * Check NTLM Session Server Security settings to determine if it requires NTLMv2 and 128-bit encryption.
   * Check NTLM Session Client Security settings to determine if it requires NTLMv2 and 128-bit encryption.
 
-## How to use CHAPS:
-There are lots of ways to run this script. For instance [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
-* ```Get-Content C:\Users\<user>\Documents\chaps.ps1 | PowerShell.exe -noprofile -```
-* ```PowerShell.exe -ExecutionPolicy Bypass -File .\chaps.ps1```
-
 ## CHAPS TODO:
 Here are a list of things that aren't working, need to be addressed, or are possible function requests.
 * Issues
   * WMI remoting and firewall rules may be required by Vulnerability scanning tools. Thus, if enabled, test for limiting to users and specific systems.
   * Fix PowerShell version 2 check
   * Fix .NET version check.
-    * (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -Error Action 0| Get-ItemProperty -Name Version -ErrorAction 0) | Select-Object Version
+   * (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -Error Action 0| Get-ItemProperty -Name Version -ErrorAction 0) | Select-Object Version
 * Useful
   * Generate lines for reporting.
-    * Marked so another script can scan the result and build finding and recommendation sections for a report.
+   * Marked so another script can scan the result and build finding and recommendation sections for a report.
   * Check for SYSMON Program.
   * Update checks so that they are Windows version specific. E.G. Windows 10, Windows 7, Windows 2018.
   * List Installed Programs (to include x86) and programs installed directly to C: drive
@@ -137,29 +158,6 @@ Here are a list of things that aren't working, need to be addressed, or are poss
   * CMD-only (non-PowerShell) version.
   * Add checks from Carlos Perez's HoneyBadger plugin. Must be converted from Ruby to PowerShell.
 
-## CHAPS PowerSploit Security Checks
-The PowerSploit project (dev branch is preferred) can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
-
-### How to use chaps-powersploit.ps1
-This script should be placed in the same directory as the PowerSploit tools. To run, follow the these steps:
-
-* Change directory into the directory with the chaps-powersploit.ps1 script.
-* List the directory and check that script is in the same directory as PowerSploit.
-* Open a PowerSploit window in the PowerSploit directory (hold shit, right-click, select "Open PowerShell Window Here". PowerShell running as Administrator is prefered, but not necessary.
-* Allow the current user to run scripts
-  * ```Set-ExecutionPolicy -scope currentuser bypass```
-* Run the script:
-  * ```..\chaps-powersploit.ps1```
-* When script finishes there should be two new files in the same directory as the chaps-powersploit.ps1 script.
-  * ```$env:computername-sysinfo.txt```
-  * ```$env:computername-powersploit.txt```
-
-### chaps-powersploit.ps1 TODO:
-Here are a list of things that aren't working, need to be addressed, or are possible function requests.
-* Needs to be tested in a Domain environment.
-* Handle errors gracefully.
-* Identify new cmdlets to run, such as ```Find-InterestingFiles``` with a list of specific files related to ICS project files.
-  
 ## Useful Resources:
 * [Securing Windows Workstations: Developing a Secure Baseline]( https://adsecurity.org/?p=3299)
 * [Windows Privilege Escalation Fundamentals](http://www.fuzzysecurity.com/tutorials/16.html)
