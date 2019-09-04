@@ -13,15 +13,19 @@ Steps to follow for scripts:
 * Locate a directory on the target system that is excluded by Windows Defender or other AV.	If the user can exclude directories or disable AV, do it and note AV bypass.
 * Copy or extract PS-Scripts to that directory.
 * Run PowerShell as current user (different users will produce different results according to their privileges).
-  *	PS> cd chaps
-  *	PS> Set-ExecutionPolicy -scope currentuser bypass
-  *	PS> Start-Transcript -Path ".\$Env:ComputerName-chaps-trans.txt" -NoClobber
-  *	PS> .\chaps.ps1 > .\$Env:ComputerName-chaps.txt
-  *	PS> Stop-Transcript
-  *	PS> cd PowerSploit
-  *	PS> Start-Transcript -Path "..\$Env:ComputerName-chaps-powersploit-trans.txt" -NoClobber
-  *	PS> ..\chaps-powersploit.ps1
-  *	PS> Stop-Transcript
+
+```
+PS> cd chaps
+PS> Set-ExecutionPolicy -scope currentuser bypass
+PS> Start-Transcript -Path ".\$Env:ComputerName-chaps-trans.txt" -NoClobber
+PS> .\chaps.ps1 > .\$Env:ComputerName-chaps.txt
+PS> Stop-Transcript
+PS> cd PowerSploit
+PS> Start-Transcript -Path "..\$Env:ComputerName-chaps-powersploit-trans.txt" -NoClobber
+PS> ..\chaps-powersploit.ps1
+PS> Stop-Transcript
+```
+
 * Copy out the "<computername>-chaps.txt", "<computername>-sysinfo.txt", "<computername>-chaps-trans.txt", "<computername>-powersploit.txt", and "<computername>-chaps-powersploit-trans.txt" files and provide back.
 
 ## System Configuration Checks
