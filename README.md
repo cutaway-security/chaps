@@ -65,8 +65,8 @@ Steps to follow for scripts:
   * Check how many Cached Credentials the system is configured to maintain.
 * Remote Access Configurations
   * Determine if RDP is configured to permit remote connections.
-   * Check the setting of AllowRemoteRPC.
-   * Check the setting of fDenyTSConnections.
+    * Check the setting of AllowRemoteRPC.
+    * Check the setting of fDenyTSConnections.
  * Understand WinRM configuration.
    * Test if the WinRM Service is running using two different methods.
    * Check the Windows Firewall configuration to see if the rules to permit WinRM are enabled.
@@ -100,7 +100,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
   * Determine if the WinHTTPAutoProxySvc is running.
   * Check if the Windows Hotfix KB3165191 is installed.
   * Check WINS configuration.
-   * Determine network adapter configurations for: 
+  * Determine network adapter configurations for: 
     * DNSEnabledForWINSResolution
     * WINSEnableLMHostsLookup
 * Disable LLMNR
@@ -119,8 +119,8 @@ Here are a list of things that aren't working, need to be addressed, or are poss
   * Check the configuration of registry key WDigest.UseLogonCredential to determine if it is disabled.
 * Disable SMBv1
   * Use Get-SmbServerConfiguration to check:
-   * If SMBv1 is disabled.
-   * If SMBv1 auditing is enabled.
+    * If SMBv1 is disabled.
+    * If SMBv1 auditing is enabled.
 * Block Untrusted Fonts on Windows 10
   * Check the registry key Kernel.MitigationOptions to determine if it is configured to block untrusted fonts.
 * Enable Credential / Device Guard on Windows 10
@@ -145,10 +145,10 @@ Here are a list of things that aren't working, need to be addressed, or are poss
   * WMI remoting and firewall rules may be required by Vulnerability scanning tools. Thus, if enabled, test for limiting to users and specific systems.
   * Fix PowerShell version 2 check
   * Fix .NET version check.
-   * (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -Error Action 0| Get-ItemProperty -Name Version -ErrorAction 0) | Select-Object Version
+    * (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -Error Action 0| Get-ItemProperty -Name Version -ErrorAction 0) | Select-Object Version
 * Useful
   * Generate lines for reporting.
-   * Marked so another script can scan the result and build finding and recommendation sections for a report.
+    * Marked so another script can scan the result and build finding and recommendation sections for a report.
   * Check for SYSMON Program.
   * Update checks so that they are Windows version specific. E.G. Windows 10, Windows 7, Windows 2018.
   * List Installed Programs (to include x86) and programs installed directly to C: drive
