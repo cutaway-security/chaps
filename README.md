@@ -8,7 +8,9 @@ This script runs in PowerShell and should be PowerShell-version independent. Som
 This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
 
 ## How To Use
-Steps to follow for scripts:
+'''NOTE:''' You can run the CHAPS tool without PowerSploit. If you are concerned about setting off Anti-Virus, then you should not run the CHAPS PowerSploit script. Depending on the organization's malware and incident response process the system could be taken offline. Alwasy let the organization's monitoring team know you are conducting tests on systems.
+
+Steps I have used to run this script. There are many ways to do it, such as Invoke-Expression (IEX). I'll add them as development continues. Please do test runs on non-production systems to determine the methods you perfer to use. The following method does have one issue of not writing CHAPS output to a file. I copy and paste the information from the PS window into the CHAPS file to address this issue.
 
 * Locate a directory on the target system that is excluded by Windows Defender or other AV.	If the user can exclude directories or disable AV, do it and note AV bypass.
 * Copy or extract PS-Scripts to that directory.
