@@ -65,6 +65,7 @@ Get-GPPPassword | Tee-Object -FilePath $out_file -Append
 Get-VaultCredential | Tee-Object -FilePath $out_file -Append
 
 ## Recon Checks
+### The following checks will not return anything, and may error, if a Domain account isn't used.
 "[*] Recon Checks" | Tee-Object -FilePath $out_file -Append
 "[*] Dump GPOs" | Tee-Object -FilePath $out_file -Append
 Get-NetGPO | Tee-Object -FilePath $out_file -Append
