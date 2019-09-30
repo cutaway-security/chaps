@@ -8,29 +8,31 @@ This script runs in PowerShell and should be PowerShell-version independent. Som
 This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
 
 ## How To Use
-'''NOTE:''' You can run the CHAPS tool without PowerSploit. If you are concerned about setting off Anti-Virus, then you should not run the CHAPS PowerSploit script. Depending on the organization's malware and incident response process the system could be taken offline. Alwasy let the organization's monitoring team know you are conducting tests on systems.
+The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
 
-Steps I have used to run this script. There are many ways to do it, such as Invoke-Expression (IEX). I'll add them as development continues. Please do test runs on non-production systems to determine the methods you perfer to use. The following method does have one issue of not writing CHAPS output to a file. I copy and paste the information from the PS window into the CHAPS file to address this issue.
-
-* Locate a directory on the target system that is excluded by Windows Defender or other AV.	If the user can exclude directories or disable AV, do it and note AV bypass.
-* Copy or extract PS-Scripts to that directory.
-* Run PowerShell as current user (different users will produce different results according to their privileges).
+On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. From this prompt, run the following command to execute the ```chaps.ps1``` script.
 
 ```
-PS> cd chaps
-PS> Set-ExecutionPolicy -scope currentuser bypass
-PS> Start-Transcript -Path ".\$Env:ComputerName-chaps-trans.txt" -NoClobber
-PS> .\chaps.ps1 > .\$Env:ComputerName-chaps.txt
-PS> Stop-Transcript
-PS> cd PowerSploit
-PS> Start-Transcript -Path "..\$Env:ComputerName-chaps-powersploit-trans.txt" -NoClobber
-PS> ..\chaps-powersploit.ps1
-PS> Stop-Transcript
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
 ```
 
-* Copy out the "<computername>-chaps.txt", "<computername>-sysinfo.txt", "<computername>-chaps-trans.txt", "<computername>-powersploit.txt", and "<computername>-chaps-powersploit-trans.txt" files and provide back.
+To run the ```chaps-powershell.ps1``` script be sure to turn off the system's Anti-virus to include real-time protection. Running the following commands will import the appropriate PowerSploit scripts and then run them.
+
+```
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Recon/PowerView.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-GPPPassword.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-GPPAutologon.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-VaultCredential.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Privesc/PowerUp.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps-powersploit.ps1')
+```
+
+Each script's outputs will be written to the user's Temp directory as defined by the $env:temp variable. Copy these files off of the system being reviewed, delete them, and, if necessary, restart the system's anti-virus.
 
 ## System Configuration Checks
+### System Info Command
+* Run the systeminfo command to get system information to run the [Windows Exploit Suggester - Next Generation](https://github.com/bitsadmin/wesng) tool. 
+
 ### System Information
 * Administrator rights
   * This check determines if the user running the script has administrator rights. Some checks may not work without admin rights. Most of the checks will work, unless some security controls or configurations prevent it.
@@ -79,10 +81,10 @@ PS> Stop-Transcript
 * Local Administrator Accounts
   * Determine if more than one user is a member of the Local Administrator group.
 
-## CHAPS PowerSploit Security Checks
-The PowerSploit project (dev branch is preferred) can be used to gather additional information about the system. The '''chaps-powersploit.ps1''' script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or PowerSploit, and this script, should be loaded into a directory that has been excluded from anti-malware protection. **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
+### CHAPS PowerSploit Security Checks
+The PowerSploit project (dev branch) can be used to gather additional information about the system. The ```chaps-powersploit.ps1``` script has been developed to gather this information. Of course, most anti-malware programs will prevent, protect, and alert on the use of PowerSploit. Therefore, the anti-malware should be disabled or the chaps-powersploit.ps1 script should not be used, **NOTE**: anti-malware programs should be re-enabled immediately upon verification that the script ran correctly.
 
-### chaps-powersploit.ps1 TODO:
+#### chaps-powersploit.ps1 TODO:
 Here are a list of things that aren't working, need to be addressed, or are possible function requests.
 * Needs to be tested in a Domain environment.
 * Handle errors gracefully.
