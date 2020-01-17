@@ -99,7 +99,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * Deploy LAPS
   * Determine if LAPS is installed. **NOTE**: not checking if it is configured or used.
 * Force Group Policy to reapply settings during “refresh”
-  * Determine how NoGPOListChanges is configured to see if GPOs are allied everytime they are checked.
+  * Determine how NoGPOListChanges is configured to see if GPOs are allied every time they are checked.
 * Disable Net Session Enumeration
   * **NOTE**: For now, extra actions are required to test this. See: [TechNet script NetSessEnumPerm.ps1](https://gallery.technet.microsoft.com/scriptcenter/View-Net-Session-Enum-dfced139)
 * Disable WPAD
@@ -112,7 +112,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
     * DNSEnabledForWINSResolution
     * WINSEnableLMHostsLookup
 * Disable LLMNR
-  * Detemine if DNSClient.EnableMulticast is disabled.
+  * Determine if DNSClient.EnableMulticast is disabled.
 * Disable Windows Browser Protocol
   * Determine if the Computer Browser service is running.
 * Disable NetBIOS
@@ -176,6 +176,6 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
 
 ## Collaborators
-I would like to thank those invdividuals who have helped troubleshoot and add features to this project.
+I would like to thank those individuals who have helped troubleshoot and add features to this project.
 
 * Mike Saunders [@hardwaterhacker](https://twitter.com/hardwaterhacker) - [RedSiege, LLC.](https://www.redsiege.com/)
