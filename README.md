@@ -10,7 +10,7 @@ This script was developed using information from several sources \(noted in Usef
 ## How To Use
 The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
 
-On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. From this prompt, run the following command to execute the ```chaps.ps1``` script.
+On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
 
 ```
 IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
@@ -171,11 +171,13 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * [Windows Privilege Escalation Fundamentals](http://www.fuzzysecurity.com/tutorials/16.html)
 * [New tool: Policy Analyzer]( https://blogs.technet.microsoft.com/secguide/2016/01/22/new-tool-policy-analyzer/)
 * [Use PowerShell to Explore Active Directory Security](https://blogs.technet.microsoft.com/heyscriptingguy/2012/03/12/use-powershell-to-explore-active-directory-security/)
+* [Trimarc: Securing Active Directory: Performing an Active Directory Security Review](https://www.hub.trimarcsecurity.com/post/securing-active-directory-performing-an-active-directory-security-review)
+* [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool)
 * [Penetration Testers’ Guide to Windows 10 Privacy & Security](https://hackernoon.com/the-2017-pentester-guide-to-windows-10-privacy-security-cf734c510b8d)
 * [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
 * **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
 
 ## Collaborators
-I would like to thank those invdividuals who have helped troubleshoot and add features to this project.
+I would like to thank those individuals who have helped troubleshoot and add features to this project.
 
 * Mike Saunders [@hardwaterhacker](https://twitter.com/hardwaterhacker) - [RedSiege, LLC.](https://www.redsiege.com/)
