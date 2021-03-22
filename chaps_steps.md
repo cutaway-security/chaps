@@ -28,11 +28,13 @@ Check the user's AppData temp directory. In a Windows Explorer terminal, type th
 
 ```%temp%```
 
+# Run Active Directory Recon Scripts
 ## Run Trimarc AD Script. 
 See: [Trimarc: Securing Active Directory: Performing an Active Directory Security Review](https://www.hub.trimarcsecurity.com/post/securing-active-directory-performing-an-active-directory-security-review)
 
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/TrimarcAD/Invoke-TrimarcADChecks.ps1')
 
+# Run Third-Party OS Hardening Evaluation Scripts
 ## Review Tool output 
 c:\temp\Trimarc-ADReports
 
