@@ -18,7 +18,7 @@ Locate PowerShell or Windows Terminal in start menu, hold shift, right click, an
 
 ## Allow Powershell to run scripts
 
-```Set-ExecutionPolicy Bypass```
+```Set-ExecutionPolicy Bypass -scope Process```
 
 ## Run Chaps 
 

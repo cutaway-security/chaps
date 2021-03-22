@@ -10,7 +10,7 @@ This script was developed using information from several sources \(noted in Usef
 ## How To Use
 The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command ```python3 -m http.server 8181```. This will start a webserver listening on all of the systems IP addresses. 
 
-On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
+On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass -scope Process``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
 
 ```
 IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
