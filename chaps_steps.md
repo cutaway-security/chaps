@@ -23,18 +23,21 @@ Locate PowerShell or Windows Terminal in start menu, hold shift, right click, an
 ```IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/chaps/chaps.ps1')```
 
 
-## Review CHAPS Tool output by checking the users AppData temp directory. In a Windows Explorer terminal, type the following in the address bar. Find the latest run of CHAPS and check output.
+## Review CHAPS Tool Output 
+Check the user's AppData temp directory. In a Windows Explorer terminal, type the following in the address bar. Find the latest run of CHAPS and check output.
 
 ```%temp%```
 
-## Run Trimarc AD Script. See: [Trimarc: Securing Active Directory: Performing an Active Directory Security Review](https://www.hub.trimarcsecurity.com/post/securing-active-directory-performing-an-active-directory-security-review)
+## Run Trimarc AD Script. 
+See: [Trimarc: Securing Active Directory: Performing an Active Directory Security Review](https://www.hub.trimarcsecurity.com/post/securing-active-directory-performing-an-active-directory-security-review)
 
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/TrimarcAD/Invoke-TrimarcADChecks.ps1')
 
 ## Review Tool output 
 c:\temp\Trimarc-ADReports
 
-## Run Otorio PCS7 Hardening. See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
+## Run Otorio PCS7 Hardening. 
+See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
 
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/Otorio/PCS7-Hardening-Tool/PCS7Hardening.ps1')
 
@@ -46,11 +49,11 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/Otorio/
 Disable Manually, because scripting this requires a registry update in current Windows OSes. Also, performing this manually makes it easier to not skip the enabling step.
 
 ## Run Chaps PowerSploit as Local non-admin User 
-### From an Administrator PowerShell or WindowsTerminal, start Powershell for user with bypass 
+From an Administrator PowerShell or WindowsTerminal, start Powershell for user with bypass 
 
 ```runas /user:student 'powershell.exe -exec bypass'```
 
-### Run Chaps Powersploit 
+## Run Chaps Powersploit 
 
 ```
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Recon/PowerView.ps1')
@@ -62,14 +65,14 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/chaps/c
 
 ```
 
-### Enable Windows Defender 
+## Enable Windows Defender 
 
 **DO NOT SKIP** Enable AV Manually **DO NOT SKIP** 
 
-### Review Tool output 
+## Review Tool output 
 
 ```%temp%```
 
-### Store and delete old runs
+## Store and delete old runs
 
 **DO NOT SKIP** Do not leave old CHAPS and tool runs on the system. This information is valuable for attackers. If they can download these files, they don't have to run the queries on the local system and the network again. We want to force attackers to gather this information because we can detect that activity in Windows Event logs and network traffic. **DO NOT SKIP** 
