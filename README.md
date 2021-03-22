@@ -8,7 +8,7 @@ This script runs in PowerShell and should be PowerShell-version independent. Som
 This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
 
 ## How To Use
-The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
+The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command ```python3 -m http.server 8181```. This will start a webserver listening on all of the systems IP addresses. 
 
 On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
 
@@ -28,6 +28,8 @@ IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/cha
 ```
 
 Each script's outputs will be written to the user's Temp directory as defined by the $env:temp variable. Copy these files off of the system being reviewed, delete them, and, if necessary, restart the system's anti-virus.
+
+Print out and use the [CHAPS Assessment Guide](./chaps_steps.md) to walk through this process with the system administrators or guide your team.
 
 ## System Configuration Checks
 ### System Info Command
