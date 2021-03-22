@@ -2,7 +2,9 @@
 Running CHAPS may be confusing. The following list is a simple process for running an assessment to obtain configuration / hardening information from a Windows workstation or server. The first set of steps are scripts that can be used to gather information about the system using Administrator privileges on the local system. None of these checks will trigger anti-virus as long as the PowerShell execution policy is set to ```bypass```. The steps marked **AV TRIGGER** will trigger Windows Defender and, possibly, other AV / EDR solutions. These steps should be run as a local user, NOT Administrator, to limit false positives for Elevation of Privilege (EoP) vulnerabilities.
 
 # Run CHAPS
-## On Linux system with CHAPS and other tools installed, note the IP address and start a Python web server. For this example, all tools are installed in the user's home directory in a subdirectory named Tools.
+## Start Web Server
+
+On Linux system with CHAPS and other tools installed, note the IP address and start a Python web server. For this example, all tools are installed in the user's home directory in a subdirectory named Tools.
 
 ```cd ~/Tools```
 ```ip addr```
