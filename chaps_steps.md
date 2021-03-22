@@ -6,9 +6,11 @@ Running CHAPS may be confusing. The following list is a simple process for runni
 
 On Linux system with CHAPS and other tools installed, note the IP address and start a Python web server. For this example, all tools are installed in the user's home directory in a subdirectory named Tools.
 
-```cd ~/Tools```
-```ip addr```
-```python3 -m http.server 8181```
+```
+cd ~/Tools
+ip addr
+python3 -m http.server 8181
+```
 
 ## Start Powershell or Windows Terminal as Administrator
 
