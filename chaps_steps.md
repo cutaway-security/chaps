@@ -36,7 +36,8 @@ See: [Trimarc: Securing Active Directory: Performing an Active Directory Securit
 
 # Run Third-Party OS Hardening Evaluation Scripts
 ## Review Tool output 
-c:\temp\Trimarc-ADReports
+
+```c:\temp\Trimarc-ADReports```
 
 ## Run Otorio PCS7 Hardening. 
 See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
