@@ -34,10 +34,12 @@ See: [Trimarc: Securing Active Directory: Performing an Active Directory Securit
 
 ```IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/TrimarcAD/Invoke-TrimarcADChecks.ps1')```
 
-# Run Third-Party OS Hardening Evaluation Scripts
 ## Review Tool output 
 
 ```c:\temp\Trimarc-ADReports```
+
+# Run Third-Party OS Hardening Evaluation Scripts
+Examples of how to run other hardening assessment scripts.
 
 ## Run Otorio PCS7 Hardening. 
 See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
