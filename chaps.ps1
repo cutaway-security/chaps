@@ -183,7 +183,7 @@ Catch{
 <#
 Gist Grimthorr/pending-updates.ps1: https://gist.github.com/Grimthorr/44727ea8cf5d3df11cf7
 #>
-$inf_str + "Checking for missing Windows patches with Critical or Important MsrcSeverity values. NOTE: This make take a few minutes." | Tee-Object -FilePath $out_file -Append
+$inf_str + "Checking for missing Windows patches with Critical or Important MsrcSeverity values. NOTE: This may take a while." | Tee-Object -FilePath $out_file -Append
 Try{
     $UpdateSession = New-Object -ComObject Microsoft.Update.Session
     $UpdateSearcher = $UpdateSession.CreateupdateSearcher()
