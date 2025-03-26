@@ -54,21 +54,98 @@ Useful Resources:
     15 Ways to Bypass the PowerShell Execution Policy: https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/
 #>
 
-########## Create storage directory for files in users Temp directory at $env:temp ##############
-$chaps_dest = "chaps-$(get-date -f yyyyMMdd-hhmmss)"
-New-Item -ItemType directory -Path $env:temp\$chaps_dest
-$out_file = "$env:temp\$chaps_dest\$Env:ComputerName-chaps.txt"
-$sysinfo_file = "$env:temp\$chaps_dest\$Env:Computername-sysinfo.txt"
-###############################
-
-########## Output Header Write-Host Functions ##############
-# Postive Outcomes - configurations / settings that are, at a minimum, expected.
+# Output Header Write-Host Functions
+# Expected Outcomes - configurations / settings that are, at a minimum, expected
 $pos_str = "[+] "
 $neg_str = "[-] "
 $inf_str = "[*] "
 $rep_str = "[$] "
 $err_str = "[x] "
-###############################
+
+function Write-Log {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Type,
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile =  $out_file
+    )
+    
+    # If the log file does not exist, create it with a default header entry.
+    if (-not (Test-Path -Path $LogFile)) {
+        # Ensure the directory exists
+        $dir = Split-Path -Path $LogFile -Parent
+        if (-not (Test-Path -Path $dir)) {
+            New-Item -Path $dir -ItemType Directory -Force | Out-Null
+        }
+        
+        # Create a default header entry.
+        $defaultEntry = $inf_str + "Log File Created on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        Set-Content -Path $LogFile -Value $defaultEntry
+    }
+    
+    # Append the log entry to the specified file and display to screen
+    switch ($Type) {
+        "Info" {$entry = $inf_str + $Message}
+        "Pos" {$entry = $pos_str + $Message}
+        "Neg" {$entry = $neg_str + $Message}
+        "Rep" {$entry = $rep_str + $Message}
+        "Err" = {$entry = $err_str + $Message}
+    } 
+    $entry | Tee-Object -FilePath $LogFile -Append
+}
+
+function Check-RegistryKey {
+    [CmdletBinding()]
+    param (
+        # The full registry path, e.g., 'HKLM:\Software\MyApp'
+        [Parameter(Mandatory = $true)]
+        [string]$RegistryPath
+    )
+
+    return (Test-Path -Path $RegistryPath) 
+}
+
+function Get-RegistryKeyValue {
+    [CmdletBinding()]
+    param (
+        # The full registry path, e.g. 'HKLM:\Software\MyApp'
+        [Parameter(Mandatory = $true)]
+        [string]$RegistryPath,
+
+        # The name of the registry value to retrieve
+        [Parameter(Mandatory = $true)]
+        [string]$ValueName
+    )
+
+    # Check if the registry key exists
+    if (-not (Test-Path -Path $RegistryPath)) {
+        return $false
+    }
+
+    # Try to retrieve the registry value
+    try {
+        $value = (Get-ItemProperty -Path $RegistryPath -Name $ValueName -ErrorAction SilentlyContinue.$ValueName
+        return $value
+    }
+    catch {
+        # If the value doesn't exist or any error occurs, return $false
+        return $false
+    }
+
+}
+
+# Create storage directory and files in users Temp directory at $env:temp
+$chaps_dest = "chaps-$(get-date -f yyyyMMdd-hhmmss)"
+New-Item -ItemType directory -Path $env:temp\$chaps_dest
+$out_file = "$env:temp\$chaps_dest\$Env:ComputerName-chaps.txt"
+$sysinfo_file = "$env:temp\$chaps_dest\$Env:Computername-sysinfo.txt"
+$seceditFile = "$env:temp\$chaps_dest\$Env:ComputerName-LocalSecPol.cfg"
+
 
 ########## Check for Administrator Role ##############
 $inf_str + "Start Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
@@ -83,10 +160,13 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 #$ErrorActionPreference = "SilentlyContinue"
 ###############################
 
-########### Gather System Info #############
-$inf_str +  "Dumping System Info to seperate file\n" | Tee-Object -FilePath $out_file -Append
+# Gather System Info
+Write-Log -Message "Dumping System Info to seperate file" -Flag "Info"
 systeminfo  | Tee-Object -FilePath $sysinfo_file -Append
-###############################
+
+# Gather Local Security Policy Config File
+Write-Log -Message "Dumping secedit.cfg file to separate file" -Flag "Info"
+seced /export /cfg $seceditFile
 
 ########## Check for Windows Information ##############
 $inf_str + "Windows Version: $(([Environment]::OSVersion).VersionString)" | Tee-Object -FilePath $out_file -Append
@@ -1288,5 +1368,102 @@ Catch{
     $err_str + "Testing NTLM Session Client Security settings failed." | Tee-Object -FilePath $out_file -Append
 }
 
-########## Windows Information ##############
-$inf_str + "Completed Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
+# Brandon's New Stuff
+# CIS Benchmarks Windows 10 Stand-alone 
+Write-Log -Message "Checking CIS Benchmark Policies" -Flag "Rep"
+Write-Log -Message "Testing Windows Account Password Policies" -Flag "Rep"
+
+# 1.1 Test Password Policies
+# 1.1.1 (L1) Test Password History set to 24 or more passwords
+$password_history = Select-String -Path $seceditFile -Pattern "PasswordHistorySize"
+if ($password_history -ge 24) {
+    Write-Log -Message "Password History is greater than 24: ($password_history)" -Flag "Pos"
+} else {
+    Write-Log -Message "Password History is less than 24: ($password_history)" -Flag "Neg"
+}
+
+# 1.1.2 (L1) Maximum password age is set to '365 or few days, but not 0'
+# We are not implementing this check for OT/ICS environments
+$password_age_max = Select-String -Path $seceditFile -Pattern "MaximumPasswordAge"
+
+# 1.1.3 (L1) Minumum password age is set to '1 or more days'
+# We are not implementing this check for OT/ICS environments
+$password_age_min = Select-String -Path $seceditFile -Pattern "MinimumPasswordAge"
+
+# 1.1.4 (L1) Minimum password length set to 14 or more characters
+# We adapted this to 8 characters for OT/ICS environments
+$password_length = Select-String -Path $seceditFile -Pattern "MinimumPasswordLength"
+if ($password_length -ge 8) {
+    Write-Log -Message "Password Length requirment is greater than 8: ($password_history)" -Flag "Pos"
+} else {
+    Write-Log -Message "Password History is less than 8: ($password_history)" -Flag "Neg"
+}
+
+# 1.1.5 (L1) Ensure passowrd complexity requirments are enabled
+$password_complexity = Select-String -Path $seceditFile -Pattern "PasswordComplexity"
+if ($password_complexity -eq 1) {
+    Write-Log -Message "Complex passwords are required" -Flag "Pos"
+} else {
+    Write-Log -Message "Complex passwords are not required" -Flag "Neg"
+}
+
+# 1.1.6 (L1) Ensure 'Relax minimum password length limits' is set to 'Enabled'
+$password_relax_limits = Get-RegistryKeyValue -RegistryPath "HKLM\System\CurrentControlSet\Control\SAM" -Value = "RelaxMinimumPasswordLengthLimits"
+
+if ($password_relax_limits -eq 1) {
+    Write-Log -Message "The system allows for password length higher than 14 characters" -Flag "Pos"
+} else {
+    Write-Log -Message "The system does not allow for password length higher than 14 characters" -Flag "Neg"
+}
+
+# 1.1.7 (L1) Ensure 'Store passwords using reversible encryption' is disabled
+$password_reversible_encryption = Select-String -Path $seceditFile -Pattern "ClearTextPassword" | ForEach-Object {
+    $_.Line.Split('=')[1].Trim()
+}
+
+if ($password_reversible_encryption -eq "0") {
+    Write-Log -Message "Store passwords using reversible encryption is disabled" -Flag "Pos"
+} else {
+    Write-Log -Message "Store passwords using reversible encryption is enabled" -Flag "Neg"
+}
+
+# 1.2 Test Account Lockout Policies
+# 1.2.1 (L1) Ensure 'Account lockout duration' is set to '15 or more minute(s)'
+# We recommend to not use this in OT/ICS environments
+$account_lockout_duration = Select-String -Path $seceditFile -Pattern "LockoutDuration"
+
+# 1.2.2 (L1) Ensure 'Account lockout threshold' is set to '5 or fewer invalid logon attempt(s), but not 0'
+# We recommend to disable account lockout for OT/ICS environments
+$account_lockout_threshold = Select-String -Path $seceditFile -Pattern "LockoutThreshold"
+if ($account_lockout_threshold -eq "0") {
+    Write-Log -Message "Account Lockout is disabled" -Flag "Pos"
+} else {
+    Write-Log -Message "Account Lockout is enabled with duration: ($account_lockout_threshold)" -Flag "Neg"
+}
+
+# 1.2.3 (L1) Ensure 'Allow Administrator account lockout' is set to 'Enabled'
+# We recommend disabling this for OT/ICS environments
+$account_admin_lockout = Select-String -Path $seceditFile -Pattern "AllowAdminLockout" | 
+ForEach-Object { $_.Line.Split('=')[1].Trim() }
+if ($account_admin_lockout -eq "0") {
+    Write-Log -Message "Allow Administrator account lockout is disabled" -Flag "Pos"
+} elseif ($account_admin_lockout -eq 1) {
+    Write-Log -Message "Allow Administrator account lockout is enabled" -Flag "Neg"
+} else {
+    Write-Log -Message "Unable to determine the setting for Allow Administrator account lockout" -Flag "Rep"
+}
+
+# 1.2.4 (L1) Ensure 'Reset account lockout counter after' is set to '15 or more minute(s)'
+# We recommend this should be disabled if there is no account lockout threshold
+$account_lockout_counter = Select-String -Path $seceditFile -Pattern "LockoutObservationWindow" | Select-Object -First 1
+
+if ($account_lockout_counter) {
+    # The line should look like: LockoutObservationWindow = 30
+    $value = $account_lockout_counter.Line.Split('=')[1].Trim()
+    Write-Log -Message "Reset account lockout counter after: $value minutes" -Flag "Neg"
+} else {
+    Write-Log -Message "LockoutObservationWindow setting not found in the security configuration file" -Flag "Pos"
+}
+
+# Finish Report
+Write-Log -Message "Completed Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" -Flag "Rep"
