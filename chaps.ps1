@@ -1040,7 +1040,7 @@ Catch{
 ###############################
 # Disable SMBV1
 ###############################
-# Check if SMBv1 is available and if signing is turned on.
+# Check if SMBv1 is available and if auditing is turned on.
 <#
 Resources:
     Stop using SMB1: https://blogs.technet.microsoft.com/filecab/2016/09/16/stop-using-smb1/
@@ -1051,22 +1051,21 @@ Resources:
 # Remove SMB v1 support
 $inf_str + "Testing if SMBv1 is disabled." | Tee-Object -FilePath $out_file -Append
 Try{
-    $ressmb = Get-SmbServerConfiguration | Select-Object EnableSMB1Protocol 
-    $inf_str + "Testing if SMBv1 is disabled." | Tee-Object -FilePath $out_file -Append
-    if ([bool] $ressmb) { 
-        $neg_str + "SMBv1 is Enabled"  | Tee-Object -FilePath $out_file -Append
-    } else { 
-        $pos_str + "SMBv1 is Disabled"  | Tee-Object -FilePath $out_file -Append
-    }
+    $smbConfig = Get-SmbServerConfiguration
+    if ($smbConfig.EnableSMB1Protocol) {
+        $neg_str + "SMBv1 is Enabled" | Tee-Object -FilePath $out_file -Append
+    } else {
+        $pos_str + "SMBv1 is Disabled" | Tee-Object -FilePath $out_file -Append
+    } 
     $inf_str + "Testing if system is configured to audit SMBv1 activity." | Tee-Object -FilePath $out_file -Append
-    if ([bool](Get-SmbServerConfiguration | Select-Object AuditSmb1Access)) { 
-        $pos_str + "SMBv1 Auditing should be Enabled: Enabled"  | Tee-Object -FilePath $out_file -Append
+    if ($smbConfig.AuditSmb1Access){
+        $pos_str + "SMBv1 Auditing is Enabled"  | Tee-Object -FilePath $out_file -Append
     } else { 
         $neg_str + "SMBv1 Auditing is Disabled"  | Tee-Object -FilePath $out_file -Append
     }
 }
-Catch{
-    $err_str + "Testing for SMBv1 failed." | Tee-Object -FilePath $out_file -Append
+Catch {
+    $err_str + "Testing for SMBv1 failed." | Tee-Object -FilePath $out_file -Append   
 }
 
 ###############################
