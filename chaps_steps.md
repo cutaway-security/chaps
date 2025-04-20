@@ -47,39 +47,3 @@ Examples of how to run other hardening assessment scripts.
 See [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool). Output is written to the screen.
 
 ```IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/Otorio/PCS7-Hardening-Tool/PCS7Hardening.ps1')```
-
-# Run CHAPS-PowerSploit - **AV TRIGGER**
-**BEWARE** The following steps will trigger AV and block the scripts from running unless it is disabled. The following steps do not permanently disable Windows Defender. However, if not set back, the settings will not revert until the system is rebooted. **BEWARE**
-
-## Disable Windows Defender 
-
-Disable Manually, because scripting this requires a registry update in current Windows OSes. Also, performing this manually makes it easier to not skip the enabling step.
-
-## Run Chaps PowerSploit as Local non-admin User 
-From an Administrator PowerShell or WindowsTerminal, start Powershell for user with bypass 
-
-```runas /user:student 'powershell.exe -exec bypass'```
-
-## Run Chaps PowerSploit 
-
-```
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Recon/PowerView.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-GPPPassword.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-GPPAutologon.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Exfiltration/Get-VaultCredential.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/PowerSploit/Privesc/PowerUp.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<web server IP>:8181/chaps/chaps-powersploit.ps1')
-
-```
-
-## Enable Windows Defender 
-
-**DO NOT SKIP** Enable AV Manually **DO NOT SKIP** 
-
-## Review Tool output 
-
-```%temp%```
-
-## Store and delete old runs
-
-**DO NOT SKIP** Do not leave old CHAPS and tool runs on the system. This information is valuable for attackers. If they can download these files, they don't have to run the queries on the local system and the network again. We want to force attackers to gather this information because we can detect that activity in Windows Event logs and network traffic. **DO NOT SKIP** 
