@@ -26,7 +26,7 @@ Point Of Contact:    Don C. Weber <don@cutawaysecurity.com>
 #>
 
 <#
-The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and PowerSploit into the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
+The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPSinto the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
 
 On the target system open a CMD.exe window, preferably as an Administrator. Run the command `powershell.exe -exec bypass` to being a PowerShell prompt. From this prompt, run the following command to execute the `chaps.ps1` script.
 
@@ -34,18 +34,7 @@ On the target system open a CMD.exe window, preferably as an Administrator. Run 
 IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
 ```
 
-To run the `chaps-powershell.ps1` script be sure to turn off the system's Anti-virus to include real-time protection. Running the following commands will import the appropriate PowerSploit scripts and then run them.
-
-```
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Recon/PowerView.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-GPPPassword.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-GPPAutologon.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Exfiltration/Get-VaultCredential.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/PowerSploit/Privesc/PowerUp.ps1')
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps-powersploit.ps1')
-```
-
-Script outputs will be written to the user's Temp directory as defined by the $env:emp variable.
+Script outputs will be written to the user's Temp directory as defined by the $env:temp variable.
 
 Useful Resources:
     New tool: Policy Analyzer: https://blogs.technet.microsoft.com/secguide/2016/01/22/new-tool-policy-analyzer/
