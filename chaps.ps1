@@ -1277,5 +1277,45 @@ Catch{
     $err_str + "Testing NTLM Session Client Security settings failed." | Tee-Object -FilePath $out_file -Append
 }
 
+$inf_str + "Fetching all USB Plug and Play devices." | Tee-Object -FilePath $out_file -Append
+Try{
+Get-PnpDevice -Class "USB" | Tee-Object -FilePath $out_file -Append
+}
+Catch{
+    $err_str + "Testing for USB Plug and Play devices failed." | Tee-Object -FilePath $out_file -Append
+}
+###############################
+
+$inf_str + "Fetching AntiVirus information." | Tee-Object -FilePath $out_file -Append
+Try{
+Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct | Tee-Object -FilePath $out_file -Append
+}
+Catch{
+    $err_str + "Testing for AntiVirus failed." | Tee-Object -FilePath $out_file -Append
+}
+
+###############################
+
+$inf_str + "Fetching All Softwares installed" | Tee-Object -FilePath $out_file -Append
+Try{
+    Get-WmiObject -Class Win32_Product | Tee-Object -FilePath $out_file -Append
+}
+Catch{
+    $err_str + "Testing for Software failed." | Tee-Object -FilePath $out_file -Append
+}
+
+###############################
+
+$inf_str + "Netstat Results : " | Tee-Object -FilePath $out_file -Append
+Try{
+    netstat -ano | Tee-Object -FilePath $out_file -Append
+}
+Catch{
+    $err_str + "Testing for Netstat failed." | Tee-Object -FilePath $out_file -Append
+
+}
+
+############################### 
+
 ########## Windows Information ##############
 $inf_str + "Completed Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
