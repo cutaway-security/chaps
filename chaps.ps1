@@ -23,18 +23,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Point Of Contact:    Don C. Weber <don@cutawaysecurity.com>
+Version:             1.01
 #>
 
 <#
-The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPSinto the same directory and open a terminal and change into that directory. Using Python3 run the command 'python3 -m http.server 8181'. This will start a webserver listening on all of the systems IP addresses. 
-
-On the target system open a CMD.exe window, preferably as an Administrator. Run the command `powershell.exe -exec bypass` to being a PowerShell prompt. From this prompt, run the following command to execute the `chaps.ps1` script.
-
-```
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
-```
-
-Script outputs will be written to the user's Temp directory as defined by the $env:temp variable.
+The best way to run this script is to download CHAPS into the directory where you want to save the tool's output. Once downloaded, open a PowerShell terminal and change into that directory. It is preferably, but not necessary, to do this as an Administrator. Be sure to set the PowerShell environment to allow running scripts by executing the command `Set-ExecutionPolicy -Scope Process Bypass`. Once set, run the following command to execute the `chaps.ps1` script. The script outputs to the current directory from where the script is run.
 
 Useful Resources:
     New tool: Policy Analyzer: https://blogs.technet.microsoft.com/secguide/2016/01/22/new-tool-policy-analyzer/
@@ -44,10 +37,11 @@ Useful Resources:
 #>
 
 ########## Create storage directory for files in users Temp directory at $env:temp ##############
+$cur_dir = (Get-Location).Path
 $chaps_dest = "chaps-$(get-date -f yyyyMMdd-hhmmss)"
-New-Item -ItemType directory -Path $env:temp\$chaps_dest
-$out_file = "$env:temp\$chaps_dest\$Env:ComputerName-chaps.txt"
-$sysinfo_file = "$env:temp\$chaps_dest\$Env:Computername-sysinfo.txt"
+New-Item -ItemType directory -Path $cur_dir\$chaps_dest
+$out_file = "$cur_dir\$chaps_dest\$Env:ComputerName-chaps.txt"
+$sysinfo_file = "$cur_dir\$chaps_dest\$Env:Computername-sysinfo.txt"
 ###############################
 
 ########## Output Header Write-Host Functions ##############
@@ -66,6 +60,8 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 } else {
     $inf_str +  "Script running with Administrator rights." | Tee-Object -FilePath $out_file -Append
 }
+
+exit
 
 # Suppress All Errors? Uncomment this line
 # Don't use this, we need to manually handle each error to produce Write-Err
