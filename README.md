@@ -14,7 +14,7 @@ Each script's outputs will be written to a new directory in the current folder t
 
 ## System Configuration Checks
 ### System Info Command
-* Run the systeminfo command to get system information to run the [Windows Exploit Suggester - Next Generation](https://github.com/bitsadmin/wesng) tool. 
+* Run the systeminfo command to get system information to. It is recommended to then run the [Windows Exploit Suggester - Next Generation](https://github.com/bitsadmin/wesng) tool against this output. 
 
 ### System Information
 * Administrator rights
@@ -94,7 +94,7 @@ Each script's outputs will be written to a new directory in the current folder t
 * Disable Windows Scripting
   * Check if Windows Scripting Host registry key is enabled.
   * Check if Windows Hotfix KB2871997 is installed.
-  * **NOTE**: not sure how to check "Control Scripting File Extensions"
+  * **NOTE**: Checking for "Control Scripting File Extensions" is not implemented
 * Prevent Interactive Login
   * Check the configuration of registry key LocalAccountTokenFilterPolicy to see if it is disabled.
 * Disable WDigest
@@ -143,7 +143,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool)
 * [Penetration Testers’ Guide to Windows 10 Privacy & Security](https://hackernoon.com/the-2017-pentester-guide-to-windows-10-privacy-security-cf734c510b8d)
 * [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
-* **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
+* **NOTE**: Additional resources are outlined throughout the script as references to resources that helped outline what to check for the associated subject.
 
 ## Collaborators
 I would like to thank those individuals who have helped troubleshoot and add features to this project.
