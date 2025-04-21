@@ -1,28 +1,28 @@
 # Configuration Hardening Assessment PowerShell Script (CHAPS)
-CHAPS is a PowerShell script for checking system security settings where additional software and assessment tools, such as Microsoft Policy Analyzer, cannot be installed. The purpose of this script is to run it on a server or workstation to collect configuration information about that system. The information collected can then be used to provide recommendations (and references) to improve the security of the individual system and systemic issues within the organization's Windows environment. Examples of environments where this script is useful include Industrial Control System (ICS) environments where systems cannot be modified. These systems include Engineer / Operator workstations, Human Machine Interface (HMI) systems, and management servers that are deployed in production environments.
+CHAPS is a PowerShell script for checking system security settings where additional software and assessment tools, such as Microsoft Policy Analyzer, cannot be installed. The purpose of this script is to run it on a server or workstation to collect configuration information about that system. The information collected can then be used to provide recommendations (and references) to improve the security of the individual system and systemic issues within the organization's Windows environment. Examples of environments where this script is useful include Industrial Control System (ICS) environments where systems cannot be modified. These systems include Engineer or Operator workstations, Human Machine Interface (HMI) systems, and management servers that are deployed in production environments.
 
-This script is NOT intended to be a replacement for Microsoft's Policy Analyzer. The best way to audit a system's configuration is to use the [Microsoft Security Compliance Toolkit](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10) and Policy Analyzer with a [Windows Workstation Security Baseline GPO](https://adsecurity.org/?p=3299). The Policy Analyzer's output can be exported an MS Excel file, but it requires the Microsoft Excel is installed on the system. Cut and pasting this information does work, but might not be an option on a physical system. Also, using the Policy Analyzer requires installation of the Windows software, which may not be permitted.
+This script is NOT intended to be a replacement for Microsoft's Policy Analyzer. The best way to audit a system's configuration is to use the [Microsoft Security Compliance Toolkit](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10) and Policy Analyzer with a [Windows Workstation Security Baseline GPO](https://adsecurity.org/?p=3299). The Policy Analyzer's output can be exported as an MS Excel file, but it requires the Microsoft Excel is installed on the system. Cut and pasting this information does work, but might not be an option on a physical system. Also, using the Policy Analyzer requires installation of the Windows software, which may not be permitted in ICS environments.
 
 This script runs in PowerShell and should be PowerShell-version independent. Some checks may fail depending on the Windows version, system configurations, and whether or not it is run with Administrator privileges. Instances where commands did not run successfully are noted and should be manually investigated where possible.
 
 This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
 
 ## How To Use
-The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and open a terminal and change into that directory. Using Python3 run the command ```python3 -m http.server 8181```. This will start a webserver listening on all of the systems IP addresses. 
+The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS, open a terminal and change into that directory. Using Python3 run the command `python3 -m http.server 8181`. This will start a webserver listening on all of the system's IP addresses. 
 
-On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass -scope Process``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
+On the target system open a CMD.exe window, preferably as an Administrator. Run the command `powershell.exe -exec bypass` to begin a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the `Set-ExecutionPolicy Bypass -scope Process` to allow scripts to execute. From this prompt, run the following command to execute the `chaps.ps1` script.
 
 ```
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
+IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps.ps1')
 ```
 
-Each script's outputs will be written to the user's Temp directory as defined by the $env:temp variable. Copy these files off of the system being reviewed, delete them, and, if necessary, restart the system's anti-virus.
+Each script's outputs will be written to the user's Temp directory as defined by the `$env:temp` variable. Copy these files off of the system being reviewed and then delete them from that system.
 
 Print out and use the [CHAPS Assessment Guide](./chaps_steps.md) to walk through this process with the system administrators or guide your team.
 
 ## System Configuration Checks
 ### System Info Command
-* Run the systeminfo command to get system information to run the [Windows Exploit Suggester - Next Generation](https://github.com/bitsadmin/wesng) tool. 
+* Run the systeminfo command to get system information to. It is recommended to then run the [Windows Exploit Suggester - Next Generation](https://github.com/bitsadmin/wesng) tool against this output. 
 
 ### System Information
 * Administrator rights
@@ -102,7 +102,7 @@ Print out and use the [CHAPS Assessment Guide](./chaps_steps.md) to walk through
 * Disable Windows Scripting
   * Check if Windows Scripting Host registry key is enabled.
   * Check if Windows Hotfix KB2871997 is installed.
-  * **NOTE**: not sure how to check "Control Scripting File Extensions"
+  * **NOTE**: Checking for "Control Scripting File Extensions" is not implemented
 * Prevent Interactive Login
   * Check the configuration of registry key LocalAccountTokenFilterPolicy to see if it is disabled.
 * Disable WDigest
@@ -157,7 +157,7 @@ Here are a list of things that aren't working, need to be addressed, or are poss
 * [Otorio: Siemens Simatic PCS 7 Hardening Tool](https://github.com/otoriocyber/PCS7-Hardening-Tool)
 * [Penetration Testers’ Guide to Windows 10 Privacy & Security](https://hackernoon.com/the-2017-pentester-guide-to-windows-10-privacy-security-cf734c510b8d)
 * [15 Ways to Bypass the PowerShell Execution Policy](https://blog.netspi.com/15-ways-to-bypass-the-powershell-execution-policy/)
-* **NOTE**: Additional resources are outline throughout the script as references to resources that helped outline what to check for the associated subject.
+* **NOTE**: Additional resources are outlined throughout the script as references to resources that helped outline what to check for the associated subject.
 
 ## Collaborators
 I would like to thank those individuals who have helped troubleshoot and add features to this project.

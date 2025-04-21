@@ -60,9 +60,9 @@ $err_str = "[x] "
 ###############################
 
 ########## Check for Administrator Role ##############
-$inf_str + "Start Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
+$rep_str + "Start Date/Time: $(get-date -format yyyyMMddTHHmmssffzz)" | Tee-Object -FilePath $out_file -Append
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){ 
-    $neg_str + "Script not running with Administrator rights. Note Warnings: Some checks will not succeed" | Tee-Object -FilePath $out_file -Append
+    $err_str + "Script not running with Administrator rights. Note Warnings: Some checks will not succeed" | Tee-Object -FilePath $out_file -Append
 } else {
     $inf_str +  "Script running with Administrator rights." | Tee-Object -FilePath $out_file -Append
 }
