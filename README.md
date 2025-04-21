@@ -1,24 +1,16 @@
 # Configuration Hardening Assessment PowerShell Script (CHAPS)
-CHAPS is a PowerShell script for checking system security settings where additional software and assessment tools, such as Microsoft Policy Analyzer, cannot be installed. The purpose of this script is to run it on a server or workstation to collect configuration information about that system. The information collected can then be used to provide recommendations (and references) to improve the security of the individual system and systemic issues within the organization's Windows environment. Examples of environments where this script is useful include Industrial Control System (ICS) environments where systems cannot be modified. These systems include Engineer / Operator workstations, Human Machine Interface (HMI) systems, and management servers that are deployed in production environments.
+CHAPS is are PowerShell and Command Terminal scripts for checking system security settings where additional software and assessment tools, such as Microsoft Policy Analyzer, cannot be installed. The purpose of these scripts are to run them on a server or workstation to collect configuration information about that system. The information collected can then be used to provide recommendations (and references) to improve the security of the individual system and systemic issues within the organization's Windows environment. Examples of environments where the scripts are useful include Industrial Control System (ICS) environments where systems cannot be modified. These systems include Engineer / Operator workstations, Human Machine Interface (HMI) systems, and management servers that are deployed in production environments.
 
-This script is NOT intended to be a replacement for Microsoft's Policy Analyzer. The best way to audit a system's configuration is to use the [Microsoft Security Compliance Toolkit](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10) and Policy Analyzer with a [Windows Workstation Security Baseline GPO](https://adsecurity.org/?p=3299). The Policy Analyzer's output can be exported an MS Excel file, but it requires the Microsoft Excel is installed on the system. Cut and pasting this information does work, but might not be an option on a physical system. Also, using the Policy Analyzer requires installation of the Windows software, which may not be permitted.
+These scripts are NOT intended to be a replacement for Microsoft's Policy Analyzer. The best way to audit a system's configuration is to use the [Microsoft Security Compliance Toolkit](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10) and Policy Analyzer with a [Windows Workstation Security Baseline GPO](https://adsecurity.org/?p=3299). The Policy Analyzer's output can be exported an MS Excel file, but it requires the Microsoft Excel is installed on the system. Cut and pasting this information does work, but might not be an option on a physical system. Also, using the Policy Analyzer requires installation of the Windows software, which may not be permitted.
 
-This script runs in PowerShell and should be PowerShell-version independent. Some checks may fail depending on the Windows version, system configurations, and whether or not it is run with Administrator privileges. Instances where commands did not run successfully are noted and should be manually investigated where possible.
+These scripts run in PowerShell version 2, version 3+, or the Command Terminal depending on the script selected. Some checks may fail depending on the Windows version, system configurations, and whether or not it is run with Administrator privileges. Instances where commands did not run successfully may be noted and should be manually investigated where possible.
 
-This script was developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. It pulls heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). 
+These scripts were developed using information from several sources \(noted in Useful Resources section\) to identify recommended security configurations to reduce the likelihood of a compromised system and to log user events conducted on the system. They pull heavily from the [Securing Windows Workstations](https://adsecurity.org/?p=3299) baseline outlined by [Sean Metcalf](https://adsecurity.org/?author=2). Also refer to Windows online documentation, as well. 
 
 ## How To Use
-The best way to run this script within an ICS environment is to not write any programs or scripts to the system being reviewed. Do this by serving these scripts from a webserver running on another system on the network. Download CHAPS and open a terminal and change into that directory. Using Python3 run the command ```python3 -m http.server 8181```. This will start a webserver listening on all of the systems IP addresses. 
+On the target system open a PowerShell window or Command Termina, preferably as an Administrator. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass -scope Process``` to allow scripts to execute in the scope of the current process. From this prompt, change into the folder where the script is located and  execute the script by name.
 
-On the target system open a CMD.exe window, preferably as an Administrator. Run the command ```powershell.exe -exec bypass``` to being a PowerShell prompt. If you started a PowerShell terminal, as administrator, run the ```Set-ExecutionPolicy Bypass -scope Process``` to allow scripts to execute. From this prompt, run the following command to execute the ```chaps.ps1``` script.
-
-```
-IEX (New-Object Net.WebClient).DownloadString('http://<webserver>:8181/chaps/chaps.ps1')
-```
-
-Each script's outputs will be written to the user's Temp directory as defined by the $env:temp variable. Copy these files off of the system being reviewed, delete them, and, if necessary, restart the system's anti-virus.
-
-Print out and use the [CHAPS Assessment Guide](./chaps_steps.md) to walk through this process with the system administrators or guide your team.
+Each script's outputs will be written to a new directory in the current folder the script is located. This folder while contain the systems hostname and time of the run. Several files will be generated in this directory, each with the hostname included in the filename. Copy these files off of the system being reviewed and delete them when finished.
 
 ## System Configuration Checks
 ### System Info Command
@@ -132,21 +124,15 @@ Print out and use the [CHAPS Assessment Guide](./chaps_steps.md) to walk through
 ## CHAPS TODO:
 Here are a list of things that aren't working, need to be addressed, or are possible function requests.
 * Issues
+  * PSv2 script
+  * CMD Batch script
   * WMI remoting and firewall rules may be required by Vulnerability scanning tools. Thus, if enabled, test for limiting to users and specific systems.
-  * Fix PowerShell version 2 check
-  * Fix .NET version check.
-    * (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse -Error Action 0| Get-ItemProperty -Name Version -ErrorAction 0) | Select-Object Version
 * Useful
   * Generate lines for reporting.
     * Marked so another script can scan the result and build finding and recommendation sections for a report.
   * Check for SYSMON Program.
   * Update checks so that they are Windows version specific. E.G. Windows 10, Windows 7, Windows 2018.
-  * List Installed Programs (to include x86) and programs installed directly to C: drive
-  * Detect and acquire version information for JAVA, flash, and Adobe.
-* Nice-To-Haves
-  * Update with Domain tests, as a user specified option.
-  * CMD-only (non-PowerShell) version.
-  * Add checks from Carlos Perez's HoneyBadger plugin. Must be converted from Ruby to PowerShell.
+
 
 ## Useful Resources:
 * [Securing Windows Workstations: Developing a Secure Baseline]( https://adsecurity.org/?p=3299)
