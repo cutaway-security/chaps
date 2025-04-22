@@ -108,9 +108,9 @@ $filename_date	        = Get-Date -Format "yyyyddMM_HHmmss"
 $start_time_readable    = Get-Date -Format "dddd MM/dd/yyyy HH:mm:ss K"
 $computername           = $env:ComputerName
 $sysdrive               = $env:SystemDrive
-$out_dir                = $computername + "_" + $filename_date
-$out_file               = "$Env:ComputerName-chaps.txt"
-$sysinfo_file           = "$Env:Computername-sysinfo.txt"
+$out_dir                = $env:Temp + "\" + $computername + "_" + $filename_date # Output saved to user's Temp directory by default
+$out_file               = "$computername-chaps.txt" 
+$sysinfo_file           = "$computername-sysinfo.txt"
 
 ############################# 
 # Output Header Write-Host functions 
