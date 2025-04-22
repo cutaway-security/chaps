@@ -115,12 +115,11 @@ $sysinfo_file           = "$computername-sysinfo.txt"
 ############################# 
 # Output Header Write-Host functions 
 #############################
-# Positive Outcomes - configurations / settings that are, at a minimum, expected.
-$pos_str = "[+]"
-$neg_str = "[-]"
-$inf_str = "[*]"
-$rep_str = "[$]"
-$err_str = "[x]"
+$pos_str = "[+]" # Positive Findings: System is configured to recommendation
+$neg_str = "[-]" # Negative Findings: System is configured against security/audit recommmendation
+$inf_str = "[*]" # Informational Text: Information about the script and/or checks being performed
+$rep_str = "[$]" # Report Information: Information about the report generation
+$err_str = "[x]" # Error Reports: A check failed and so the configuration is unknown
 
 #############################
 # Print functions
@@ -128,21 +127,21 @@ $err_str = "[x]"
 function Set-Output{
 	Param(
 		# Create the output directory in the local directory.
-                # Change into the directory to write data.
-		$indir = 'Results directory'
+        # Change into the directory to write data.
+		$indir = 'results_directory'
 	)
 
-    Write-Output "`n#############################"
-    Write-Output "# Creating output directory named: $indir"
     Write-Output "#############################"
+    Write-Output "# Creating output directory named: $indir"
     if (-not(test-path $indir)){new-item $indir -ItemType Directory | Out-Null}
-    Set-Location -Path $indir    
+    Set-Location -Path $indir
+    Write-Output "# Creating output file named: $out_file"
     if (-not(test-path $out_file)){new-item $out_file -ItemType File | Out-Null}
+    Write-Output "#############################`n"
 }
 
 function Prt-SectionHeader{
 	Param(
-		# Enable means to change the setting to the default / insecure state.
 		$SectionName = 'Section Name'
 	)
 
@@ -152,10 +151,10 @@ function Prt-SectionHeader{
 }
 
 function Prt-ReportHeader{
-    Write-Output "`n#############################" | Tee-Object -FilePath $out_file -Append
+    Write-Output "#############################" | Tee-Object -FilePath $out_file -Append
     Write-Output "# CHAPS Audit Script: $script_name $script_version" | Tee-Object -FilePath $out_file -Append
     if ($auditor_company){Write-Output "# Auditing Company: $auditor_company" | Tee-Object -FilePath $out_file -Append}
-    if ($sitename){Write-Output "# Site / Plant: $sitename" | Tee-Object -FilePath $out_file -Append}
+    if ($sitename){Write-Output "# Site/Plant: $sitename" | Tee-Object -FilePath $out_file -Append}
     Write-Output "#############################" | Tee-Object -FilePath $out_file -Append
     Write-Output "# Hostname: $computername" | Tee-Object -FilePath $out_file -Append
     Write-Output "# Start Time: $start_time_readable" | Tee-Object -FilePath $out_file -Append
@@ -169,7 +168,8 @@ function Prt-ReportFooter{
     Write-Output "`n#############################" | Tee-Object -FilePath $out_file -Append
     Write-Output "# $script_name completed" | Tee-Object -FilePath $out_file -Append
     Write-Output "# Stop Time: $stop_time_readable" | Tee-Object -FilePath $out_file -Append
-    Write-Output "#############################`n" | Tee-Object -FilePath $out_file -Append
+    Write-Output "# Report saved to: $out_dir\$out_file"
+    Write-Output "#############################" | Tee-Object -FilePath $out_file -Append
 }
 
 function Prt-CutSec-ReportFooter{
@@ -178,7 +178,7 @@ function Prt-CutSec-ReportFooter{
     Write-Output "# Brought to you by Cutaway Security, LLC" | Tee-Object -FilePath $out_file -Append
     Write-Output "# For assessment and auditing help, contact info [@] cutawaysecurity.com" | Tee-Object -FilePath $out_file -Append
     Write-Output "# For script help, contact dev [@] cutawaysecurity.com" | Tee-Object -FilePath $out_file -Append
-    Write-Output "#############################`n" | Tee-Object -FilePath $out_file -Append
+    Write-Output "#############################" | Tee-Object -FilePath $out_file -Append
 }
 
 function Show-Config{
@@ -252,7 +252,7 @@ function Test-CommandExists{
 # Check for Administrator Role
 function Get-AdminState {
 	if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){ 
-		Write-Output "# Script Running As Normal User"  | Tee-Object -FilePath $out_file -Append
+		Write-Output "$err_str Script Running As Normal User"  | Tee-Object -FilePath $out_file -Append
         $global:admin_user = $false
 	} else {
 		Write-Output "# Script Running As Administrator"  | Tee-Object -FilePath $out_file -Append
@@ -266,14 +266,14 @@ function Get-AdminState {
 
 # System Info Checks
 #############################
-function Get-SystemInfo{    
+function Get-SystemInfo {    
     $sdata = systeminfo
     $sdata  | Out-file -FilePath $sysinfo_file
 
-    if (Test-CommandExists Get-ComputerInfo){
+    if (Test-CommandExists Get-ComputerInfo) {
         $comsysinfo = Get-ComputerInfo -Property WindowsProductName,OsVersion,WindowsCurrentVersion,WindowsVersion,OsArchitecture,CsWorkgroup
         $sysdata = "$($comsysinfo.WindowsProductName),$($comsysinfo.OsVersion),$($comsysinfo.WindowsCurrentVersion),$($comsysinfo.WindowsVersion),$($comsysinfo.OsArchitecture),$($comsysinfo.CsWorkgroup)"
-    }else{
+    } else {
         if ($sdata -eq ''){$sdata = systeminfo}
         $sysdata = $sdata | Select-String -Pattern '^OS Version','^OS Name','^System Type','^Domain'  
     }
@@ -297,7 +297,7 @@ function Get-AutoUpdateConfig {
         if ( $resa -eq 4){
             Write-Output "$pos_str Windows AutoUpdate is set to $resa : $AutoUpdateNotificationLevels.$resa" | Tee-Object -FilePath $out_file -Append
         } else {
-            Write-Output "$neg_str Windows AutoUpdate is not configuration to automatically install updates: $resa : $AutoUpdateNotificationLevels.$resa" | Tee-Object -FilePath $out_file -Append
+            Write-Output "$neg_str Windows AutoUpdate is not configured to automatically install updates: $resa : $AutoUpdateNotificationLevels.$resa" | Tee-Object -FilePath $out_file -Append
         }
     }
     Catch{
@@ -356,7 +356,7 @@ function Get-BitLocker {
                 Write-Output "$pos_str BitLocker not detected or encryption is not complete. Please check for other encryption methods (manage-bde): $resvsm" | Tee-Object -FilePath $out_file -Append
             }
         } else {
-            Write-Output "$inf_str BitLocker not detected. Please check for other encryption methods." | Tee-Object -FilePath $out_file -Append
+            Write-Output "$neg_str BitLocker not detected. Please check for other encryption methods." | Tee-Object -FilePath $out_file -Append
         }
     }
 }
@@ -494,7 +494,7 @@ function Get-CredDeviceGuard {
         if ($secServRunning){
             Write-Output "$pos_str Device Guard appears to be configured." | Tee-Object -FilePath $out_file -Append
         } else {
-            Write-Output "$neg_str Device Guard, no properties exist and therefore is not configured." | Tee-Object -FilePath $out_file -Append
+            Write-Output "$neg_str Device Guard: no properties exist and therefore is not configured." | Tee-Object -FilePath $out_file -Append
         }
 
     } else {
@@ -1423,4 +1423,4 @@ if ($getWinScriptingCheck)      { Get-WinScripting }
 #############################
 Prt-ReportFooter
 if($cutsec_footer){ Prt-CutSec-ReportFooter }
-Set-Location -Path ..
+Set-Location -Path .. 
