@@ -15,11 +15,12 @@ setlocal enabledelayedexpansion
 :: #############################
 
 :: Set to "true" for debugging output (write to screen in addition to output file)
-set "TESTING=false"
+set "TESTING=true"
 
 :: Set COMPANY and SITENAME to empty string to disable
 set "COMPANY=Cutaway Security, LLC"
 set "SITENAME=Plant 1"
+
 :: Set CUTSEC_FOOTER to false to disable
 set "CUTSEC_FOOTER=true"
 
@@ -110,9 +111,18 @@ echo ########################## >> "%OUTFILE%"
 echo # Computer Name: %COMPUTERNAME% >> "%OUTFILE%"
 echo # Start Time: %READABLE_DATE% >> "%OUTFILE%"
 
+:: ###########################
 :: Check Admin Rights
-if "!TESTING!"=="true" (echo [DEBUG] Checkign Administrator permissions)
+:: ###########################
+if "!TESTING!"=="true" (
+    echo [DEBUG] Checking Admin Rights
+    echo [DEBUG] Setting ADMIN_RIGHTS to false
+)
+set "ADMIN_RIGHTS=false"
+
+if "!TESTING!"=="true" (echo [DEBUG] Checking Administrator permissions using whoami)
 whoami /groups | findstr /i "S-1-5-32-544" >nul
+if "!TESTING!"=="true" (echo [DEBUG] whoami errorlevel: %errorlevel%)
 if %errorlevel%==0 (
     if "!TESTING!"=="true" (echo [+] Script running as Administrator)
     echo [+] Script running as Administrator >> "%OUTFILE%"
@@ -209,47 +219,196 @@ echo [*] Domain/Workgroup: !DOMAIN! >> "%OUTFILE%"
 echo [*] Effective Path: %PATH% >> "%OUTFILE%"
 
 :: Auto Update Registry Check
+if "!TESTING!"=="true" (echo [DEBUG] Checking Auto Update Registry configuration)
 echo. >> "%OUTFILE%"
 :: Query AUOptions value from registry
 for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v AUOptions 2^>nul') do (
     set "AU_VAL=%%A"
 )
-
+if "!TESTING!"=="true" (echo [DEBUG] Queried AUOptions value AU_VAL: !AU_VAL!)
 :: Decode the value (if present)
 if defined AU_VAL (
+    if "!TESTING!"=="true" (echo [DEBUG] AU_VAL is defined: !AU_VAL!)
     if "!AU_VAL!"=="1" set "AU_DESC=Disabled"
     if "!AU_VAL!"=="2" set "AU_DESC=Notify before download"
     if "!AU_VAL!"=="3" set "AU_DESC=Notify before installation"
     if "!AU_VAL!"=="4" set "AU_DESC=Scheduled installation"
     if "!AU_VAL!"=="0" set "AU_DESC=Not configured"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting AU_DESC: !AU_DESC!)
 
     set /a AU_NUM=!AU_VAL! >nul 2>&1
     if !AU_NUM! EQU 4 (
+        if "!TESTING!"=="true" (
+            echo [+] Auto Update setting: !AU_VAL! - !AU_DESC!
+        )
         echo [+] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
     ) else (
+        if "!TESTING!"=="true" (
+            echo [-] Auto Update setting: !AU_VAL! - !AU_DESC!
+        )
         echo [-] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
     )
 ) else (
-    echo [x] Windows AutoUpdate test failed (AUOptions registry value not found) >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [x] Windows AutoUpdate test failed - AUOptions registry value not found
+    )
+    echo [x] Windows AutoUpdate test failed - AUOptions registry value not found >> "%OUTFILE%"
 )
 
 :: Check IPv4 Address
 echo. >> "%OUTFILE%"
-echo [*] Network Interfaces (IPv4): >> "%OUTFILE%"
+if "!TESTING!"=="true" (echo [*] Network Interfaces - IPv4:)
+echo [*] Network Interfaces - IPv4: >> "%OUTFILE%"
 for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /C:"IPv4 Address"') do (
-    echo    %%A >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo %%A
+    )
+    echo %%A >> "%OUTFILE%"
+)
+
+:: Check IPv6 Address
+echo. >> "%OUTFILE%"
+echo [*] Network Interfaces - IPv6: >> %OUTFILE%
+if "!TESTING!"=="true" (
+    echo [*] Network Interfaces - IPv6:
+    echo [DEBUG] Setting IPv6_FOUND to false
+)
+set "IPv6_FOUND=false"
+if "!TESTING!"=="true" (echo [DEBUG] Set IPV6_FOUND: !IPv6_FOUND!)
+for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /C:"IPv6 Address"') do (
+    :: Strip leading spaces
+    if "!TESTING!"=="true" (echo [DEBUG] Found IPv6 Address: %%A)
+    for /f "tokens=* delims= " %%B in ("%%A%") do (
+        set "addr=%%B"
+        :: Skip link-local IPv6 addresses
+        if /I "!addr:~0,4!"=="fe80" (
+            if "!TESTING!"=="true" (echo [DEBUG] Skipping link-local address: !addr!)
+        ) else (
+            if "!TESTING!"=="true" (
+                echo [DEBUG] Found non-link-local IPv6 address
+                echo [*] !addr!
+                echo [DEBUG] Setting IPv6_FOUND to true
+            )
+            echo [*] !addr! >> %OUTFILE%
+            set "IPv6_FOUND=true"
+        )
+    )
+)
+if "!TESTING!"=="true" (
+    echo [DEBUG] Done testing IPv6 addresses
+    echo [DEBUG] IPv6_FOUND: !IPv6_FOUND!
+)
+if "!IPv6_FOUND!"=="false" (
+    if "!TESTING!"=="true" (echo [*] No non-link-local IPv6 address detected)
+    echo [*] No non-link-local IPv6 address detected >> "%OUTFILE%"
 )
 
 :: BitLocker Status
+if "!TESTING!"=="true" (
+    echo [DEBUG] Checking for BitLocker status
+    echo [DEBUG] Setting BL_STATUS to false
+)
+set "BL_STATUS=false"
 echo. >> "%OUTFILE%"
-echo [*] BitLocker Status (Drive C:): >> "%OUTFILE%"
-manage-bde -status C: >> "%OUTFILE%" 2>nul
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Checking BitLocker service with WMIC)
+    for /f "skip=1 tokens=2 delims==" %%S in ('
+        wmic service where "Name='BDESVC'" get State /value 2^>nul
+    ') do set "raw=%%S"
+    if "!TESTING!"=="true" (echo [DEBUG] WMIC svcState raw: !raw!)
 
-:: SMBv1 Status
+    :: Strip leading/trailing spaces
+    for /f "tokens=* delims= " %%T in ("!raw!") do set "svcState=%%T"
+    if "!TESTING!"=="true" (echo [DEBUG] WMIC trimmed svcState: !svcState!)
+
+    if /i "!svcState!"=="Running" (
+        if "!TESTING!"=="true" (
+            echo [+] BitLocker service is running
+            echo [DEBUG] Setting BL_STATUS to true
+        )
+        set "BL_STATUS=true"
+        echo [+] BitLocker service is running >> %OUTFILE%
+
+        
+    ) else if /i "!svcState!"=="Stopped" (
+        if "!TESTING!"=="true" (echo [-] BitLocker service is installed but stopped)
+        echo [-] BitLocker service is installed but stopped >> %OUTFILE%
+    ) else (
+        if "!TESTING!"=="true" (echo [-] BitLocker service not found)
+        echo [-] BitLocker service not found >> %OUTFILE%
+    )
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] WMIC not installed, testing with sc query)
+    sc query BDESVC >nul 2>&1
+    if "!TESTING!"=="true" (echo [DEBUG] sc query error leve: %errorlevel%)
+    if %errorlevel%==0 (
+        if "!TESTING!"=="true" (echo [+] BitLocker service BDESVC is installed)
+        echo [+] BitLocker service BDESVC is installed >> %OUTFILE%
+    ) else (
+        echo [-] BitLocker service BDESVC not present >> %OUTFILE%
+        if "!TESTING!"=="true" (
+            echo [-] BitLocker service BDESVC not present
+            echo [DEBUG] Testing if BitLocker management binary installed
+        )
+        set "BitLockerBinary=%windir%\System32\manage-bde.exe"
+        if exist "%BLTOOL%" (
+            echo [+] BitLocker tools present: %BitLockerBinary% >> %OUTFILE%
+            if "!TESTING!"=="true" (echo [+] BitLocker tools present: %BitLockerBinary%)
+        ) else (
+            echo [-] BitLocker tools NOT found >> %OUTFILE%
+            if "!TESTING!"=="true" (echo [-] BitLocker tools NOT found)
+        )
+    )
+)
+
+:: Enhancement - use manage-bde status to check individual drive volumes
+
+:: #############################
+:: SMB Configurations
+:: #############################
+
+:: SMBv1
 echo. >> "%OUTFILE%"
-echo [*] Checking if SMBv1 is enabled: >> "%OUTFILE%"
-reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v SMB1 >> "%OUTFILE%" 2>nul
+if "!TESTING!"=="true" (echo [*] Checking SMB Configurations)
 
+:: SMBv1
+if "!TESTING!"=="true" (
+    echo [*] Checking if SMBv1 driver is installed
+    echo [DEBUG] Setting SMBv1_INSTALLED to true 
+)
+
+:: Assume SMBv1 is installed by default
+set "SMBv1_INSTALLED=true"
+
+:: sc query to determine if it's installed
+sc query mrxsmb10 >nul 2>&1
+if %errorlevel%==1 (
+    if "!TESTING!"=="true" (
+        echo [+] SMBv1 client driver not installed – client is disabled
+        echo [DEBUG] Setting SMBv1_INSTALLED to false
+    )
+    set "SMBv1_INSTALLED=false"
+    echo [+] SMBv1 client driver not installed – client is disabled >> "%OUTFILE%"
+)
+
+:: query SMBv1 start type (4 = disabled, 3 = manual, 2 = auto)
+if "!SMBv1_INSTALLED!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] SMBv1 Installed - checking Start_Type)
+    for /f "tokens=3" %%A in ('sc qc mrxsmb10 ^| findstr /i "START_TYPE"') do set "startType=%%A"
+    :: strip any spaces
+    set "startType=!startType: =!"
+    if "!TESTING!"=="true" (echo [DEBUG] SMBv1 startType: !startType!)
+    if "!tartType!"=="4" (
+        if "!TESTING!"=="true" (echo [+] SMBv1 client driver is installed but DISABLED Start = 4)
+        echo [-] SMBv1 client driver is installed but DISABLED Start = 4 >> "%OUTFILE%"
+    ) else if "!startType!"=="3" (
+        if "!TESTING!"=="true" (echo [-] SMBv1 client driver is installed and ENABLED Manual Start = !startType!)
+        echo [-] SMBv1 client driver is installed and ENABLED Manual Start = !startType! >> %OUTFILE%"
+    ) else if "!startType!"=="2" (
+        if "!TESTING!"=="true" (echo [-] SMBv1 client driver is installed and ENABLED Auto Start = !startType!)
+        echo [-] SMBv1 client driver is installed and ENABLED Auto Start = !startType! >> "%OUTFILE%"
+    )
+)
 
 :: #############################
 :: Print Document Footer
