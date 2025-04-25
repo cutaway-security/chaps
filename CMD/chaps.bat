@@ -1,20 +1,26 @@
 :: chaps.bat - a Windows batch script for checking system security
 :: when conducting an assessment of systems where the Microsoft 
 :: Policy Analyzer and other assessment tools cannot be installed.
+:: The batch script does not perform every check included with the 
+:: CHAPS PowerShell scripts, and should only be used when using a 
+:: PowerShell version is not possible.
 
 :: Author: Don C. Weber (@cutaway)
 :: Date:   April 22, 2025
 @echo off
 setlocal enabledelayedexpansion
 
-echo Starting script...
 :: #############################
 :: Set User-Configurable Variables
 :: #############################
 
-:: Set COMPANY, SITENAME, and CUTSEC_FOOTER to empty string to disable
+:: Set to "true" for debugging output (write to screen in addition to output file)
+set "TESTING=false"
+
+:: Set COMPANY and SITENAME to empty string to disable
 set "COMPANY=Cutaway Security, LLC"
 set "SITENAME=Plant 1"
+:: Set CUTSEC_FOOTER to false to disable
 set "CUTSEC_FOOTER=true"
 
 :: Get the current date and time components for setting output directory
@@ -46,7 +52,7 @@ set "OUTFILE=%OUTDIR%\%OUTFILENAME%"
 set "SYSINFO_FILE=%OUTDIR%\%SYSINFO_FILENAME%"
 
 :: Check if WMIC is available and set flag
-echo Checking if WMIC is available
+if "!TESTING!"=="true" (echo [DEBUG] Testing if WMIC is available)
 where wmic >nul 2>&1
 if %errorlevel%==0 (
     set "WMIC_PRESENT=true"
@@ -55,36 +61,27 @@ if %errorlevel%==0 (
 )
 
 :: Create output directory if it doesn't exist
-echo Creating output directory
+if "!TESTING!"=="true" (echo [DEBUG] Creating !OUTDIR!)
 if not exist "!OUTDIR!" (
     mkdir "!OUTDIR!" >nul 2>&1
 )
 
-:: #############################
-:: Helper Functions
-:: #############################
-
-:GetWMICValue
-setlocal enabledelayedexpansion
-echo called GetWMICValue
-set "CLASS=%~1"
-set "PROPERTY=%~2"
-set "RESULT="
-
-for /f "skip=1 tokens=*" %%i in ('wmic %CLASS% get %PROPERTY% 2^>nul') do (
-    if not "%%i"=="" (
-        set "RESULT=%%i"
-        echo calling got_result
-        goto got_result
-    )
+if "!TESTING!"=="true" (
+    echo [DEBUG] Script running in DEBUG mode
+    echo [DEBUG] COMPANY: !COMPANY!
+    echo [DEBUG] SITENAME: !SITENAME!
+    echo [DEBUG] CUTSEC_FOOTER: !CUTSEC_FOOTER!
+    echo [DEBUG] FILENAME_DATE: FILENAME_DATE
+    echo [DEBUG] timezone: timezone
+    echo [DEBUG] READABLE_DATE: READABLE_DATE
+    echo [DEBUG] OUTDIR: OUTDIR
+    echo [DEBUG] OUTFILENAME: OUTFILENAME
+    echo [DEBUG] SYSINFO_FILENAME: SYSINFO_FILENAME
+    echo [DEBUG] SCRIPTNAME: SCRIPTNAME
+    echo [DEBUG] SCRIPTVERSION: SCRIPTVERSION
+    echo [DEBUG] OUTFILE: OUTFILE
+    echo [DEBUG] SYSINFO_FILE: SYSINFO_FILE
 )
-
-:got_result
-echo called got_result
-endlocal & set "RESULT=%RESULT%"
-echo exiting GetWMICValue
-goto :eof
-
 :: #############################
 :: Print Document Header
 :: #############################
@@ -95,91 +92,121 @@ echo # Saving output to: %OUTFILE%
 echo ##########################
 
 :: Create outfile and begin writing to it.
+if "!TESTING!"=="true" (
+    echo [DEBUG] Create outfile and begin writing to it 
+    echo ##########################
+    echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%
+    if defined COMPANY (echo # Auditing Company: %COMPANY%)
+    if defined SITENAME (echo # Site/Plant: %SITENAME%)
+    echo ##########################
+    echo # Computer Name: %COMPUTERNAME%
+    echo # Start Time: %READABLE_DATE%
+)
 echo ########################## > "%OUTFILE%"
 echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
 if defined COMPANY (echo # Auditing Company: %COMPANY% >> "%OUTFILE%")
-if defined SITENAME (echo # Site/Plant: %SITENAME%) >> "%OUTFILE%"
+if defined SITENAME (echo # Site/Plant: %SITENAME% >> "%OUTFILE%")
 echo ########################## >> "%OUTFILE%"
 echo # Computer Name: %COMPUTERNAME% >> "%OUTFILE%"
 echo # Start Time: %READABLE_DATE% >> "%OUTFILE%"
 
 :: Check Admin Rights
-echo Checking admin Rights
+if "!TESTING!"=="true" (echo [DEBUG] Checkign Administrator permissions)
 whoami /groups | findstr /i "S-1-5-32-544" >nul
 if %errorlevel%==0 (
+    if "!TESTING!"=="true" (echo [+] Script running as Administrator)
     echo [+] Script running as Administrator >> "%OUTFILE%"
 ) else (
+    if "!TESTING!"=="true" (echo [x] Script NOT running as Administrator)
     echo [x] Script NOT running as Administrator >> "%OUTFILE%"
 )
+if "!TESTING!"=="true" (echo ##########################)
 echo ########################## >> "%OUTFILE%"
 
 :: ###########################
 :: System Info Checks
 :: ###########################
-echo calling PrtSectionHeader System Info
-call :PrtSectionHeader "System Info"
-echo Continue main script
-
+if "!TESTING!"=="true" (echo [DEBUG] Calling PrtSectionHeader System Info)
+call :PrtSectionHeader System Info
+if "!TESTING!"=="true" (echo [DEBUG] Returned from PrtSectionHeader)
 echo [*] Collecting systeminfo to: %SYSINFO_FILE%
 systeminfo > "%SYSINFO_FILE%"
 
-if "!WMIC_PRESENT!"=="true" (
-    :: Product Name
-    echo Calling GetWMICValue os Caption
+:: Get Poduct Name
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Product Name)
+if "!WMIC_PRESENT"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Caption)
     call :GetWMICValue os Caption
-    echo continue main script
-    set "OS_NAME=%RESULT%"
-    
-    :: OS Version
-    echo Calling GetWMICValue os Version
-    call :GetWMICValue os Version
-    set "OS_VERSION=%RESULT%"
-    
-    :: Architecture
-    call :GetWMICValue os OSArchitecture
-    set "OS_ARCH=%RESULT%"
-    
-    :: System Type
-    call :GetWMICValue computersystem SystemType
-    set "SYS_TYPE=%RESULT%"
-
-    :: Domain / Workgroup
-    call :GetWMICValue computersystem Domain
-    set "DOMAIN=%RESULT%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME: !RESULT!)
+    set "OS_NAME=!RESULT!"
 ) else (
-    :: Product Name
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME: Unknown WMIC not available)
     set "OS_NAME=Unknown (WMIC not available)"
+)
 
-    :: OS Version
+:: Get OS Version
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Version)
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version)
+    call :GetWMICValue os Version
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_VERSION: !RESULT!)
+    set "OS_VERSION=!RESULT!"
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use 'ver' command)
     for /f "tokens=2 delims=[]" %%A in ('ver') do set "OS_VERSION=%%A"
+)
 
-    :: Architecture
+:: Get Architecture
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Architecture)
+if "!WMIC_PRESENT!"=="true" (    
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture)
+    call :GetWMICValue os OSArchitecture
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_ARCH: !RESULT!)
+    set "OS_ARCH=!RESULT!"
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITEW6432 environment value)
     set "OS_ARCH=x86"
-    if defined PROCESSOR_ARCHITEW6432 set "OS_ARCH=amd64"
+    if defined PROCESSOR_ARCHITEW6432 set "OS_ARCH=x64"
+)
 
-    :: System Type
+:: Get System Type
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get System Type)
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem SystemType)
+    call :GetWMICValue computersystem SystemType
+    if "!TESTING!"=="true" (echo [DEBUG] Setting SYS_TYPE: !RESULT!)
+    set "SYS_TYPE=!RESULT!"
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITECTURE environment value)
     set "SYS_TYPE=%PROCESSOR_ARCHITECTURE%"
+)
 
-    :: Product Name & Domain not available without WMIC
+:: Get Domain / Workgroup
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Domain/Workgroup)
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem Domain)
+    call :GetWMICValue computersystem Domain
+    if "!TESTING!"=="true" (echo [DEBUG] Setting DOMAIN: !RESULT!)
+    set "DOMAIN=!RESULT!"
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] Setting DOMAIN: Unknown WMIC not available)
     set "DOMAIN=Unknown (WMIC not available)"
 )
 
+if "!TESTING!"=="true" (
+    echo [*] Windows Product: !OS_NAME!
+    echo [*] OS Version: !OS_VERSION!
+    echo [*] OS Architecture: !OS_ARCH!
+    echo [*] System Type: !SYS_TYPE!
+    echo [*] Domain/Workgroup: !DOMAIN!
+    echo [*] Effective Path: %PATH%    
+)
 echo [*] Windows Product: !OS_NAME! >> "%OUTFILE%"
 echo [*] OS Version: !OS_VERSION! >> "%OUTFILE%"
 echo [*] OS Architecture: !OS_ARCH! >> "%OUTFILE%"
 echo [*] System Type: !SYS_TYPE! >> "%OUTFILE%"
 echo [*] Domain/Workgroup: !DOMAIN! >> "%OUTFILE%"
 echo [*] Effective Path: %PATH% >> "%OUTFILE%"
-
-:PrtSectionHeader
-set "SectionName=%~1"
->> "%OUTFILE%" echo.
->> "%OUTFILE%" echo ##########################
->> "%OUTFILE%" echo # %SectionName%
->> "%OUTFILE%" echo ##########################
-goto :eof
-
-
 
 :: Auto Update Registry Check
 echo. >> "%OUTFILE%"
@@ -228,6 +255,7 @@ reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v SM
 :: Print Document Footer
 :: #############################
 
+if "!TESTING!"=="true" (echo [DEBUG] Printing document footer)
 :: Get the current date and time components
 for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i 
 set "yyyy=%dt:~0,4%"
@@ -240,11 +268,17 @@ set "ss=%dt:~12,2%"
 set "timezone=UTC%dt:~21,3%"
 set "STOP_TIME_READABLE=%MM%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
 
+if "!TESTING!"=="true" (
+    echo ##########################
+    echo # %SCRIPTNAME% completed
+    echo # Stop Time: %STOP_TIME_READABLE%
+)
 echo. >> "%OUTFILE%"
 echo ########################## >> "%OUTFILE%"
 echo # %SCRIPTNAME% completed >> "%OUTFILE%"
 echo # Stop Time: %STOP_TIME_READABLE% >> "%OUTFILE%"
 echo # Report saved to: %OUTFILE%
+if "!TESTING!"=="true" (echo ##########################)
 echo ########################## >> "%OUTFILE%"
 
 :: #############################
@@ -252,6 +286,14 @@ echo ########################## >> "%OUTFILE%"
 :: #############################
 
 if "!CUTSEC_FOOTER!"=="true" (
+    if "!TESTING!"=="true" (
+        echo ##########################
+        echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%
+        echo # Brought to you by Cutaway Security, LLC
+        echo # For assessment and auditing help, contact info [@] cutawaysecurity.com
+        echo # For script help, contact dev [@] cutawaysecurity.com
+        echo ##########################
+    )
     echo. >> "%OUTFILE%"
     echo ########################## >> "%OUTFILE%"
     echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
@@ -261,4 +303,45 @@ if "!CUTSEC_FOOTER!"=="true" (
     echo ########################## >> "%OUTFILE%"
 )
 
-endlocal
+:: #############################
+:: Helper Functions
+:: #############################
+
+:: #############################
+:GetWMICValue
+setlocal enabledelayedexpansion
+if !TESTING!=="true" (echo [DEBUG] Called GetWMICValue)
+set "RESULT="
+
+:: Run WMIC, skip the header, throw away blank lines
+for /f "skip=1 tokens=*" %%i in ('
+        wmic %1 get %2 2^>nul ^
+          ^| findstr /r /v "^$"
+    ') do (
+        if "!TESTING!"=="true" (echo [DEBUG] WMIC found result)
+        :: Immediately capture %%i into the parent environment, then return
+        endlocal & set "RESULT=%%i"
+        if "!TESTING!"=="true" (echo [DEBUG] WMIC returning: !RESULT!)
+        goto :EOF
+    )
+
+:: If we fell through, there was nothing
+endlocal & set "RESULT="
+if "!TESTING!"=="true" (
+    echo [DEBUG] WMIC did not find a value 
+    echo [DEBUG] Returning RESULT: !RESULT!
+)
+goto :eof
+
+:: #############################
+:PrtSectionHeader
+if "!TESTING!"=="true" (
+    echo ##########################
+    echo # %*
+    echo ##########################
+)
+>> "%OUTFILE%" echo.
+>> "%OUTFILE%" echo ##########################
+>> "%OUTFILE%" echo # %*
+>> "%OUTFILE%" echo ##########################
+goto :eof
