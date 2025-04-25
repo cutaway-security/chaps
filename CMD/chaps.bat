@@ -7,7 +7,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-
+echo Starting script...
 :: #############################
 :: Set User-Configurable Variables
 :: #############################
@@ -31,9 +31,10 @@ set "FILENAME_DATE=%yyyy%%dd%%MM%_%HH%%mm%%ss%"
 set "timezone=UTC%dt:~21,3%"
 set "READABLE_DATE=%MM%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
 
-:: Report is saved to user's temp directory by default
-set "OUTFILE=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%\%COMPUTERNAME%_chaps.txt"
-set "SYSINFO_FILE=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%\%COMPUTERNAME%_sysinfo.txt""
+:: Report is saved to user's temp directory and uses computer name in filename by default
+set "OUTDIR=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%"
+set "OUTFILENAME=%COMPUTERNAME%_chaps.txt"
+set "SYSINFO_FILENAME=%COMPUTERNAME%_sysinfo.txt"
 
 :: #############################
 :: Set Non-Configurable Variables
@@ -41,14 +42,48 @@ set "SYSINFO_FILE=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%\%COMPUTERNAME%_sysinfo.t
 
 set "SCRIPTNAME=chaps.bat"
 set "SCRIPTVERSION=1.0.0"
+set "OUTFILE=%OUTDIR%\%OUTFILENAME%"
+set "SYSINFO_FILE=%OUTDIR%\%SYSINFO_FILENAME%"
 
 :: Check if WMIC is available and set flag
+echo Checking if WMIC is available
 where wmic >nul 2>&1
 if %errorlevel%==0 (
     set "WMIC_PRESENT=true"
 ) else (
     set "WMIC_PRESENT=false"
 )
+
+:: Create output directory if it doesn't exist
+echo Creating output directory
+if not exist "!OUTDIR!" (
+    mkdir "!OUTDIR!" >nul 2>&1
+)
+
+:: #############################
+:: Helper Functions
+:: #############################
+
+:GetWMICValue
+setlocal enabledelayedexpansion
+echo called GetWMICValue
+set "CLASS=%~1"
+set "PROPERTY=%~2"
+set "RESULT="
+
+for /f "skip=1 tokens=*" %%i in ('wmic %CLASS% get %PROPERTY% 2^>nul') do (
+    if not "%%i"=="" (
+        set "RESULT=%%i"
+        echo calling got_result
+        goto got_result
+    )
+)
+
+:got_result
+echo called got_result
+endlocal & set "RESULT=%RESULT%"
+echo exiting GetWMICValue
+goto :eof
 
 :: #############################
 :: Print Document Header
@@ -65,10 +100,11 @@ echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
 if defined COMPANY (echo # Auditing Company: %COMPANY% >> "%OUTFILE%")
 if defined SITENAME (echo # Site/Plant: %SITENAME%) >> "%OUTFILE%"
 echo ########################## >> "%OUTFILE%"
-echo # %COMPUTERNAME% >> "%OUTFILE%"
+echo # Computer Name: %COMPUTERNAME% >> "%OUTFILE%"
 echo # Start Time: %READABLE_DATE% >> "%OUTFILE%"
 
 :: Check Admin Rights
+echo Checking admin Rights
 whoami /groups | findstr /i "S-1-5-32-544" >nul
 if %errorlevel%==0 (
     echo [+] Script running as Administrator >> "%OUTFILE%"
@@ -80,36 +116,36 @@ echo ########################## >> "%OUTFILE%"
 :: ###########################
 :: System Info Checks
 :: ###########################
+echo calling PrtSectionHeader System Info
 call :PrtSectionHeader "System Info"
+echo Continue main script
 
 echo [*] Collecting systeminfo to: %SYSINFO_FILE%
 systeminfo > "%SYSINFO_FILE%"
 
 if "!WMIC_PRESENT!"=="true" (
     :: Product Name
-    for /f "skip=1 tokens=*" %%i in ('wmic os get Caption') do (
-        if not "%%i"=="" set "OS_NAME=%%i"
-    )
-
+    echo Calling GetWMICValue os Caption
+    call :GetWMICValue os Caption
+    echo continue main script
+    set "OS_NAME=%RESULT%"
+    
     :: OS Version
-    for /f "skip=1 tokens=*" %%i in ('wmic os get Version') do (
-        if not "%%i"=="" set "OS_VERSION=%%i"
-    )
-
+    echo Calling GetWMICValue os Version
+    call :GetWMICValue os Version
+    set "OS_VERSION=%RESULT%"
+    
     :: Architecture
-    for /f "skip=1 tokens=*" %%i in ('wmic os get OSArchitecture') do (
-        if not "%%i"=="" set "OS_ARCH=%%i"
-    )
-
+    call :GetWMICValue os OSArchitecture
+    set "OS_ARCH=%RESULT%"
+    
     :: System Type
-    for /f "skip=1 tokens=*" %%i in ('wmic computersystem get SystemType') do (
-        if not "%%i"=="" set "SYS_TYPE=%%i"
-    )
+    call :GetWMICValue computersystem SystemType
+    set "SYS_TYPE=%RESULT%"
 
     :: Domain / Workgroup
-    for /f "skip=1 tokens=*" %%i in ('wmic computersystem get Domain') do (
-        if not "%%i"=="" set "DOMAIN=%%i"
-    )
+    call :GetWMICValue computersystem Domain
+    set "DOMAIN=%RESULT%"
 ) else (
     :: Product Name
     set "OS_NAME=Unknown (WMIC not available)"
