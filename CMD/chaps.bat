@@ -257,13 +257,58 @@ if defined AU_VAL (
 
 :: Check IPv4 Address
 echo. >> "%OUTFILE%"
-if "!TESTING!"=="true" (echo [*] Network Interfaces - IPv4:)
-echo [*] Network Interfaces - IPv4: >> "%OUTFILE%"
-for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /C:"IPv4 Address"') do (
+:: Clear any previous IPv4 address
+if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to empty)
+set "IPv4_ADDR="
+
+:: Look for a modern label (e.g. IPv4 or IPv6 Address)
+if "!TESTING!"=="true" (echo [DEBUG] Checking for string "IPv4 Address" in ipconfig)
+for /f "tokens=2 delims=:" %%A in ('
+    ipconfig ^| findstr /C:"IPv4 Address"
+') do (
+    if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to: "%%A")
+    :: Trim leading spaces
+    for /f "tokens=* delims= " %%B in ("%%A") do set "IPVv_ADDR=%%B"
+    if "!TESTING!"=="true" (echo [DEBUG] Set IPv4_ADDR: !IPv4_ADDR!)
+)
+if "!TESTING!"=="true" (echo [DEBUG] Finished checking for "IPv4 Address" - IPv4_ADDR: !IPv4_ADDR!)
+:: if that failed (e.g. Windows XP), look for the old label
+if not defined IPv4_ADDR (
     if "!TESTING!"=="true" (
-        echo %%A
+        echo [DEBUG] IPv4_ADDR is not defined
+        echo [DEBUG] Checking for string "IP Address"
     )
-    echo %%A >> "%OUTFILE%"
+    for /f "tokens=2 delims=:" %%A in ('
+        ipconfig ^| findstr /C:"IP Address"
+    ') do (
+        if "!TESTING!"=="true" (echo [DEBUG] Found String "IP Address": %%A)
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to: %%B)
+            set "IPv4_ADDR=%%B"
+            if "!TESTING!"=="true" (
+                echo [DEBUG] IPv4_ADDR: !IPv4_ADDR!
+                echo [DEBUG] Going to gotIPv4
+            )
+            goto :gotIPv4
+        )
+    )
+)
+
+:gotIPv4
+if "!TESTING!"=="true" (echo [DEBUG] Inside gotIPv4 and IPv4_ADDR: !IPv4_ADDR!)
+if defined IPv4_ADDR (
+    if "!TESTING!"=="true" (
+        echo [DEBUG] IPv4_ADDR is defined
+        echo [*] Network Interfaces - IPv4:
+        echo !IPv4_ADDR!
+    )
+    echo [*] Network Interfaces - IPv4: >> "%OUTFILE%"
+    echo !IPv4_ADDR! >> "%OUTFILE%"
+) else (
+    if "!TESTING!"=="true" (echo [DEBUG] IPv4_ADDR is not defined
+        echo [*] No IPv4 address found
+    ) 
+    echo [*] No IPv4 address found >> "%OUTFILE%"
 )
 
 :: Check IPv6 Address
