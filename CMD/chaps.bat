@@ -15,7 +15,7 @@ setlocal enabledelayedexpansion
 :: #############################
 
 :: Set to "true" for debugging output (write to screen in addition to output file)
-set "TESTING=true"
+set "TESTING=false"
 
 :: Set COMPANY and SITENAME to empty string to disable
 set "COMPANY=Cutaway Security, LLC"
@@ -25,18 +25,29 @@ set "SITENAME=Plant 1"
 set "CUTSEC_FOOTER=true"
 
 :: Get the current date and time components for setting output directory
-for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i 
+for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
+if "!TESTING!"=="true" (
+    echo [DEBUG] dt: !dt!
+    echo [DEBUG] Setting yyyy: %dt:~0,4%
+)
 set "yyyy=%dt:~0,4%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
 set "dd=%dt:~6,2%"
-set "MM=%dt:~4,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
+set "MONTH=%dt:~4,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
 set "HH=%dt:~8,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
 set "mm=%dt:~10,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
 set "ss=%dt:~12,2%"
 :: Format as yyyyddMM_HHmmss for the filename
-set "FILENAME_DATE=%yyyy%%dd%%MM%_%HH%%mm%%ss%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting FILENAME_DATE: %yyyy%%dd%%MONTH%_%HH%%mm%%ss%)
+set "FILENAME_DATE=%yyyy%%dd%%MONTH%_%HH%%mm%%ss%"
 :: Format as MM/dd/yyyy HH:mm:ss K for readable date in report
+if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
 set "timezone=UTC%dt:~21,3%"
-set "READABLE_DATE=%MM%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
+set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
 
 :: Report is saved to user's temp directory and uses computer name in filename by default
 set "OUTDIR=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%"
@@ -57,31 +68,34 @@ if "!TESTING!"=="true" (echo [DEBUG] Testing if WMIC is available)
 where wmic >nul 2>&1
 if %errorlevel%==0 (
     set "WMIC_PRESENT=true"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_PRESENT to true)
 ) else (
+    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_PRESENT to false)
     set "WMIC_PRESENT=false"
 )
+if "!TESTING!"=="true" (echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
 
 :: Create output directory if it doesn't exist
-if "!TESTING!"=="true" (echo [DEBUG] Creating !OUTDIR!)
+if "!TESTING!"=="true" (echo [DEBUG] Checking for !OUTDIR!)
 if not exist "!OUTDIR!" (
+    if "!TESTING!"=="true" (echo [DEBUG] Creating OUTDIR: !OUTDIR!)
     mkdir "!OUTDIR!" >nul 2>&1
 )
 
 if "!TESTING!"=="true" (
-    echo [DEBUG] Script running in DEBUG mode
     echo [DEBUG] COMPANY: !COMPANY!
     echo [DEBUG] SITENAME: !SITENAME!
     echo [DEBUG] CUTSEC_FOOTER: !CUTSEC_FOOTER!
-    echo [DEBUG] FILENAME_DATE: FILENAME_DATE
-    echo [DEBUG] timezone: timezone
-    echo [DEBUG] READABLE_DATE: READABLE_DATE
-    echo [DEBUG] OUTDIR: OUTDIR
-    echo [DEBUG] OUTFILENAME: OUTFILENAME
-    echo [DEBUG] SYSINFO_FILENAME: SYSINFO_FILENAME
-    echo [DEBUG] SCRIPTNAME: SCRIPTNAME
-    echo [DEBUG] SCRIPTVERSION: SCRIPTVERSION
-    echo [DEBUG] OUTFILE: OUTFILE
-    echo [DEBUG] SYSINFO_FILE: SYSINFO_FILE
+    echo [DEBUG] FILENAME_DATE: !FILENAME_DATE!
+    echo [DEBUG] timezone: !timezone!
+    echo [DEBUG] READABLE_DATE: !READABLE_DATE!
+    echo [DEBUG] OUTDIR: !OUTDIR!
+    echo [DEBUG] OUTFILENAME: !OUTFILENAME!
+    echo [DEBUG] SYSINFO_FILENAME: !SYSINFO_FILENAME!
+    echo [DEBUG] SCRIPTNAME: !SCRIPTNAME!
+    echo [DEBUG] SCRIPTVERSION: !SCRIPTVERSION!
+    echo [DEBUG] OUTFILE: !OUTFILE!
+    echo [DEBUG] SYSINFO_FILE: !SYSINFO_FILE!
 )
 :: #############################
 :: Print Document Header
@@ -119,18 +133,27 @@ if "!TESTING!"=="true" (
     echo [DEBUG] Setting ADMIN_RIGHTS to false
 )
 set "ADMIN_RIGHTS=false"
-
-if "!TESTING!"=="true" (echo [DEBUG] Checking Administrator permissions using whoami)
+if "!TESTING!"=="true" (
+    echo [DEBUG] Checking Administrator permissions using whoami
+)
 whoami /groups | findstr /i "S-1-5-32-544" >nul
 if "!TESTING!"=="true" (echo [DEBUG] whoami errorlevel: %errorlevel%)
 if %errorlevel%==0 (
-    if "!TESTING!"=="true" (echo [+] Script running as Administrator)
+    if "!TESTING!"=="true" (
+        echo [+] Script running as Administrator
+        echo [DEBUG] Setting ADMIN_RIGHTS to true
+    )
+    set "ADMIN_RIGHTS=true"
     echo [+] Script running as Administrator >> "%OUTFILE%"
 ) else (
     if "!TESTING!"=="true" (echo [x] Script NOT running as Administrator)
     echo [x] Script NOT running as Administrator >> "%OUTFILE%"
 )
-if "!TESTING!"=="true" (echo ##########################)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] ADMIN_RIGHTS: !ADMIN_RIGHTS!
+    echo ##########################
+)
 echo ########################## >> "%OUTFILE%"
 
 :: ###########################
@@ -142,41 +165,27 @@ if "!TESTING!"=="true" (echo [DEBUG] Returned from PrtSectionHeader)
 echo [*] Collecting systeminfo to: %SYSINFO_FILE%
 systeminfo > "%SYSINFO_FILE%"
 
+set "OS_NAME=Unknown"
+set "OS_VERSION_FULL=Unknown"
+set "OS_ARCH=Unknown"
+set "SYS_TYPE=Unknown"
+set "DOMAIN=Unknown"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] OS_NAME: !OS_NAME!
+    echo [DEBUG] OS_VERSION_FULL: !OS_VERSION_FULL!
+    echo [DEBUG] OS_ARCH: !OS_ARCH!
+    echo [DEBUG] SYS_TYPE: !SYS_TYPE!
+    echo [DEBUG] DOMAIN: !DOMAIN!
+)
+
 :: Get Poduct Name
 if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Product Name)
-if "!WMIC_PRESENT"=="true" (
+if "!WMIC_PRESENT!"=="true" (
     if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Caption)
     call :GetWMICValue os Caption
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME: !RESULT!)
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME using RESULT: !RESULT!)
     set "OS_NAME=!RESULT!"
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME: Unknown WMIC not available)
-    set "OS_NAME=Unknown (WMIC not available)"
-)
-
-:: Get OS Version
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Version)
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version)
-    call :GetWMICValue os Version
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_VERSION: !RESULT!)
-    set "OS_VERSION=!RESULT!"
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use 'ver' command)
-    for /f "tokens=2 delims=[]" %%A in ('ver') do set "OS_VERSION=%%A"
-)
-
-:: Get Architecture
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Architecture)
-if "!WMIC_PRESENT!"=="true" (    
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture)
-    call :GetWMICValue os OSArchitecture
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_ARCH: !RESULT!)
-    set "OS_ARCH=!RESULT!"
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITEW6432 environment value)
-    set "OS_ARCH=x86"
-    if defined PROCESSOR_ARCHITEW6432 set "OS_ARCH=x64"
 )
 
 :: Get System Type
@@ -184,11 +193,120 @@ if "!TESTING!"=="true" (echo [DEBUG] Attempting to get System Type)
 if "!WMIC_PRESENT!"=="true" (
     if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem SystemType)
     call :GetWMICValue computersystem SystemType
-    if "!TESTING!"=="true" (echo [DEBUG] Setting SYS_TYPE: !RESULT!)
+    if "!TESTING!"=="true" (echo [DEBUG] Setting SYS_TYPE to !RESULT!)
     set "SYS_TYPE=!RESULT!"
+    if "!TESTING!"=="true" (echo [DEBUG] SYS_TYPE: !SYS_TYPE!)
 ) else (
     if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITECTURE environment value)
     set "SYS_TYPE=%PROCESSOR_ARCHITECTURE%"
+    if "!TESTING!"=="true" (echo [DEBUG] SYS_TYPE: !SYS_TYPE!)
+)
+
+:: Get OS Version
+ if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Version)
+ if "!WMIC_PRESENT!"=="true" (
+     if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version)
+     call :GetWMICValue os Version
+     if "!TESTING!"=="true" (echo [DEBUG] Setting OS_VERSION_FULL to !RESULT!)
+     set "OS_VERSION_FULL=!RESULT!"
+ ) else (
+     if "!TESTING!"=="true" (
+        echo [DEBUG] Attempting to use 'ver' command
+    )
+    
+    :: Get the VER command output
+    for /f "tokens=*" %%A in ('ver') do (
+        set "VER_OUTPUT=%%A"
+    )
+
+    if "!TESTING!"=="true" (
+        echo [DEBUG] VER_OUTPUT: !VER_OUTPUT!
+        echo [DEBUG] Getting OS_VERSION_FULL from VER_OUTPUT
+    )
+
+    :: Extract the version and build number from inside the brackets
+    for /f "tokens=2 delims=[]" %%A in ("!VER_OUTPUT!") do (
+        set "OS_VERSION_FULL=%%A"
+    )
+)
+
+:: Remove the word "Version" if present
+if "!TESTING!"=="true" (echo [DEBUG] Removing 'Version' from OS_VERSION_FULL)
+set "OS_VERSION_FULL=!OS_VERSION_FULL:Version =!"
+if "!TESTING!"=="true" (echo [DEBUG] OS_VERSION_FULL: !OS_VERSION_FULL!)
+
+:: Split OS_VERSION_FULL on .
+for /f "tokens=1,2,3 delims=." %%A in ('echo !OS_VERSION_FULL!') do (
+    set "OS_MAJOR=%%A"
+    set "OS_MINOR=%%B"
+    set "OS_BUILD_NUMBER=%%C"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] OS_MAJOR: !OS_MAJOR!
+    echo [DEBUG] OS_MINOR: !OS_MINOR!
+    echo [DEBUG] OS_BUILD_NUMBER: !OS_BUILD_NUMBER!
+)
+
+set "OS_MAJOR_MINOR=!OS_MAJOR!.!OS_MINOR!"
+if "!TESTING!"=="true" (echo [DEBUG] OS_MAJOR_MINOR: !OS_MAJOR!.!OS_MINOR!)
+
+if "!OS_NAME!"=="Unknown" (
+if !TESTING!=="true" (
+    echo [DEBUG] Using Version number to get OS_NAME 
+    echo [DEBUG] Getting OS_MAJOR, OS_MINOR, and OS_BUILD_NUMBER
+)
+
+    :: Use Version to map to friendly name
+    if "!TESTING!"=="true" echo [DEBUG] Getting WIN_OS_NAME from version 
+    if "!OS_MAJOR_MINOR!"=="4.00" set "OS_NAME=Windows 95"
+    if "!OS_MAJOR_MINOR!"=="5.0" set "OS_NAME=Windows NT 4.0"
+    if "!OS_MAJOR_MINOR!"=="4.10" set "OS_NAME=Windows 98"
+    if "!OS_MAJOR_MINOR!"=="4.90" set "OS_NAME=Windows Me"
+    if "!OS_MAJOR_MINOR!"=="5.0" set "OS_NAME=Windows 2000"
+    if "!OS_MAJOR_MINOR!"=="5.1" set "OS_NAME=Windows XP"
+    if "!OS_MAJOR_MINOR!"=="5.2" set "OS_NAME=Windows Server 2003 or Windows XP x64"
+    if "!OS_MAJOR_MINOR!"=="6.0" (
+        if "!OS_BUILD_NUMBER!"=="6002" set "OS_NAME=Windows Vista"
+        if "!OS_BUILD_NUMBER!"=="6003" set "OS_NAME=Windows Server 2008"
+    )
+    if "!OS_MAJOR_MINOR!"=="6.1" set "OS_NAME=Windows 7 or Server 2008 R2"
+    if "!OS_MAJOR_MINOR!"=="6.2" set "OS_NAME=Windows 8 or Server 2012"
+    if "!OS_MAJOR_MINOR!"=="6.3" set "OS_NAME=Windows 8.1 or Server 2012 R2"
+    if "!OS_MAJOR_MINOR!"=="10.0" (
+        if "!OS_BUILD!" geq "22000" (
+            set "OS_NAME=Windows 11"
+        ) else (
+            set "OS_NAME=Windows 10 or Server 2016/2019/2022"
+        )
+    )
+)
+
+:: Get Architecture
+if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Architecture)
+
+if "!WMIC_PRESENT!"=="true" (    
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture)
+    call :GetWMICValue os OSArchitecture
+    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_ARCH: !RESULT!)
+    set "OS_ARCH=!RESULT!"
+) 
+if "!OS_ARCH!"=="Unknown" (
+    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITEW6432 environment value)
+    :: On 64-bit Windows launched under WoW64, PROCESSOR_ARCHITEW6432 is defined
+    if defined PROCESSOR_ARCHITEW6432 (
+        set "OS_ARCH=64-bit"
+    ) else (
+        :: Otherwise check %PROCESSOR_ARCHITECTURE
+        if /i "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
+            set "OS_ARCH=64-bit"
+        ) else if /i "%PROCESSOR_ARCHITECTURE%"=="IA64" (
+            set "OS_ARCH=64-bit"
+        ) else (
+            :: Haven't found evidence of 64-bit architecture
+            set "OS_ARCH=32-bit"
+        ) 
+    )
 )
 
 :: Get Domain / Workgroup
@@ -205,55 +323,18 @@ if "!WMIC_PRESENT!"=="true" (
 
 if "!TESTING!"=="true" (
     echo [*] Windows Product: !OS_NAME!
-    echo [*] OS Version: !OS_VERSION!
+    echo [*] OS Version: !OS_VERSION_FULL!
     echo [*] OS Architecture: !OS_ARCH!
     echo [*] System Type: !SYS_TYPE!
     echo [*] Domain/Workgroup: !DOMAIN!
     echo [*] Effective Path: %PATH%    
 )
 echo [*] Windows Product: !OS_NAME! >> "%OUTFILE%"
-echo [*] OS Version: !OS_VERSION! >> "%OUTFILE%"
+echo [*] OS Version: !OS_VERSION_FULL! >> "%OUTFILE%"
 echo [*] OS Architecture: !OS_ARCH! >> "%OUTFILE%"
 echo [*] System Type: !SYS_TYPE! >> "%OUTFILE%"
 echo [*] Domain/Workgroup: !DOMAIN! >> "%OUTFILE%"
 echo [*] Effective Path: %PATH% >> "%OUTFILE%"
-
-:: Auto Update Registry Check
-if "!TESTING!"=="true" (echo [DEBUG] Checking Auto Update Registry configuration)
-echo. >> "%OUTFILE%"
-:: Query AUOptions value from registry
-for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v AUOptions 2^>nul') do (
-    set "AU_VAL=%%A"
-)
-if "!TESTING!"=="true" (echo [DEBUG] Queried AUOptions value AU_VAL: !AU_VAL!)
-:: Decode the value (if present)
-if defined AU_VAL (
-    if "!TESTING!"=="true" (echo [DEBUG] AU_VAL is defined: !AU_VAL!)
-    if "!AU_VAL!"=="1" set "AU_DESC=Disabled"
-    if "!AU_VAL!"=="2" set "AU_DESC=Notify before download"
-    if "!AU_VAL!"=="3" set "AU_DESC=Notify before installation"
-    if "!AU_VAL!"=="4" set "AU_DESC=Scheduled installation"
-    if "!AU_VAL!"=="0" set "AU_DESC=Not configured"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting AU_DESC: !AU_DESC!)
-
-    set /a AU_NUM=!AU_VAL! >nul 2>&1
-    if !AU_NUM! EQU 4 (
-        if "!TESTING!"=="true" (
-            echo [+] Auto Update setting: !AU_VAL! - !AU_DESC!
-        )
-        echo [+] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
-    ) else (
-        if "!TESTING!"=="true" (
-            echo [-] Auto Update setting: !AU_VAL! - !AU_DESC!
-        )
-        echo [-] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
-    )
-) else (
-    if "!TESTING!"=="true" (
-        echo [x] Windows AutoUpdate test failed - AUOptions registry value not found
-    )
-    echo [x] Windows AutoUpdate test failed - AUOptions registry value not found >> "%OUTFILE%"
-)
 
 :: Check IPv4 Address
 echo. >> "%OUTFILE%"
@@ -267,11 +348,15 @@ for /f "tokens=2 delims=:" %%A in ('
     ipconfig ^| findstr /C:"IPv4 Address"
 ') do (
     if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to: "%%A")
+    echo [DEBUG] Setting IPv4_ADDR to: "%%A"
+
     :: Trim leading spaces
-    for /f "tokens=* delims= " %%B in ("%%A") do set "IPVv_ADDR=%%B"
+    for /f "tokens=* delims= " %%B in ("%%A") do set "IPv4_ADDR=%%B"
     if "!TESTING!"=="true" (echo [DEBUG] Set IPv4_ADDR: !IPv4_ADDR!)
+    echo [DEBUG] Set IPv4_ADDR: !IPv4_ADDR!
 )
 if "!TESTING!"=="true" (echo [DEBUG] Finished checking for "IPv4 Address" - IPv4_ADDR: !IPv4_ADDR!)
+echo [DEBUG] Finished checking for "IPv4 Address" - IPv4_ADDR: !IPv4_ADDR!
 :: if that failed (e.g. Windows XP), look for the old label
 if not defined IPv4_ADDR (
     if "!TESTING!"=="true" (
@@ -348,6 +433,43 @@ if "!IPv6_FOUND!"=="false" (
     echo [*] No non-link-local IPv6 address detected >> "%OUTFILE%"
 )
 
+:: Auto Update Registry Check
+if "!TESTING!"=="true" (echo [DEBUG] Checking Auto Update Registry configuration)
+echo. >> "%OUTFILE%"
+:: Query AUOptions value from registry
+for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v AUOptions 2^>nul') do (
+    set "AU_VAL=%%A"
+)
+if "!TESTING!"=="true" (echo [DEBUG] Queried AUOptions value AU_VAL: !AU_VAL!)
+:: Decode the value (if present)
+if defined AU_VAL (
+    if "!TESTING!"=="true" (echo [DEBUG] AU_VAL is defined: !AU_VAL!)
+    if "!AU_VAL!"=="1" set "AU_DESC=Disabled"
+    if "!AU_VAL!"=="2" set "AU_DESC=Notify before download"
+    if "!AU_VAL!"=="3" set "AU_DESC=Notify before installation"
+    if "!AU_VAL!"=="4" set "AU_DESC=Scheduled installation"
+    if "!AU_VAL!"=="0" set "AU_DESC=Not configured"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting AU_DESC: !AU_DESC!)
+
+    set /a AU_NUM=!AU_VAL! >nul 2>&1
+    if !AU_NUM! EQU 4 (
+        if "!TESTING!"=="true" (
+            echo [+] Auto Update setting: !AU_VAL! - !AU_DESC!
+        )
+        echo [+] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
+    ) else (
+        if "!TESTING!"=="true" (
+            echo [-] Auto Update setting: !AU_VAL! - !AU_DESC!
+        )
+        echo [-] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
+    )
+) else (
+    if "!TESTING!"=="true" (
+        echo [x] Windows AutoUpdate test failed - AUOptions registry value not found
+    )
+    echo [x] Windows AutoUpdate test failed - AUOptions registry value not found >> "%OUTFILE%"
+)
+
 :: BitLocker Status
 if "!TESTING!"=="true" (
     echo [DEBUG] Checking for BitLocker status
@@ -411,47 +533,190 @@ if "!WMIC_PRESENT!"=="true" (
 :: #############################
 :: SMB Configurations
 :: #############################
-
-:: SMBv1
 echo. >> "%OUTFILE%"
 if "!TESTING!"=="true" (echo [*] Checking SMB Configurations)
 
-:: SMBv1
-if "!TESTING!"=="true" (
-    echo [*] Checking if SMBv1 driver is installed
-    echo [DEBUG] Setting SMBv1_INSTALLED to true 
-)
-
-:: Assume SMBv1 is installed by default
-set "SMBv1_INSTALLED=true"
-
-:: sc query to determine if it's installed
-sc query mrxsmb10 >nul 2>&1
-if %errorlevel%==1 (
-    if "!TESTING!"=="true" (
-        echo [+] SMBv1 client driver not installed – client is disabled
-        echo [DEBUG] Setting SMBv1_INSTALLED to false
+:: For Windows XP (OS version 5.2) and below, only SMBv1 is available
+if !OS_MAJOR! LSS 5 (
+    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is less than 5; set SMBv1_ONLY to true
+    set "SMBv1_ONLY=true"
+) else if !OS_MAJOR! EQU 5 (
+    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR equals 5
+    if !OS_MINOR! LSS 3 (
+        if "!TESTING!"=="true" echo [DEBUG] OS_MINOR is less than 3; set SMBv1_ONLY to true
+        set "SMBv1_ONLY=true"
+    ) else (
+        if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is 2 or higher; set SMBv1_ONLY to false
+        set "SMBv1_ONLY=false"
     )
-    set "SMBv1_INSTALLED=false"
-    echo [+] SMBv1 client driver not installed – client is disabled >> "%OUTFILE%"
+) else (
+    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is higher than 5; set SMBv1_ONLY to false
+    set "SMBv1_ONLY=false"
 )
 
-:: query SMBv1 start type (4 = disabled, 3 = manual, 2 = auto)
-if "!SMBv1_INSTALLED!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] SMBv1 Installed - checking Start_Type)
-    for /f "tokens=3" %%A in ('sc qc mrxsmb10 ^| findstr /i "START_TYPE"') do set "startType=%%A"
-    :: strip any spaces
+:: #############################
+:: Check SMBv1 Client
+if "!TESTING!"=="true" (
+    echo [*] Checking if SMBv1 Client is installed and/or running
+    echo [DEBUG] SMBv1_ONLY: !SMBv1_ONLY!
+)
+
+if "!SMBv1_ONLY!"=="true" (
+    set "SMBv1_DRIVER_NAME=mrxsmb"
+) else (
+    set "SMBv1_DRIVER_NAME=mrxsmb10"
+)
+
+set "SMBv1_CLIENT=NotInstalled"
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Using wmic sysdriver where Name^="!SMBv1_DRIVER_NAME!" get State /value)
+    for /f "skip=1 tokens=2 delims==" %%S in ('wmic sysdriver where Name^="!SMBv1_DRIVER_NAME!" get State /value 2^>nul') do (
+        :: Trim white space
+        for /f "tokens=* delims= " %%G in ("%%S") do (
+            if "!TESTING!"=="true" (echo [DEBUG] Setting SMBv1_CLIENT to: %%G)
+            set "SMBv1_CLIENT=%%G"
+        )
+    )
+)
+
+if "!SMBv1_CLIENT!"=="NotInstalled" (
+    :: Use sc query to check if SMB client is installed
+    if "!TESTING!"=="true" echo [DEBUG] Using sc query to check for SMBv1_CLIENT
+    for /f "tokens=2 delims=:" %%A in ('sc query lanmanworkstation ^| findstr /i "STATE"') do (
+        if "!TESTING!"=="true" echo [DEBUG] Found a value: %%A
+        for /f "tokens=2" %%B in ("%%A") do (
+            if "!TESTING!"=="true" (echo [DEBUG] Seting SMBv1_CLIENT to: %%B)
+            set "SMBv1_CLIENT=%%B"
+        )
+    )
+)
+
+:: Report on SMBv1 Client
+if "!TESTING!"=="true" (echo [DEBUG] SMBv1_CLIENT: !SMBv1_CLIENT!)
+
+if /i "!SMBv1_CLIENT!"=="Running" (
+    echo [-] SMBv1 Client driver is INSTALLED and RUNNING >> %OUTFILE%
+    if "!TESTING!"=="true" (echo [-] SMBv1 Client driver is INSTALLED and RUNNING)
+) else if /i "!SMBv1_CLIENT!"=="Stopped" (
+    echo [-] SMBv1 Client driver is INSTALLED but STOPPED >> %OUTFILE%
+    if "!TESTING!"=="true" (echo [-] SMBv1 Client driver is INSTALLED but STOPPED)
+) else (
+    echo [+] SMBv1 Client driver is NOT installed >> %OUTFILE%
+    if "!TESTING!"=="true" (echo [+] SMBv1 Client driver is NOT installed)
+)
+
+:: #############################
+:: Check SMB Server
+
+if "!TESTING!"=="true" echo [DEBUG] Setting SMB_SERVER to NotInstalled
+set "SMB_SERVER=NotInstalled"
+if "!TESTING!"=="true" echo [DEBUG] SMB_SERVER: !SMB_SERVER!
+
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Using wmic to check for SMB_SERVER)
+    for /f "skip=1 tokens=2 delims== " %%A in ('wmic service where name^="LanmanServer" get State /value 2^>nul') do (
+        set "SMB_SERVER=%%A"
+        if "!TESTING!"=="true" echo [DEBUG] Setting SMB server state to: %%A
+    )
+) else (
+    if "!TESTING!"=="true" echo [DEBUG] Using sc query to check for SMB_SERVER
+    for /f "tokens=2 delims=:" %%A in ('sc query lanmanserver ^| findstr /i "STATE"') do (
+        if "!TESTING!"=="true" echo [DEBUG] Found a value: %%A
+        for /f "tokens=2" %%B in ("%%A") do (
+            if "!TESTING!"=="true" (echo [DEBUG] Setting SMB_SERVER to: %%B)
+            set "SMB_SERVER=%%B"
+        )
+    )
+)
+if "!TESTING!"=="true" echo [DEBUG] SMB_SERVER: !SMB_SERVER!
+
+if "!SMB_SERVER!"=="NotInstalled" (
+    echo [+] SMB Server is NOT installed 
+    if "!TESTING!"=="true" echo [+] SMB Server is NOT installed 
+) else if "!SMBv1_ONLY!"=="true" (
+    set "SMBv1_SERVER=!SMB_SERVER!"
+    set "SMBv2_SERVER=NotInstalled"
+) else if !OS_MAJOR! LSS 6 (
+    if "!TESTING!"=="true" echo [DEBUG] OS Major version is 5 or less
+    set "use_wmic_sysdriver=true"
+) else if !OS_MAJOR! EQU 6 (
+    if !OS_MINOR! LSS 2 (
+        if "!TESTING!"=="true" echo [DEBUG] OS version is 6.1 or less
+        set "use_wmic_sysdriver=true"
+    ) else (
+        if "!TESTING!"=="true" (
+            echo [DEBUG] OS version is 6.2 or higher
+            echo [DEBUG] Calling CheckSMBRegQuery
+        )
+        :: Can use reg query
+        call :CheckSMBRegQuery SMB1 
+        if "!TESTING!"=="true" echo [DEBUG] SMB1 Result: !RESULT!
+        set "SMBv1_SERVER=!RESULT!"
+        call :CheckSMBRegQuery SMB2
+        if "!TESTING!"=="true" echo [DEBUG] SMB2 Result: !RESULT!
+        set "SMBv2_SERVER=!RESULT!"
+    )
+)
+if "!use_wmic_sysdriver!"=="true" (
+    if "!TESTING!"=="true" echo [DEBUG] Using wmic sysdriver to check for SMB servers
+    for /f "tokens=2 delims==" %%A in ('wmic sysdriver where Name^="srv" get State /value') do (
+        set "SMBv1_SERVER=%%A"
+    )
+    for /f "tokens=2 delims==" %%A in ('wmic sysdriver where Name^="srv2" get State /value') do (
+        set "SMBv2_SERVER=%%A"
+    )
+)
+
+:: StartType Codes: 0 = Boot Start; 1 = System Start; 2 = Auto Start; 3 = Demand Start; 4 = Disabled
+if "!SMBv1_SERVER!"=="NotInstalled" (
+    echo [+] SMBv1 Server is NOT installed  >> %OUTFILE%
+    if "!TESTING!"=="true" echo [+] SMBv1 Server is NOT installed
+) else (
+    echo [-] SMBv1 Server is INSTALLED and !SMBv1_SERVER! >> %OUTFILE%
+    if "!TESTING!"=="true" echo [-] SMBv1 Server is INSTALLED and !SMBv1_SERVER!
+    :: Get the start type, since it's present
+    for /f "tokens=3" %%A in ('sc qc !SMBv1_DRIVER_NAME! ^| findstr /i "START_TYPE"') do set "startType=%%A"
+    :: Strip any spaces
     set "startType=!startType: =!"
-    if "!TESTING!"=="true" (echo [DEBUG] SMBv1 startType: !startType!)
-    if "!tartType!"=="4" (
-        if "!TESTING!"=="true" (echo [+] SMBv1 client driver is installed but DISABLED Start = 4)
-        echo [-] SMBv1 client driver is installed but DISABLED Start = 4 >> "%OUTFILE%"
+    if "!TESTING!"=="true" echo [DEBUG] SMBv1 startType: !startType!
+    if "!startType!"=="4" (
+        if "!TESTING!"=="true" (echo [+] SMBv1 server driver START_TYPE is !startType! - DISABLED)
+        echo [+] SMBv1 server driver START_TYPE is !startType! - Disabled >> "%OUTFILE%"
     ) else if "!startType!"=="3" (
-        if "!TESTING!"=="true" (echo [-] SMBv1 client driver is installed and ENABLED Manual Start = !startType!)
-        echo [-] SMBv1 client driver is installed and ENABLED Manual Start = !startType! >> %OUTFILE%"
+        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !startType! - Manual Start)
+        echo [-] SMBv1 server driver START_TYPE is !startType! - Manual Start >> %OUTFILE%"
     ) else if "!startType!"=="2" (
-        if "!TESTING!"=="true" (echo [-] SMBv1 client driver is installed and ENABLED Auto Start = !startType!)
-        echo [-] SMBv1 client driver is installed and ENABLED Auto Start = !startType! >> "%OUTFILE%"
+        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !START_TYPE! - Auto Start)
+        echo [-] SMBv1 server driver START_TYPE is !startType! - Auto Start >> "%OUTFILE%"
+    ) else if "!startType!"=="1" (
+        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !startType! - System Start)
+        echo [-] SMBv1 server driver START_TYPE is !startType! - System Start >> "%OUTFILE%"
+    )
+)
+
+if "!SMBv2_SERVER!"=="NotInstalled" (
+    echo [+] SMBv2 Server is NOT installed  >> %OUTFILE%
+    if "!TESTING!"=="true" echo [+] SMBv2 Server is NOT installed
+) else (
+    echo [-] SMBv2 Server is INSTALLED and !SMBv1_SERVER! >> %OUTFILE%
+    if "!TESTING!"=="true" echo [-] SMBv2 Server is INSTALLED and !SMBv1_SERVER!
+    :: Get the start type, since it's present
+    for /f "tokens=3" %%A in ('sc qc !SMBv1_DRIVER_NAME! ^| findstr /i "START_TYPE"') do set "startType=%%A"
+    :: Strip any spaces
+    set "startType=!startType: =!"
+    if "!TESTING!"=="true" echo [DEBUG] SMBv2 startType: !startType!
+    if "!startType!"=="4" (
+        if "!TESTING!"=="true" (echo [+] SMBv2 server driver START_TYPE is !startType! - DISABLED)
+        echo [+] SMBv2 server driver START_TYPE is !startType! - Disabled >> "%OUTFILE%"
+    ) else if "!startType!"=="3" (
+        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - Manual Start)
+        echo [-] SMBv2 server driver START_TYPE is !startType! - Manual Start >> %OUTFILE%"
+    ) else if "!startType!"=="2" (
+        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - Auto Start)
+        echo [-] SMBv2 server driver START_TYPE is !startType! - Auto Start >> "%OUTFILE%"
+    ) else if "!startType!"=="1" (
+        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - System Start)
+        echo [-] SMBv2 server driver START_TYPE is !startType! - System Start >> "%OUTFILE%"
     )
 )
 
@@ -513,31 +778,73 @@ if "!CUTSEC_FOOTER!"=="true" (
 
 :: #############################
 :GetWMICValue
+@echo off
 setlocal enabledelayedexpansion
-if !TESTING!=="true" (echo [DEBUG] Called GetWMICValue)
-set "RESULT="
 
-:: Run WMIC, skip the header, throw away blank lines
-for /f "skip=1 tokens=*" %%i in ('
-        wmic %1 get %2 2^>nul ^
-          ^| findstr /r /v "^$"
-    ') do (
-        if "!TESTING!"=="true" (echo [DEBUG] WMIC found result)
-        :: Immediately capture %%i into the parent environment, then return
-        endlocal & set "RESULT=%%i"
-        if "!TESTING!"=="true" (echo [DEBUG] WMIC returning: !RESULT!)
-        goto :EOF
-    )
+:: Cache parameters to local variables
+set "WMIC_CLASS=%~1"
+set "WMIC_PROPERTY=%~2"
+if "!TESTING!"=="true" (
+    echo [DEBUG] Called GetWMICValue
+    echo [DEBUG] WMIC_CLASS: !WMIC_CLASS!
+    echo [DEBUG] WMIC_PROPERTY: !WMIC_PROPERTY!  
+)
+
+:: Set WMIC_EXE based on 32- or 64-bit Windows
+if exist "%windir%\sysnative\wbem\wmic.exe" (
+    set "WMIC_EXE=%windir%\sysnative\wbem\wmic.exe"
+) else (
+    set "WMIC_EXE=%windir%\system32\wbem\wmic.exe"
+)
+if "!TESTING!"=="true" (echo [DEBUG] WMIC_EXE: !WMIC_EXE!)
+
+if "!TESTING!"=="true" (echo [DEBUG] Attempting: wmic !WMIC_CLASS! get !WMIC_PROPERTY!)
+for /f "tokens=2 delims==" %%L in ('"%WMIC_EXE%" !WMIC_CLASS! get !WMIC_PROPERTY! /format:list 2^>nul') do (
+    if "!TESTING!"=="true" (echo [DEBUG] WMIC Result: %%L)
+    endlocal & set "RESULT=%%L"
+    goto :wmic_returned
+)
 
 :: If we fell through, there was nothing
-endlocal & set "RESULT="
-if "!TESTING!"=="true" (
-    echo [DEBUG] WMIC did not find a value 
-    echo [DEBUG] Returning RESULT: !RESULT!
-)
+if "!TESTING!"=="true" (echo [DEBUG] WMIC returned nothing)
+endlocal & set "RESULT=Unknown"
+goto :wmic_returned
+
+:wmic_returned
+if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
 goto :eof
 
 :: #############################
+:CheckSMBRegQuery
+@echo off
+setlocal EnableDelayedExpansion
+
+set "v=%~1"
+if "!TESTING!"=="true" (
+    echo [DEBUG] Called CheckSMBRegQuery
+    echo [DEBUG] v: !v!
+    echo [DEBUG] Trying reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "!v!"
+)
+
+for /f "skip=1 tokens=3" %%A in ('
+  reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "!v!" 2^>nul
+') do set "SMB_VAL=%%A"
+
+if "!SMB_VAL!"=="1" (
+  echo [DEBUG] !v! SERVER protocol: ENABLED
+  endlocal & set "RESULT=ENABLED"
+) else if "%SMB1%"=="0" (
+  echo [DEBUG] !v! SERVER protocol: DISABLED
+  endlocal & set "RESULT=DISABLED"
+) else (
+  echo [DEBUG] !v! SERVER protocol: not set
+  endlocal & set "RESULT="
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
+goto :eof 
+:: #############################
+
 :PrtSectionHeader
 if "!TESTING!"=="true" (
     echo ##########################
