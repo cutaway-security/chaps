@@ -721,6 +721,71 @@ if "!SMBv2_SERVER!"=="NotInstalled" (
 )
 
 :: #############################
+:: Local Administrator Accounts
+if "!TESTING!"=="true" echo [DEBUG] Checkign Local Administrator Accounts
+set "foundSeparator=false"
+set /a numAdmins=0
+set "adminList="
+if "!TESTING!"=="true" (
+    echo [DEBUG] foundSeparator: !foundSeparator!
+    echo [DEBUG] numAdmins: !numAdmins!
+    echo [DEBUG] adminList: !adminList!
+)
+
+:: — Loop through each line of the net localgroup output
+for /f "tokens=* delims=" %%L in ('net localgroup Administrators') do (
+    if "!TESTING!"=="true" (
+        echo [DEBUG] Checking line in net localgroup output
+        echo %%L
+    )
+    set "line=%%L"
+    if "!foundSeparator!"=="false" (
+        :: Look for dashed separator line
+        if "!line:~0,4!"=="----" (
+            if "!TESTING!"=="true" echo [DEBUG] Found the separator line 
+            set "foundSeparator=true"
+            if "!TESTING!"=="true" echo [DEBUG] foundSeparator: !foundSeparator!
+        )
+    ) else (
+        :: Stop if the success footer is seen
+        if /i "!line!"=="The command completed successfully." goto :reportLocalAdmins
+
+        :: Count any non-blank member line
+        if not "!line!"=="" (
+            set /a numAdmins+=1
+            if defined adminList (
+                set "adminList=!adminList!, !line!"
+            ) else (
+                set "adminList=!line!"
+            )
+        )
+    )
+)
+
+:reportLocalAdmins
+if "!TESTING!"=="true" (
+    echo [DEBUG] foundSeparator: !foundSeparator!
+    echo [DEBUG] numAdmins: !numAdmins!
+    echo [DEBUG] adminList: !adminList!
+)
+if !numAdmins! GTR 1 (
+    if "!TESTING!"=="true" echo [-] More than one account is in local Administrators group: %numAdmins%
+    echo [-] More than one account is in local Administrators group: %numAdmins% >> "%OUTFILE%"
+) else (
+    if "!TESTING!"=="true" echo [+] One account in local Administrators group
+    echo [+] One account in local Administrators group >> "%OUTFILE%"
+)
+if "!TESTING!"=="true" echo [*] Administrator Account Groups: !adminList!
+echo [*] Administrator Accounts: !adminList! >> "%OUTFILE%"
+
+:: #############################
+:: Check AlwaysInstallElevated Privileges
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckAlwaysInstallElevated)
+call :CheckAlwaysInstallElevated
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
+
+
+:: #############################
 :: Print Document Footer
 :: #############################
 
@@ -815,6 +880,42 @@ if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
 goto :eof
 
 :: #############################
+:GetRegistryValue
+:: %1 = registry path
+:: %2 = value name
+:: %3 = output variable name
+setlocal enabledelayedexpansion
+set "outval=0"
+
+for /f "tokens=3" %%A in ('reg query "%~1" /v %2 2^>nul') do (
+    set "outval=%%A"
+)
+
+endlocal & set "%~3=%outval%"
+goto :eof
+
+
+:: #############################
+
+:PrtSectionHeader
+if "!TESTING!"=="true" (
+    echo ##########################
+    echo # %*
+    echo ##########################
+)
+>> "%OUTFILE%" echo.
+>> "%OUTFILE%" echo ##########################
+>> "%OUTFILE%" echo # %*
+>> "%OUTFILE%" echo ##########################
+goto :eof
+
+:: #############################
+:: Modularized function checks
+:: #############################
+:: #############################
+:: System Info Checks
+:: #############################
+:: #############################
 :CheckSMBRegQuery
 @echo off
 setlocal EnableDelayedExpansion
@@ -843,16 +944,77 @@ if "!SMB_VAL!"=="1" (
 
 if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
 goto :eof 
-:: #############################
 
-:PrtSectionHeader
+:: #############################
+:: Check AlwaysInstallElevated settings (HKLM and HKCU)
+:CheckAlwaysInstallElevated
+if "!TESTING!"=="true" echo [DEBUG] Called CheckAlwaysInstallElevated
+
+:: Initialize default values
+set "HKLM_AIE=0"
+set "HKCU_AIE=0"
+
 if "!TESTING!"=="true" (
-    echo ##########################
-    echo # %*
-    echo ##########################
+    echo [DEBUG] HKLM_AIE: !HKLM_AIE!
+    echo [DEBUG] HKCU_AIE: !HKCU_AIE!
 )
->> "%OUTFILE%" echo.
->> "%OUTFILE%" echo ##########################
->> "%OUTFILE%" echo # %*
->> "%OUTFILE%" echo ##########################
-goto :eof
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKLM_AIE
+call :GetRegistryValue "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKLM_AIE
+
+:: Check HKCU
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKCU_AIE 
+call :GetRegistryValue "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKCU_AIE
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_AIE: !HKLM_AIE!
+    echo [DEBUG] HKCU_AIE: !HKCU_AIE!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_AIE! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
+    set "HKLM_AIE=!HKLM_AIE:0x=!"
+)
+echo !HKCU_AIE! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKCU)
+    set "HKCU_AIE=!HKCU_AIE:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_AIE: !HKLM_AIE!
+    echo [DEBUG] Normalized HKCU_AIE: !HKCU_AIE!
+)
+
+:: Now check values
+if "!HKLM_AIE!"=="1" (
+    if "!HKCU_AIE!"=="1" (
+        echo [-] Users can install software as NT AUTHORITY\SYSTEM >> "%OUTFILE%"
+        echo [-] AlwaysInstallElevated registry values ^(HKLM and HKCU^) = 1 >> "%OUTFILE%"
+        if "!TESTING!"=="true" (
+            echo [-] Users can install software as NT AUTHORITY\SYSTEM. ^(HKLM and HKCU^) = 1
+            echo [-] AlwaysInstallElevated registry values ^(HKLM and HKCU^) = 1
+        )
+    ) else (
+        goto :not_elevated
+    )
+) else (
+    goto :not_elevated
+)
+goto :check_done
+
+:not_elevated
+echo [+] Users cannot install software as NT AUTHORITY\SYSTEM >> "%OUTFILE%"
+echo [*] AlwaysInstallElevated Registry Values: ^(HKLM=!HKLM_AIE!, HKCU=!HKCU_AIE!^) >> "%OUTFILE%"
+if "!TESTING!"=="true" (
+    echo [+] Users cannot install software as NT AUTHORITY\SYSTEM
+    echo [*] AlwaysInstallElevated Registry Values: ^(HKLM=!HKLM_AIE!, HKCU=!HKCU_AIE!^)
+)
+:check_done
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckAlwaysInstallElevated)
+goto :eof 
+
