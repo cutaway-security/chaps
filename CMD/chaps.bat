@@ -826,31 +826,71 @@ echo # Report saved to: %OUTFILE%
 if "!TESTING!"=="true" (echo ##########################)
 echo ########################## >> "%OUTFILE%"
 
-:: #############################
 :: Print Cutsec Footer
-:: #############################
-
-if "!CUTSEC_FOOTER!"=="true" (
-    if "!TESTING!"=="true" (
-        echo ##########################
-        echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%
-        echo # Brought to you by Cutaway Security, LLC
-        echo # For assessment and auditing help, contact info [@] cutawaysecurity.com
-        echo # For script help, contact dev [@] cutawaysecurity.com
-        echo ##########################
-    )
-    echo. >> "%OUTFILE%"
-    echo ########################## >> "%OUTFILE%"
-    echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
-    echo # Brought to you by Cutaway Security, LLC >> "%OUTFILE%"
-    echo # For assessment and auditing help, contact info [@] cutawaysecurity.com >> "%OUTFILE%"
-    echo # For script help, contact dev [@] cutawaysecurity.com >> "%OUTFILE%"
-    echo ########################## >> "%OUTFILE%"
+if "!TESTING!"=="true" (echo [DEBUG] Checking if CutSec Footer should be printed)
+if "%CUTSEC_FOOTER%"=="true" (
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :PrintCutsecFooter)
+    call :PrintCutsecFooter
+    if "!TESTING!"=="true" (echo [DEBUG] Returned from :PrintCutsecFooter)
 )
+if "!TESTING!"=="true" (echo [DEBUG] Finished - exiting script)
+:: If script started by double-clicking file, then pause so cmd window stays open
+set "CMDLINE="
+for /f "delims=" %%i in ('cmd /c "echo !cmdcmdline!"') do set "CMDLINE=%%i"
+if "!TESTING!"=="true" (echo [DEBUG] CMDLINE: !CMDLINE!)
+if "!CMDLINE:~0,3!"=="/c """ (
+    if "!TESTING!"=="true" (
+        echo [DEBUG] Script was launched by double-click. Pausing...
+        pause
+    )
+)
+:: End the script safely
+goto :eof 
+
 
 :: #############################
 :: Helper Functions
 :: #############################
+
+:: Get date formatted for report output - MM/dd/yyyy HH:mm:ss K 
+:GetReadableDate
+setlocal enabledelayedexpansion
+if "!TESTING!"=="true" (echo [DEBUG] Entered :GetReadableDate)
+set "READABLE_DATE="
+if "!WMIC_PRESENT!"=="true" (
+    for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
+    if "!TESTING!"=="true" (
+        echo [DEBUG] dt: !dt!
+        echo [DEBUG] Setting yyyy: %dt:~0,4%
+    )
+    set "yyyy=%dt:~0,4%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
+    set "dd=%dt:~6,2%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
+    set "MONTH=%dt:~4,2%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
+    set "HH=%dt:~8,2%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
+    set "mm=%dt:~10,2%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
+    set "ss=%dt:~12,2%"
+    if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
+    set "timezone=UTC%dt:~21,3%"
+    set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
+) else (
+    :: Parsing DATE and TIME depends on locale settings, we'll just use them as the output for simplicity
+    set "RAW_DATE=%DATE%"
+    set "RAW_TIME=%TIME%"
+    if "!TESTING!"=="true" (
+        echo [DEBUG] RAW_DATE: %RAW_DATE%
+        echo [DEBUG] RAW_TIME: %RAW_TIME%
+    )
+    set "READABLE_DATE=%RAW_DATE% %RAW_TIME%"
+)
+if "!TESTING!"=="true" (echo [DEBUG] Returning: %READABLE_DATE%)
+endlocal & set "RESULT=%READABLE_DATE%"
+goto :eof 
+
 
 :: #############################
 :GetWMICValue
@@ -907,7 +947,11 @@ goto :eof
 
 
 :: #############################
+:: Print Helper Functions
+:: #############################
 
+:: Print Section Header
+:: #############################
 :PrtSectionHeader
 if "!TESTING!"=="true" (
     echo ##########################
@@ -919,6 +963,30 @@ if "!TESTING!"=="true" (
 >> "%OUTFILE%" echo # %*
 >> "%OUTFILE%" echo ##########################
 goto :eof
+
+:: Print Cutsec Footer
+:: #############################
+:PrintCutsecFooter
+setlocal enabledelayedexpansion
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Called :PrintCutsecFooter
+    echo ##########################
+    echo # CHAPS Audit Script: !SCRIPTNAME! !SCRIPTVERSION!
+    echo # Brought to you by Cutaway Security, LLC
+    echo # For assessment and auditing help, contact info [@] cutawaysecurity.com
+    echo # For script help, contact dev [@] cutawaysecurity.com
+    echo ##########################
+)
+echo. >> "%OUTFILE%"
+echo ########################## >> "%OUTFILE%"
+echo # CHAPS Audit Script: !SCRIPTNAME! !SCRIPTVERSION! >> "!OUTFILE!"
+echo # Brought to you by Cutaway Security, LLC >> "!OUTFILE!"
+echo # For assessment and auditing help, contact info [@] cutawaysecurity.com >> "!OUTFILE!"
+echo # For script help, contact dev [@] cutawaysecurity.com >> "!OUTFILE!"
+echo ########################## >> "!OUTFILE!"
+if "!TESTING!"=="true" (echo [DEBUG] Finished :PrintCutsecFooter)
+goto :eof 
 
 :: #############################
 :: Modularized function checks
