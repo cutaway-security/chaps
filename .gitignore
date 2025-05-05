@@ -9,3 +9,4 @@
 *.xlsx
 *.json
 PowerSploit
+.DS_Store

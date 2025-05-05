@@ -15,7 +15,7 @@ setlocal enabledelayedexpansion
 :: #############################
 
 :: Set to "true" for debugging output (write to screen in addition to output file)
-set "TESTING=false"
+set "TESTING=true"
 
 :: Set COMPANY and SITENAME to empty string to disable
 set "COMPANY=Cutaway Security, LLC"
@@ -791,26 +791,37 @@ if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
 
 if "!TESTING!"=="true" (echo [DEBUG] Printing document footer)
 :: Get the current date and time components
-for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i 
+
+for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
+if "!TESTING!"=="true" (
+    echo [DEBUG] dt: !dt!
+    echo [DEBUG] Setting yyyy: %dt:~0,4%
+)
 set "yyyy=%dt:~0,4%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
 set "dd=%dt:~6,2%"
-set "MM=%dt:~4,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
+set "MONTH=%dt:~4,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
 set "HH=%dt:~8,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
 set "mm=%dt:~10,2%"
+if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
 set "ss=%dt:~12,2%"
 :: Format as MM/dd/yyyy HH:mm:ss K for readable date in report
+if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
 set "timezone=UTC%dt:~21,3%"
-set "STOP_TIME_READABLE=%MM%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
+set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
 
 if "!TESTING!"=="true" (
     echo ##########################
     echo # %SCRIPTNAME% completed
-    echo # Stop Time: %STOP_TIME_READABLE%
+    echo # Stop Time: %READABLE_DATE%
 )
 echo. >> "%OUTFILE%"
 echo ########################## >> "%OUTFILE%"
 echo # %SCRIPTNAME% completed >> "%OUTFILE%"
-echo # Stop Time: %STOP_TIME_READABLE% >> "%OUTFILE%"
+echo # Stop Time: %READABLE_DATE% >> "%OUTFILE%"
 echo # Report saved to: %OUTFILE%
 if "!TESTING!"=="true" (echo ##########################)
 echo ########################## >> "%OUTFILE%"
