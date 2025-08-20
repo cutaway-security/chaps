@@ -18,11 +18,11 @@ setlocal enabledelayedexpansion
 set "TESTING=true"
 
 :: Set COMPANY and SITENAME to empty string to disable
-set "COMPANY=Cutaway Security, LLC"
-set "SITENAME=Plant 1"
+set "COMPANY="
+set "SITENAME="
 
 :: Set CUTSEC_FOOTER to false to disable
-set "CUTSEC_FOOTER=true"
+set "CUTSEC_FOOTER=false"
 
 :: Get the current date and time components for setting output directory
 for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
@@ -49,8 +49,8 @@ if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
 set "timezone=UTC%dt:~21,3%"
 set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
 
-:: Report is saved to user's temp directory and uses computer name in filename by default
-set "OUTDIR=%TEMP%\%COMPUTERNAME%_%FILENAME_DATE%"
+:: Report is saved to current directory and uses computer name in filename by default
+set "OUTDIR=%CD%\%COMPUTERNAME%_%FILENAME_DATE%"
 set "OUTFILENAME=%COMPUTERNAME%_chaps.txt"
 set "SYSINFO_FILENAME=%COMPUTERNAME%_sysinfo.txt"
 
@@ -797,6 +797,30 @@ call :CheckRestrictAnonymous
 if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckRestrictAnonymous)
 
 :: #############################
+:: Check CachedLogonsCount Configuration
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckCachedLogons)
+call :CheckCachedLogons
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckCachedLogons)
+
+:: #############################
+:: Check RestrictRemoteClients Configuration
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckRestrictRemoteClients)
+call :CheckRestrictRemoteClients
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckRestrictRemoteClients)
+
+:: #############################
+:: Check if Windows Script Host Enabled
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckWindowsScriptHost)
+call :CheckWindowsScriptHost
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckWindowsScriptHost)
+
+:: #############################
+:: Check NTLM Session Security
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckNTLMSessionSec)
+call :CheckNTLMSessionSec
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckNTLMSessionSec)
+
+:: #############################
 :: Print Document Footer
 :: #############################
 
@@ -1045,8 +1069,8 @@ set "HKLM_AIE=0"
 set "HKCU_AIE=0"
 
 if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_AIE: !HKLM_AIE!
-    echo [DEBUG] HKCU_AIE: !HKCU_AIE!
+    echo [DEBUG] Default HKLM_AIE: !HKLM_AIE!
+    echo [DEBUG] Default HKCU_AIE: !HKCU_AIE!
 )
 
 :: Check HKLM
@@ -1095,7 +1119,7 @@ if "!HKLM_AIE!"=="1" (
 ) else (
     goto :not_elevated
 )
-goto :check_done
+goto :AEI_check_done
 
 :not_elevated
 echo [+] Users cannot install software as NT AUTHORITY\SYSTEM >> "%OUTFILE%"
@@ -1104,7 +1128,7 @@ if "!TESTING!"=="true" (
     echo [+] Users cannot install software as NT AUTHORITY\SYSTEM
     echo [*] AlwaysInstallElevated Registry Values: ^(HKLM=!HKLM_AIE!, HKCU=!HKCU_AIE!^)
 )
-:check_done
+:AEI_check_done
 if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckAlwaysInstallElevated)
 goto :eof 
 
@@ -1118,7 +1142,7 @@ if "!TESTING!"=="true" echo [DEBUG] Called CheckRestrictAnonymous
 set "HKLM_AAR=0"
 
 if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_AIE: !HKLM_AAR!
+    echo [DEBUG] Default HKLM_AIE: !HKLM_AAR!
 )
 
 :: Check HKLM
@@ -1150,7 +1174,7 @@ if "!HKLM_AAR!"=="0" (
 ) else (
     goto :AAR_configured
 )
-goto :check_done
+goto :AAR_check_done
 
 :AAR_configured
 echo [+] RestrictAnonymous registry key is configured >> "%OUTFILE%"
@@ -1159,6 +1183,550 @@ if "!TESTING!"=="true" (
     echo [+] RestrictAnonymous registry key is configured
     echo [*] LSA.RestrictAnonymous Registry HKLM Value: !HKLM_AAR!
 )
-:check_done
+:AAR_check_done
 if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRestrictAnonymous)
+goto :eof 
+
+:: #############################
+:: Check Cached Logon settings
+:CheckCachedLogons
+if "!TESTING!"=="true" echo [DEBUG] Called CheckCachedLogons
+
+:: Initialize default values
+set "HKLM_CLO=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_CLO !HKLM_CLO!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" HKLM_CLO
+call :GetRegistryValue "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" HKLM_CLO
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_CLO: !HKLM_CLO!
+)
+
+:: Now check values
+if not defined HKLM_CLO (
+    echo [*] CachedLogonsCount is not configured >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [*] CachedLogonsCount is not configured
+        )
+) else (
+    if "!TESTING!"=="true" (
+        echo [DEBUG] Converting HKLM_CLO to numeric
+    )
+    set /a HKLM_CLO_NUM=!HKLM_CLO!
+    if "!TESTING!"=="true" (
+        echo [DEBUG] Converted HKLM_CLO to numeric
+    )
+    if !HKLM_CLO_NUM! LSS 2 (
+        echo [+] CachedLogonsCount is set to: !HKLM_CLO_NUM! >> "%OUTFILE%"
+        if "!TESTING!"=="true" (
+            echo [+] CachedLogonsCount is set to: !HKLM_CLO_NUM!
+        )
+        goto :CLO_check_done
+    ) else (
+        echo [-] CachedLogonsCount is set to: !HKLM_CLO_NUM! >> "%OUTFILE%"
+        if "!TESTING!"=="true" (
+            echo [-] CachedLogonsCount is set to !HKLM_CLO_NUM!
+        )
+        goto :CLO_check_done
+    )
+)
+
+:CLO_check_done
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckCachedLogons)
+goto :eof 
+
+:: #############################
+:: Check RPC RestrictRemoteClients Configuration
+:CheckRestrictRemoteClients
+if "!TESTING!"=="true" echo [DEBUG] Called CheckRestrictRemoteClients
+
+:: Initialize default values
+set "HKLM_RRC=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_RRC !HKLM_RRC!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" HKLM_RRC
+call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" HKLM_RRC
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_RRC: !HKLM_RRC!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_RRC! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
+    set "HKLM_RRC=!HKLM_RRC:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_RRC: !HKLM_RRC!
+)
+:: Now check values
+if not defined HKLM_RRC (
+    echo [-] RPC RestrictRemoteClients is not configured >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] RPC RestrictRemoteClients is not configured
+        )
+    goto :RRC_check_done
+) else if "!HKLM_RRC!"=="1" (
+    echo [+] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Enabled >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated
+    )
+    goto :RRC_check_done
+) else if "!HKLM_RRC!"=="2" (
+    echo [-] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated without exceptions >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated without exceptions
+    )
+    goto :RRC_check_done
+) else (
+    echo [-] RPC RestrictRemoteClients is not enabled ^(invalid setting^): !HKLM_RRC!  >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] RPC RestrictRemoteClients is not enabled ^(invalid setting^): !HKLM_RRC! 
+        )
+    goto :RRC_check_done
+)
+
+:RRC_check_done
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRestrictRemoteClients)
+goto :eof
+
+:: #############################
+:: Check Windows Script Host Configuration
+:CheckWindowsScriptHost
+if "!TESTING!"=="true" echo [DEBUG] Called CheckWindowsScriptHost
+
+:: Initialize default value
+set "HKLM_WSH=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_WSH: !HKLM_WSH!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" HKLM_WSH
+call :GetRegistryValue "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" HKLM_WSH
+
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_WSH: !HKLM_WSH!
+    echo [DEBUG] HKCU_WSH: !HKCU_WSH!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_WSH! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
+    set "HKLM_WSH=!HKLM_WSH:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_WSH: !HKLM_WSH!
+)
+
+:: Now check values
+if "!HKLM_WSH!"=="1" (
+    echo [-] Windows Script Host is Enabled: HKLM = !HKLM_WSH! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] Windows Script Host is Enabled: HKLM = !HKLM_WSH!
+    )
+) else (
+    echo [+] Windows Script Host is Not Enabled >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] Windows Script Host is Not Enabled
+    )
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckWindowsScriptHost)
+goto :eof 
+
+:: #############################
+:: Check NTLMv2 Session Security Configuration
+:CheckNTLMSessionSec
+if "!TESTING!"=="true" echo [DEBUG] Called CheckNTLMSessionSec
+
+:: Initialize default values
+set "HKLM_NSS=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_NSS: !HKLM_NSS!
+)
+
+:: Check Server Session Security
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" HKLM_NSS
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" HKLM_NSS
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_NSS: !HKLM_NSS!
+)
+
+:: Convert from Hex to Dec
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_NSS! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Converting to Decimal value)
+    set /a "HKLM_NSS_DEC=!HKLM_NSS!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Converted HKLM_NSS_DEC: !HKLM_NSS_DEC!
+)
+
+:: Now check values
+if "!HKLM_NSS_DEC!"=="537395200" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [-] NTLM SSP server message integrity not required
+        echo [-] NTLM SSP server message confidentiality not required
+    )
+) else if "!HKLM_NSS_DEC!"=="537395232" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [-] NTLM SSP server message integrity not required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="537395248" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [+] NTLM SSP server message integrity is required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="537395216" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [+] NTLM SSP server message integrity is required
+        echo [-] NTLM SSP server message confidentiality is not required
+    )
+) else if "!HKLM_NSS_DEC!"=="536870912" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [-] NTLM SSP server message integrity is not required
+        echo [-] NTLM SSP server message confidentiality is not required
+    )
+) else if "!HKLM_NSS_DEC!"=="536870944" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [-] NTLM SSP server message integrity is not required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="536870960" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [+] NTLM SSP server 128-bit encryption is required
+        echo [+] NTLM SSP server message integrity is required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="524336" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [+] NTLM SSP server message integrity is required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="524320" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [-] NTLM SSP server message integrity is not required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="524304" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [+] NTLM SSP server message integrity is required
+        echo [-] NTLM SSP server message confidentiality is not required
+    )
+) else if "!HKLM_NSS_DEC!"=="524288" (
+    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [-] NTLM SSP server message integrity is not required
+        echo [-] NTLM SSP server message confidentiality is not required
+    )
+) else if "!HKLM_NSS_DEC!"=="16" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [+] NTLM SSP server message integrity is required
+        echo [-] NTLM SSP server message confidentiality is not required
+    )
+) else if "!HKLM_NSS_DEC!"=="48" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [+] NTLM SSP server message integrity is required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+) else if "!HKLM_NSS_DEC!"=="32" (
+    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 server session security is not required
+        echo [-] NTLM SSP server 128-bit encryption is not required
+        echo [-] NTLM SSP server message integrity is not required
+        echo [+] NTLM SSP server message confidentiality is required
+    )
+)
+
+echo [*] NtlmMinServerSec registry value: !HKLM_NSS_DEC! >> "%OUTFILE%"
+if "!TESTING!"=="true" (
+    echo [*] NtlmMinServerSec registry value: !HKLM_NSS_DEC!
+    echo [DEBUG] Completed NTLM Session Security Server check 
+)
+
+:: Check Client Session Security
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinClientSec" HKLM_NSC
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinClientSec" HKLM_NSC
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_NSC: !HKLM_NSC!
+)
+
+:: Convert from Hex to Dec
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_NSC! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Converting to Decimal value)
+    set /a "HKLM_NSC_DEC=!HKLM_NSC!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Converted HKLM_NSC_DEC: !HKLM_NSC_DEC!
+)
+
+:: Now check values
+if "!HKLM_NSC_DEC!"=="537395200" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [-] NTLM SSP client message integrity not required
+        echo [-] NTLM SSP client message confidentiality not required
+    )
+) else if "!HKLM_NSC_DEC!"=="537395232" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 server session security is required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [-] NTLM SSP client message integrity not required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="537395248" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [+] NTLM SSP client message integrity is required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="537395216" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [+] NTLM SSP client message integrity is required
+        echo [-] NTLM SSP client message confidentiality is not required
+    )
+) else if "!HKLM_NSC_DEC!"=="536870912" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [-] NTLM SSP client message integrity is not required
+        echo [-] NTLM SSP client message confidentiality is not required
+    )
+) else if "!HKLM_NSC_DEC!"=="536870944" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [-] NTLM SSP client message integrity is not required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="536870960" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [+] NTLM SSP client 128-bit encryption is required
+        echo [+] NTLM SSP client message integrity is required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="524336" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [+] NTLM SSP client message integrity is required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="524320" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [-] NTLM SSP client message integrity is not required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="524304" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [+] NTLM SSP client message integrity is required
+        echo [-] NTLM SSP client message confidentiality is not required
+    )
+) else if "!HKLM_NSC_DEC!"=="524288" (
+    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [+] NTLMv2 client session security is required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [-] NTLM SSP client message integrity is not required
+        echo [-] NTLM SSP client message confidentiality is not required
+    )
+) else if "!HKLM_NSC_DEC!"=="16" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [+] NTLM SSP client message integrity is required
+        echo [-] NTLM SSP client message confidentiality is not required
+    )
+) else if "!HKLM_NSC_DEC!"=="48" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [+] NTLM SSP client message integrity is required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+) else if "!HKLM_NSC_DEC!"=="32" (
+    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
+    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
+    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] NTLMv2 client session security is not required
+        echo [-] NTLM SSP client 128-bit encryption is not required
+        echo [-] NTLM SSP client message integrity is not required
+        echo [+] NTLM SSP client message confidentiality is required
+    )
+)
+
+echo [*] NtlmMinClientSec registry value: !HKLM_NSC_DEC! >> "%OUTFILE%"
+if "!TESTING!"=="true" (
+    echo [*] NtlmMinClientSec registry value: !HKLM_NSC_DEC!
+    echo [DEBUG] Completed NTLM Session Security Client check 
+    echo [DEBUG] Completed :CheckNTLMSessionSec
+)
 goto :eof 
