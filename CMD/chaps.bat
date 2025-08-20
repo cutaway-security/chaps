@@ -433,6 +433,12 @@ if "!IPv6_FOUND!"=="false" (
     echo [*] No non-link-local IPv6 address detected >> "%OUTFILE%"
 )
 
+:: Anonymous Access Restrictions Check
+if "!TESTING!"=="true" (echo [DEBUG] Checking LSA Restrict Anonymous configured)
+echo. >> "%OUTFILE%"
+:: Query LSA\restrictanonymous value from registry
+
+
 :: Auto Update Registry Check
 if "!TESTING!"=="true" (echo [DEBUG] Checking Auto Update Registry configuration)
 echo. >> "%OUTFILE%"
@@ -784,6 +790,11 @@ if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckAlwaysInstallElevated)
 call :CheckAlwaysInstallElevated
 if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
 
+:: #############################
+:: Check RestrictAnonymous Configuration
+if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckRestrictAnonymous)
+call :CheckRestrictAnonymous
+if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckRestrictAnonymous)
 
 :: #############################
 :: Print Document Footer
@@ -1097,3 +1108,57 @@ if "!TESTING!"=="true" (
 if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckAlwaysInstallElevated)
 goto :eof 
 
+:: ADDING
+:: #############################
+:: Check Anonymous Access Restrictions settings
+:CheckRestrictAnonymous
+if "!TESTING!"=="true" echo [DEBUG] Called CheckRestrictAnonymous
+
+:: Initialize default values
+set "HKLM_AAR=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_AIE: !HKLM_AAR!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RestrictAnonymous" HKLM_AAR
+call :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RestrictAnonymous" HKLM_AAR
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_ARR: !HKLM_AAR!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_AAR! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
+    set "HKLM_AAR=!HKLM_AAR:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_AAR: !HKLM_AAR!
+)
+
+:: Now check values
+if "!HKLM_AAR!"=="0" (
+    echo [-] RestrictAnonymous registry key is not configured >> "%OUTFILE%"
+    if "!TESTING!"=="true" (
+        echo [-] RestrictAnonymous registry key is not configured
+        )
+) else (
+    goto :AAR_configured
+)
+goto :check_done
+
+:AAR_configured
+echo [+] RestrictAnonymous registry key is configured >> "%OUTFILE%"
+echo [*] LSA.RestrictAnonymous Registry HKLM Value: !HKLM_AAR! >> "%OUTFILE%"
+if "!TESTING!"=="true" (
+    echo [+] RestrictAnonymous registry key is configured
+    echo [*] LSA.RestrictAnonymous Registry HKLM Value: !HKLM_AAR!
+)
+:check_done
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRestrictAnonymous)
+goto :eof 
