@@ -898,64 +898,34 @@ if "!CheckWINSConfigEnabled!"=="true" (
 )
 
 :: #############################
-:: Print Document Footer
+:: Print the Footers and Finish
 :: #############################
 
-if "!TESTING!"=="true" (echo [DEBUG] Printing document footer)
-:: Get the current date and time components
+:: Print Document Footer
+if "!TESTING!"=="true" (echo [DEBUG] Calling :PrintDocumentFooter)
+call :PrintDocumentFooter
 
-for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
-if "!TESTING!"=="true" (
-    echo [DEBUG] dt: !dt!
-    echo [DEBUG] Setting yyyy: %dt:~0,4%
-)
-set "yyyy=%dt:~0,4%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
-set "dd=%dt:~6,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
-set "MONTH=%dt:~4,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
-set "HH=%dt:~8,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
-set "mm=%dt:~10,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
-set "ss=%dt:~12,2%"
-:: Format as MM/dd/yyyy HH:mm:ss K for readable date in report
-if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
-set "timezone=UTC%dt:~21,3%"
-set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
-
-if "!TESTING!"=="true" (
-    echo ##########################
-    echo # %SCRIPTNAME% completed
-    echo # Stop Time: %READABLE_DATE%
-)
-echo. >> "%OUTFILE%"
-echo ########################## >> "%OUTFILE%"
-echo # %SCRIPTNAME% completed >> "%OUTFILE%"
-echo # Stop Time: %READABLE_DATE% >> "%OUTFILE%"
-echo # Report saved to: %OUTFILE%
-if "!TESTING!"=="true" (echo ##########################)
-echo ########################## >> "%OUTFILE%"
-
+:: #############################
 :: Print Cutsec Footer
-if "!TESTING!"=="true" (echo [DEBUG] Checking if CutSec Footer should be printed)
 if "%CUTSEC_FOOTER%"=="true" (
     if "!TESTING!"=="true" (echo [DEBUG] Calling :PrintCutsecFooter)
     call :PrintCutsecFooter
     if "!TESTING!"=="true" (echo [DEBUG] Returned from :PrintCutsecFooter)
 )
+
+
+:: #############################
+:: Exit the Script
 if "!TESTING!"=="true" (echo [DEBUG] Finished - exiting script)
 :: If script started by double-clicking file, then pause so cmd window stays open
 set "CMDLINE="
 for /f "delims=" %%i in ('cmd /c "echo !cmdcmdline!"') do set "CMDLINE=%%i"
 if "!TESTING!"=="true" (echo [DEBUG] CMDLINE: !CMDLINE!)
 if "!CMDLINE:~0,3!"=="/c """ (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] Script was launched by double-click. Pausing...
-        pause
-    )
+    if "!TESTING!"=="true" ( echo [DEBUG] Script was launched by double-click. Pausing...)
+    pause
 )
+
 :: End the script safely
 goto :eof 
 
@@ -1037,7 +1007,9 @@ if "!WMIC_PRESENT!"=="true" (
 
 :get_date_done
 if "!TESTING!"=="true" (echo [DEBUG] Returning: !DATE_OUTPUT!)
-endlocal & set "RESULT=!DATE_OUTPUT!"
+for /f "delims=" %%# in ("!DATE_OUTPUT!") do (
+    endlocal & set "RESULT=%%#"
+)
 goto :eof 
 
 :: #############################
@@ -1086,20 +1058,6 @@ goto :eof
 :: Helper Functions - Printing Report
 :: #############################
 
-:: Print Section Header
-:PrtSectionHeader
-if "!TESTING!"=="true" (
-    echo ##########################
-    echo # %*
-    echo ##########################
-)
->> "%OUTFILE%" echo.
->> "%OUTFILE%" echo ##########################
->> "%OUTFILE%" echo # %*
->> "%OUTFILE%" echo ##########################
-goto :eof
-
-:: #############################
 :: Print Cutsec Footer
 :PrintCutsecFooter
 setlocal enabledelayedexpansion
@@ -1122,6 +1080,47 @@ echo # For script help, contact dev [@] cutawaysecurity.com >> "!OUTFILE!"
 echo ########################## >> "!OUTFILE!"
 if "!TESTING!"=="true" (echo [DEBUG] Finished :PrintCutsecFooter)
 goto :eof 
+
+:: #############################
+:: Print Document Footer
+:PrintDocumentFooter
+@echo off
+setlocal enabledelayedexpansion
+
+if "!TESTING!"=="true" (echo [DEBUG] Called :PrintDocumentFooter)
+:: Get the current date and time components
+call :GetDate readable
+set "FINISH_TIME=!RESULT!"
+
+if "!TESTING!"=="true" (
+    echo ##########################
+    echo # %SCRIPTNAME% completed
+    echo # Stop Time: !FINISH_TIME!
+    echo ##########################
+)
+echo. >> "%OUTFILE%"
+echo ########################## >> "%OUTFILE%"
+echo # %SCRIPTNAME% completed >> "%OUTFILE%"
+echo # Stop Time: !FINISH_TIME! >> "%OUTFILE%"
+echo ########################## >> "%OUTFILE%"
+echo # Report saved to: %OUTFILE%
+echo ##########################
+
+endlocal & goto :eof
+
+:: #############################
+:: Print Section Header
+:PrtSectionHeader
+if "!TESTING!"=="true" (
+    echo ##########################
+    echo # %*
+    echo ##########################
+)
+>> "%OUTFILE%" echo.
+>> "%OUTFILE%" echo ##########################
+>> "%OUTFILE%" echo # %*
+>> "%OUTFILE%" echo ##########################
+goto :eof
 
 :: #############################
 :: Helper Functions - WMIC
