@@ -24,35 +24,68 @@ set "SITENAME="
 :: Set CUTSEC_FOOTER to false to disable
 set "CUTSEC_FOOTER=false"
 
-:: Get the current date and time components for setting output directory
-for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
-if "!TESTING!"=="true" (
-    echo [DEBUG] dt: !dt!
-    echo [DEBUG] Setting yyyy: %dt:~0,4%
-)
-set "yyyy=%dt:~0,4%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
-set "dd=%dt:~6,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
-set "MONTH=%dt:~4,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
-set "HH=%dt:~8,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
-set "mm=%dt:~10,2%"
-if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
-set "ss=%dt:~12,2%"
-:: Format as yyyyddMM_HHmmss for the filename
-if "!TESTING!"=="true" (echo [DEBUG] Setting FILENAME_DATE: %yyyy%%dd%%MONTH%_%HH%%mm%%ss%)
-set "FILENAME_DATE=%yyyy%%dd%%MONTH%_%HH%%mm%%ss%"
-:: Format as MM/dd/yyyy HH:mm:ss K for readable date in report
-if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
-set "timezone=UTC%dt:~21,3%"
-set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
-
-:: Report is saved to current directory and uses computer name in filename by default
-set "OUTDIR=%CD%\%COMPUTERNAME%_%FILENAME_DATE%"
+:: Configure the output directory and filenames
+set "OUTDIR=%CD%"
 set "OUTFILENAME=%COMPUTERNAME%_chaps.txt"
 set "SYSINFO_FILENAME=%COMPUTERNAME%_sysinfo.txt"
+
+:: Enable/Disable Specific Checks - Set to false to disable
+set "CheckAlwaysInstallElevatedEnabled=false"
+set "CheckCachedLogonsEnabled=false"
+set "CheckGPOProcessingEnabled=false"
+set "CheckInteractiveLoginEnabled=false"
+set "CheckLanmanEnabled=false"
+set "CheckNTLMSessionSecEnabled=false"
+set "CheckRDPDenyEnabled=false"
+set "CheckRestrictAnonymousEnabled=false"
+set "CheckRestrictRemoteClientsEnabled=false"
+set "CheckWDigestEnabled=false"
+set "CheckWindowsScriptHostEnabled=false"
+set "CheckWINSConfigEnabled=false"
+
+:: #############################
+:: Perform basic checks to help with script flow
+:: #############################
+
+:: Check if WMIC is available and set flag
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWMICAvailable)
+call :CheckWMICAvailable
+if "!TESTING!"=="true" (
+    echo [DEBUG] Returned from CheckWMICAvailable
+    echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!
+)
+
+if "!WMIC_PRESENT!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :SetWMICExe)
+    call :SetWMICExe
+    if "!TESTING!"=="true" (
+        echo [DEBUG] Returned from :SetWMICExe
+        echo [DEBUG] WMIC_EXE: !WMIC_EXE!
+    )
+)
+
+:: Get the current date and time components for setting output directory
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetDate filename)
+call :GetDate filename 
+if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetDate with RESULT: !RESULT!)
+
+set "FILENAME_DATE=!RESULT!"
+if "!TESTING!"=="true" ( 
+    echo [DEBUG] FILENAME_DATE: !FILENAME_DATE!
+    echo [DEBUG] Calling :GetDate readable 
+)
+call :GetDate readable
+if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetDate with RESULT: !RESULT!)
+set "READABLE_DATE=!RESULT!"
+if "!TESTING!"=="true" ( echo [DEBUG] READABLE_DATE: !READABLE_DATE!)
+
+:: Create output directory if it doesn't exist
+set "OUTDIR=!OUTDIR!\%COMPUTERNAME%_%FILENAME_DATE%"
+if "!TESTING!"=="true" ( echo [DEBUG] Checking for !OUTDIR!)
+if not exist "!OUTDIR!" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Creating OUTDIR: !OUTDIR!)
+    mkdir "!OUTDIR!" >nul 2>&1
+)
 
 :: #############################
 :: Set Non-Configurable Variables
@@ -63,24 +96,6 @@ set "SCRIPTVERSION=1.0.0"
 set "OUTFILE=%OUTDIR%\%OUTFILENAME%"
 set "SYSINFO_FILE=%OUTDIR%\%SYSINFO_FILENAME%"
 
-:: Check if WMIC is available and set flag
-if "!TESTING!"=="true" (echo [DEBUG] Testing if WMIC is available)
-where wmic >nul 2>&1
-if %errorlevel%==0 (
-    set "WMIC_PRESENT=true"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_PRESENT to true)
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_PRESENT to false)
-    set "WMIC_PRESENT=false"
-)
-if "!TESTING!"=="true" (echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
-
-:: Create output directory if it doesn't exist
-if "!TESTING!"=="true" (echo [DEBUG] Checking for !OUTDIR!)
-if not exist "!OUTDIR!" (
-    if "!TESTING!"=="true" (echo [DEBUG] Creating OUTDIR: !OUTDIR!)
-    mkdir "!OUTDIR!" >nul 2>&1
-)
 
 if "!TESTING!"=="true" (
     echo [DEBUG] COMPANY: !COMPANY!
@@ -111,47 +126,27 @@ if "!TESTING!"=="true" (
     echo [DEBUG] Create outfile and begin writing to it 
     echo ##########################
     echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%
-    if defined COMPANY (echo # Auditing Company: %COMPANY%)
-    if defined SITENAME (echo # Site/Plant: %SITENAME%)
+    if defined COMPANY ( echo # Auditing Company: %COMPANY%)
+    if defined SITENAME ( echo # Site/Plant: %SITENAME%)
     echo ##########################
     echo # Computer Name: %COMPUTERNAME%
     echo # Start Time: %READABLE_DATE%
 )
 echo ########################## > "%OUTFILE%"
 echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
-if defined COMPANY (echo # Auditing Company: %COMPANY% >> "%OUTFILE%")
-if defined SITENAME (echo # Site/Plant: %SITENAME% >> "%OUTFILE%")
+if defined COMPANY ( echo # Auditing Company: %COMPANY% >> "%OUTFILE%")
+if defined SITENAME ( echo # Site/Plant: %SITENAME% >> "%OUTFILE%")
 echo ########################## >> "%OUTFILE%"
 echo # Computer Name: %COMPUTERNAME% >> "%OUTFILE%"
 echo # Start Time: %READABLE_DATE% >> "%OUTFILE%"
 
-:: ###########################
-:: Check Admin Rights
-:: ###########################
+:: Check Admin rights
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckAdminRights)
+call :CheckAdminRights
 if "!TESTING!"=="true" (
-    echo [DEBUG] Checking Admin Rights
-    echo [DEBUG] Setting ADMIN_RIGHTS to false
+    echo [DEBUG] Returned from :CheckAdminRights
 )
-set "ADMIN_RIGHTS=false"
 if "!TESTING!"=="true" (
-    echo [DEBUG] Checking Administrator permissions using whoami
-)
-whoami /groups | findstr /i "S-1-5-32-544" >nul
-if "!TESTING!"=="true" (echo [DEBUG] whoami errorlevel: %errorlevel%)
-if %errorlevel%==0 (
-    if "!TESTING!"=="true" (
-        echo [+] Script running as Administrator
-        echo [DEBUG] Setting ADMIN_RIGHTS to true
-    )
-    set "ADMIN_RIGHTS=true"
-    echo [+] Script running as Administrator >> "%OUTFILE%"
-) else (
-    if "!TESTING!"=="true" (echo [x] Script NOT running as Administrator)
-    echo [x] Script NOT running as Administrator >> "%OUTFILE%"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] ADMIN_RIGHTS: !ADMIN_RIGHTS!
     echo ##########################
 )
 echo ########################## >> "%OUTFILE%"
@@ -182,8 +177,8 @@ if "!TESTING!"=="true" (
 :: Get Poduct Name
 if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Product Name)
 if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Caption)
-    call :GetWMICValue os Caption
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Caption value)
+    call :GetWMICValue os Caption value 
     if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME using RESULT: !RESULT!)
     set "OS_NAME=!RESULT!"
 )
@@ -191,8 +186,8 @@ if "!WMIC_PRESENT!"=="true" (
 :: Get System Type
 if "!TESTING!"=="true" (echo [DEBUG] Attempting to get System Type)
 if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem SystemType)
-    call :GetWMICValue computersystem SystemType
+    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem SystemType value)
+    call :GetWMICValue computersystem SystemType value
     if "!TESTING!"=="true" (echo [DEBUG] Setting SYS_TYPE to !RESULT!)
     set "SYS_TYPE=!RESULT!"
     if "!TESTING!"=="true" (echo [DEBUG] SYS_TYPE: !SYS_TYPE!)
@@ -205,8 +200,8 @@ if "!WMIC_PRESENT!"=="true" (
 :: Get OS Version
  if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Version)
  if "!WMIC_PRESENT!"=="true" (
-     if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version)
-     call :GetWMICValue os Version
+     if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version value)
+     call :GetWMICValue os Version value
      if "!TESTING!"=="true" (echo [DEBUG] Setting OS_VERSION_FULL to !RESULT!)
      set "OS_VERSION_FULL=!RESULT!"
  ) else (
@@ -286,8 +281,8 @@ if !TESTING!=="true" (
 if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Architecture)
 
 if "!WMIC_PRESENT!"=="true" (    
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture)
-    call :GetWMICValue os OSArchitecture
+    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture value)
+    call :GetWMICValue os OSArchitecture value
     if "!TESTING!"=="true" (echo [DEBUG] Setting OS_ARCH: !RESULT!)
     set "OS_ARCH=!RESULT!"
 ) 
@@ -312,8 +307,8 @@ if "!OS_ARCH!"=="Unknown" (
 :: Get Domain / Workgroup
 if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Domain/Workgroup)
 if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem Domain)
-    call :GetWMICValue computersystem Domain
+    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem Domain value)
+    call :GetWMICValue computersystem Domain value
     if "!TESTING!"=="true" (echo [DEBUG] Setting DOMAIN: !RESULT!)
     set "DOMAIN=!RESULT!"
 ) else (
@@ -738,7 +733,7 @@ if "!TESTING!"=="true" (
     echo [DEBUG] adminList: !adminList!
 )
 
-:: — Loop through each line of the net localgroup output
+:: Loop through each line of the net localgroup output
 for /f "tokens=* delims=" %%L in ('net localgroup Administrators') do (
     if "!TESTING!"=="true" (
         echo [DEBUG] Checking line in net localgroup output
@@ -775,50 +770,132 @@ if "!TESTING!"=="true" (
     echo [DEBUG] adminList: !adminList!
 )
 if !numAdmins! GTR 1 (
-    if "!TESTING!"=="true" echo [-] More than one account is in local Administrators group: %numAdmins%
+    if "!TESTING!"=="true" ( echo [-] More than one account is in local Administrators group: %numAdmins%)
     echo [-] More than one account is in local Administrators group: %numAdmins% >> "%OUTFILE%"
 ) else (
-    if "!TESTING!"=="true" echo [+] One account in local Administrators group
+    if "!TESTING!"=="true" ( echo [+] One account in local Administrators group )
     echo [+] One account in local Administrators group >> "%OUTFILE%"
 )
-if "!TESTING!"=="true" echo [*] Administrator Account Groups: !adminList!
+if "!TESTING!"=="true" ( echo [*] Administrator Account Groups: !adminList!)
 echo [*] Administrator Accounts: !adminList! >> "%OUTFILE%"
 
 :: #############################
 :: Check AlwaysInstallElevated Privileges
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckAlwaysInstallElevated)
-call :CheckAlwaysInstallElevated
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
+if "!CheckAlwaysInstallElevatedEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckAlwaysInstallElevated)
+    call :CheckAlwaysInstallElevated
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
+) else (
+if "!TESTING!"=="true" ( echo [DEBUG] CheckAlwaysInstallElevatedEnabled : !CheckAlwaysInstallElevatedEnabled!)
+)
 
 :: #############################
 :: Check RestrictAnonymous Configuration
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckRestrictAnonymous)
-call :CheckRestrictAnonymous
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckRestrictAnonymous)
+if "!CheckRestrictAnonymousEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRestrictAnonymous)
+    call :CheckRestrictAnonymous
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRestrictAnonymous)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckRestrictAnonymousEnabled: !CheckRestrictAnonymousEnabled!)
+)
 
 :: #############################
 :: Check CachedLogonsCount Configuration
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckCachedLogons)
-call :CheckCachedLogons
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckCachedLogons)
-
+if "!CheckCachedLogonsEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckCachedLogons)
+    call :CheckCachedLogons
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckCachedLogons)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckCachedLogonsEnabled: !CheckCachedLogonsEnabled!)
+)
 :: #############################
 :: Check RestrictRemoteClients Configuration
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckRestrictRemoteClients)
-call :CheckRestrictRemoteClients
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckRestrictRemoteClients)
-
+if "!CheckRestrictRemoteClientsEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRestrictRemoteClients)
+    call :CheckRestrictRemoteClients
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRestrictRemoteClients)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckRestrictRemoteClientsEnabled: !CheckRestrictRemoteClientsEnabled!)
+)
 :: #############################
 :: Check if Windows Script Host Enabled
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckWindowsScriptHost)
-call :CheckWindowsScriptHost
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckWindowsScriptHost)
-
+if "!CheckWindowsScriptHostEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWindowsScriptHost)
+    call :CheckWindowsScriptHost
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWindowsScriptHost)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckWindowsScriptHostEnabled: !CheckWindowsScriptHostEnabled!)
+)
 :: #############################
 :: Check NTLM Session Security
-if "!TESTING!"=="true" (echo [DEBUG] Calling :CheckNTLMSessionSec)
-call :CheckNTLMSessionSec
-if "!TESTING!"=="true" (echo [DEBUG] Returned from :CheckNTLMSessionSec)
+if "!CheckNTLMSessionSecEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckNTLMSessionSec)
+    call :CheckNTLMSessionSec
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckNTLMSessionSec)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckNTLMSessionSecEnabled: !CheckNTLMSessionSecEnabled!)
+)
+:: #############################
+:: Check LANMAN
+if "!CheckLanmanEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckLanman)
+    call :CheckLanman
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckLanman)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckLanmanEnabled: !CheckLanmanEnabled!)
+)
+
+:: #############################
+:: Check RDP Deny
+if "!CheckRDPDenyEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRDPDeny)
+    call :CheckRDPDeny
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRDPDeny)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckRDPDenyEnabled: !CheckRDPDenyEnabled!)
+)
+:: #############################
+:: Check WDigest Credential Storing
+if "!CheckWDigestEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWDigest)
+    call :CheckWDigest
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWDigest)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckWDigestEnabled: !CheckWDigestEnabled!)
+)
+:: #############################
+:: Check Interactive Login
+if "!CheckInteractiveLoginEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckInteractiveLogin)
+    call :CheckInteractiveLogin
+    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckInteractiveLogin)
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckInteractiveLoginEnabled: !CheckInteractiveLoginEnabled!)
+)
+:: #############################
+:: Check GPO Re-Processing Policy
+if "!CheckGPOProcessingEnabled!"=="true" (
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckGPOProcessing)
+call :CheckGPOProcessing
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckGPOProcessingEnabled: !CheckGPOProcessingEnabled!)
+)
+:: #############################
+:: Check WINSConfig
+:: Requires WMIC for check
+if "!CheckWINSConfigEnabled!"=="true" (
+    if "!TESTING!"=="true" ( echo [DEBUG] [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
+    if "!WMIC_PRESENT!"=="true" (
+        if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWINSConfig)
+        call :CheckWINSConfig
+        if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWINSConfig)
+    ) else (
+        if "!TESTING!"=="true" ( echo [*] WINSConfig check requires WMIC to be present)
+        echo [*] WINSConfig check requires WMIC to be present >> %OUTFILE%
+    )
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] CheckWINSConfigEnabled: !CheckWINSConfigEnabled!)
+)
 
 :: #############################
 :: Print Document Footer
@@ -887,106 +964,129 @@ goto :eof
 :: Helper Functions
 :: #############################
 
-:: Get date formatted for report output - MM/dd/yyyy HH:mm:ss K 
-:GetReadableDate
+:: Get date formatted for either report or filename
+:: Call with :GetDate [readable/filename]
+:GetDate
+@echo off 
 setlocal enabledelayedexpansion
-if "!TESTING!"=="true" (echo [DEBUG] Entered :GetReadableDate)
+if "!TESTING!"=="true" ( echo [DEBUG] Entered :GetDate)
+set "dateFormat=%~1"
+if "!TESTING!"=="true" ( echo [DEBUG] Entered :GetDate with format: !dateFormat!)
+
 set "READABLE_DATE="
 if "!WMIC_PRESENT!"=="true" (
-    for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
+    if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetWMICValue os localdatetime value)
+    call :GetWMICValue os localdatetime value
+    set dt=!RESULT!
+    :: for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
     if "!TESTING!"=="true" (
         echo [DEBUG] dt: !dt!
-        echo [DEBUG] Setting yyyy: %dt:~0,4%
+        echo [DEBUG] Setting yyyy: !dt:~0,4!
+        echo [DEBUG] Setting dd: !dt:~6,2!
+        echo [DEBUG] Setting MONTH: !dt:~4,2!
+        echo [DEBUG] Setting HH: !dt:~8,2!
+        echo [DEBUG] Setting mm: !dt:~10,2!
+        echo [DEBUG] Setting ss: !dt:~12,2!
+        echo [DEBUG] Setting timezone: UTC!dt:~21,3!
     )
-    set "yyyy=%dt:~0,4%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting dd: %dt:~6,2%)
-    set "dd=%dt:~6,2%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting MONTH: %dt:~4,2%)
-    set "MONTH=%dt:~4,2%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting HH: %dt:~8,2%)
-    set "HH=%dt:~8,2%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting mm: %dt:~10,2%)
-    set "mm=%dt:~10,2%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting ss: %dt:~12,2%)
-    set "ss=%dt:~12,2%"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting timezone: %dt:~21,3%)
-    set "timezone=UTC%dt:~21,3%"
-    set "READABLE_DATE=%MONTH%/%dd%/%yyyy% %HH%:%mm%:%ss% %timezone%"
+    set "yyyy=!dt:~0,4!"
+    set "dd=!dt:~6,2!"
+    set "MONTH=!dt:~4,2!"
+    set "HH=!dt:~8,2!"
+    set "mm=!dt:~10,2!"
+    set "ss=!dt:~12,2!"
+    set "timezone=UTC!dt:~21,3!"
+    if "!dateFormat!"=="readable" (
+        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to READABLE_DATE: !MONTH!/!dd!/!yyyy! !HH!:!mm!:!ss! !timezone!)
+        set "DATE_OUTPUT=!MONTH!/!dd!/!yyyy! !HH!:!mm!:!ss! !timezone!"
+        goto get_date_done
+    ) else if "!dateFormat!"=="filename" (
+        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FILENAME_DATE: !yyyy!-!MONTH!-!dd!_!HH!!mm!!ss!)
+        set "DATE_OUTPUT=!yyyy!-!MONTH!-!dd!_!HH!!mm!!ss!"
+        goto get_date_done
+    ) else (
+        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FALLBACK_DATE: !yyyy!-!mm!-!dd!)
+        set "DATE_OUTPUT=!yyyy!-!mm!-!dd!"
+        goto get_date_done
+    )
 ) else (
-    :: Parsing DATE and TIME depends on locale settings, we'll just use them as the output for simplicity
+    :: Parsing DATE and TIME depends on locale settings
     set "RAW_DATE=%DATE%"
     set "RAW_TIME=%TIME%"
     if "!TESTING!"=="true" (
-        echo [DEBUG] RAW_DATE: %RAW_DATE%
-        echo [DEBUG] RAW_TIME: %RAW_TIME%
+        echo [DEBUG] RAW_DATE: !RAW_DATE!
+        echo [DEBUG] RAW_TIME: !RAW_TIME!
     )
-    set "READABLE_DATE=%RAW_DATE% %RAW_TIME%"
+    if "!dateFormat!"=="readable" (
+        :: We'll just use the raw output for the readable date
+        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to READABLE_DATE: !RAW_DATE! !RAW_TIME!)
+        set "DATE_OUTPUT=!RAW_DATE! !RAW_TIME!"
+        goto get_date_done
+    ) else (
+        :: We'll just extract the digits from the date, it'll probably be ddmmyyyy, yyyymmdd, or mmddyyyy
+        set "DATE_OUTPUT="
+        for /l %%I in (0,1,31) do (
+            set "char=!RAW_DATE:~%%I,1!"
+            if "!char!"=="" goto get_date_done
+            for %%D in (0 1 2 3 4 5 6 7 8 9) do if "!char!"=="%%D" set "DATE_OUTPUT=!DATE_OUTPUT!!char!"
+        )
+        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FILENAME_DATE: !DATE_OUTPUT!)
+        goto get_date_done
+    )
 )
-if "!TESTING!"=="true" (echo [DEBUG] Returning: %READABLE_DATE%)
-endlocal & set "RESULT=%READABLE_DATE%"
+
+:get_date_done
+if "!TESTING!"=="true" (echo [DEBUG] Returning: !DATE_OUTPUT!)
+endlocal & set "RESULT=!DATE_OUTPUT!"
 goto :eof 
 
-
 :: #############################
-:GetWMICValue
-@echo off
+:: Check for Admin RIghts
+:CheckAdminRights
+@echo off 
 setlocal enabledelayedexpansion
 
-:: Cache parameters to local variables
-set "WMIC_CLASS=%~1"
-set "WMIC_PROPERTY=%~2"
 if "!TESTING!"=="true" (
-    echo [DEBUG] Called GetWMICValue
-    echo [DEBUG] WMIC_CLASS: !WMIC_CLASS!
-    echo [DEBUG] WMIC_PROPERTY: !WMIC_PROPERTY!  
+    echo [DEBUG] Called :CheckAdminRights
+    echo [DEBUG] Checking Administrator permissions using whoami
 )
 
-:: Set WMIC_EXE based on 32- or 64-bit Windows
-if exist "%windir%\sysnative\wbem\wmic.exe" (
-    set "WMIC_EXE=%windir%\sysnative\wbem\wmic.exe"
+whoami /groups | findstr /i "S-1-5-32-544" >nul
+if %errorlevel%==0 (
+    if "!TESTING!"=="true" ( echo [+] Script running as Administrator)
+    echo [+] Script running as Administrator >> "%OUTFILE%"
 ) else (
-    set "WMIC_EXE=%windir%\system32\wbem\wmic.exe"
-)
-if "!TESTING!"=="true" (echo [DEBUG] WMIC_EXE: !WMIC_EXE!)
-
-if "!TESTING!"=="true" (echo [DEBUG] Attempting: wmic !WMIC_CLASS! get !WMIC_PROPERTY!)
-for /f "tokens=2 delims==" %%L in ('"%WMIC_EXE%" !WMIC_CLASS! get !WMIC_PROPERTY! /format:list 2^>nul') do (
-    if "!TESTING!"=="true" (echo [DEBUG] WMIC Result: %%L)
-    endlocal & set "RESULT=%%L"
-    goto :wmic_returned
+    if "!TESTING!"=="true" ( echo [x] Script NOT running as Administrator)
+    echo [x] Script NOT running as Administrator >> "%OUTFILE%"
 )
 
-:: If we fell through, there was nothing
-if "!TESTING!"=="true" (echo [DEBUG] WMIC returned nothing)
-endlocal & set "RESULT=Unknown"
-goto :wmic_returned
-
-:wmic_returned
-if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
-goto :eof
+endlocal & goto :eof 
 
 :: #############################
-:GetRegistryValue
-:: %1 = registry path
-:: %2 = value name
-:: %3 = output variable name
+:: Sanitize Value
+:SanitizeValue
 setlocal enabledelayedexpansion
-set "outval=0"
+set "val=%~1"
+if "!TESTING!"=="true" ( echo [DEBUG] Called :SanitizeValue !val!)
 
-for /f "tokens=3" %%A in ('reg query "%~1" /v %2 2^>nul') do (
-    set "outval=%%A"
-)
+:: Trim leading/trailing spaces
+for /f "tokens=* delims=" %%A in ("!val!") do set "val=%%A"
 
-endlocal & set "%~3=%outval%"
-goto :eof
+:: Strip outer single quotes if present
+if "!val:~0,1!"=="'" if "!val:~-1!"=="'" set "val=!val:~1,-1!"
 
+:: Remove stray CR/LF by re-tokenizing once more
+for /f "tokens=* delims=" %%# in ("!val!") do set "val=%%#"
+
+endlocal & set "CLEANED_VALUE=%val%"
+if "!TESTING!"=="true" ( echo [DEBUG] Finished :SanitizedValue CLEANED_VALUE: !CLEANED_VALUE!)
+goto :eof 
 
 :: #############################
-:: Print Helper Functions
+:: Helper Functions - Printing Report
 :: #############################
 
 :: Print Section Header
-:: #############################
 :PrtSectionHeader
 if "!TESTING!"=="true" (
     echo ##########################
@@ -999,8 +1099,8 @@ if "!TESTING!"=="true" (
 >> "%OUTFILE%" echo ##########################
 goto :eof
 
-:: Print Cutsec Footer
 :: #############################
+:: Print Cutsec Footer
 :PrintCutsecFooter
 setlocal enabledelayedexpansion
 
@@ -1024,11 +1124,121 @@ if "!TESTING!"=="true" (echo [DEBUG] Finished :PrintCutsecFooter)
 goto :eof 
 
 :: #############################
-:: Modularized function checks
+:: Helper Functions - WMIC
 :: #############################
+:CheckWMICAvailable
+@echo off
+
+if "!TESTING!"=="true" ( echo [DEBUG] Called :CheckWMICAvailable)
+where wmic >nul 2>&1
+if %errorlevel%==0 (
+    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_PRESENT to true)
+    set "WMIC_PRESENT=true"
+) else (
+    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_PRESENT to false)
+    set "WMIC_PRESENT=false"
+)
+if "!TESTING!"=="true" (echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
+goto :eof
+
+:: Set WMIC_EXE based on 32- or 64-bit Windows
+:: #############################
+:SetWMICExe
+@echo off
+
+if "!TESTING!"=="true" ( echo [DEBUG] Called :SetWMICExe)
+
+if exist "%windir%\sysnative\wbem\wmic.exe" (
+    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_EXE for 32-bit)
+    set "WMIC_EXE=%windir%\sysnative\wbem\wmic.exe"
+) else if exist "%windir%\system32\wbem\wmic.exe" (
+    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_EXE for 64-bit)
+    set "WMIC_EXE=%windir%\system32\wbem\wmic.exe"
+)
+if "!TESTING!"=="true" (echo [DEBUG] Set WMIC_EXE: !WMIC_EXE!)
+goto :eof
+
+:: Get WMIC Value 
+:: #############################
+:GetWMICValue
+@echo off
+setlocal enabledelayedexpansion
+
+:: Cache parameters to local variables
+set "WMIC_CLASS=%~1"
+set "WMIC_PROPERTY=%~2"
+set "WMIC_RESULT_TYPE=%~3"
+set "WMIC_FILTER_KEY=%~4"
+set "WMIC_FILTER_VALUE=%~5"
+if "!TESTING!"=="true" (
+    echo [DEBUG] Called GetWMICValue
+    echo [DEBUG] WMIC_CLASS: !WMIC_CLASS!
+    echo [DEBUG] WMIC_PROPERTY: !WMIC_PROPERTY!
+    echo [DEBUG] WMIC_RESULT_TYPE: !WMIC_RESULT_TYPE!
+)
+
+: Set Result Type
+if "!WMIC_RESULT_TYPE!"=="value" ( 
+    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_TYPE_TAG: value)
+    set "WMIC_TYPE_TAG=value"
+) else if "!WMIC_RESULT_TYPE!"=="list" (
+    set "WMIC_TYPE_TAG=format:list"
+) else ( set "WMIC_TYPE_TAG=")
+if "!TESTING!"=="true" ( echo [DEBUG] WMIC_TYPE_TAG: !WMIC_TYPE_TAG!)
+
+:: Build optional WHERE statement
+set "WHERE_CLAUSE="
+if defined WMIC_FILTER_KEY if defined WMIC_FILTER_VALUE (
+    if "!TESTING!"=="true" (
+        echo [DEBUG] WMIC_FILTER_KEY: !WMIC_FILTER_KEY!
+        echo [DEBUG] WMIC_FILTER_VALUE: !WMIC_FILTER_VALUE!
+    )
+    set "WHERE_CLAUSE=where !WMIC_FILTER_KEY!='!WMIC_FILTER_VALUE!'"
+)
+
+if "!TESTING!"=="true" ( echo [DEBUG] Attempting: wmic !WMIC_CLASS! !WHERE_CLAUSE! get !WMIC_PROPERTY! ^/!WMIC_TYPE_TAG!)
+for /f "tokens=2 delims==" %%L in ('"%WMIC_EXE%" !WMIC_CLASS! !WHERE_CLAUSE! get !WMIC_PROPERTY! ^/!WMIC_TYPE_TAG! 2^>nul') do (
+    if "!TESTING!"=="true" ( echo [DEBUG] WMIC Result: %%L)
+    endlocal & set "RESULT=%%L"
+    goto wmic_returned
+)
+
+:: If we fell through, there was nothing
+if "!TESTING!"=="true" ( echo [DEBUG] WMIC returned nothing)
+endlocal & set "RESULT=Unknown"
+goto wmic_returned
+
+:wmic_returned
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :SanitizeValue "%RESULT%")
+call :SanitizeValue "%RESULT%"
+if "!TESTING!"=="true" ( echo [DEBUG] Returned to :GetWMICValue)
+set "RESULT=%CLEANED_VALUE%"
+if "!TESTING!"=="true" ( echo [DEBUG] Returning RESULT: !RESULT!)
+goto :eof
+
+:: #############################
+:GetRegistryValue
+:: %1 = registry path
+:: %2 = value name
+:: %3 = output variable name
+setlocal enabledelayedexpansion
+set "outval=0"
+
+for /f "tokens=3" %%A in ('reg query "%~1" /v %2 2^>nul') do (
+    set "outval=%%A"
+)
+
+endlocal & set "%~3=%outval%"
+goto :eof
+
+:: #############################
+:: Helper Functions - Specific Checks
+:: #############################
+
 :: #############################
 :: System Info Checks
 :: #############################
+
 :: #############################
 :CheckSMBRegQuery
 @echo off
@@ -1132,7 +1342,6 @@ if "!TESTING!"=="true" (
 if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckAlwaysInstallElevated)
 goto :eof 
 
-:: ADDING
 :: #############################
 :: Check Anonymous Access Restrictions settings
 :CheckRestrictAnonymous
@@ -1355,7 +1564,7 @@ goto :eof
 :: #############################
 :: Check NTLMv2 Session Security Configuration
 :CheckNTLMSessionSec
-if "!TESTING!"=="true" echo [DEBUG] Called CheckNTLMSessionSec
+if "!TESTING!"=="true" (echo [DEBUG] Called CheckNTLMSessionSec)
 
 :: Initialize default values
 set "HKLM_NSS=0"
@@ -1730,3 +1939,406 @@ if "!TESTING!"=="true" (
     echo [DEBUG] Completed :CheckNTLMSessionSec
 )
 goto :eof 
+
+:: #############################
+:: Check LANMAN Security Configuration
+:CheckLanman
+if "!TESTING!"=="true" (echo [DEBUG] Called CheckLanman)
+
+:: Check LANMAN Authentication Compatability Level
+:: Initialize default values
+set "HKLM_LAC=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_LAC: !HKLM_LAC!
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" HKLM_LAC)
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" HKLM_LAC
+
+if "!TESTING!"=="true" (echo [DEBUG] HKLM_LAC: !HKLM_LAC!)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_LAC! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_LAC)
+    set "HKLM_LAC=!HKLM_LAC:0x=!"
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Normalized HKLM_LAC: !HKLM_LAC!)
+
+if "!HKLM_LAC!"=="5" (
+    echo [+] LM Compatability Level is configured correctly: !HKLM_LAC! - Send NTLMv2 response only, refuse LM and NTLM >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [+] LM Compatability Level is configured correctly: !HKLM_LAC! - Send NTLMv2 response only, refuse LM and NTLM)
+) else if "!HKLM_LAC!"=="4" (
+    echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only, refuse LM, Allow NTLM >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only, refuse LM)
+) else if "!HKLM_LAC!"=="3" (
+    echo [-] LM Compatability Level is not configured to prevent NTLM or LM: !HKLM_LAC! - Send NTLMv2 response only >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only)
+) else if "!HKLM_LAC!"=="2" (
+    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send NTLM response only >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send NTLM response only)
+) else if "!HKLM_LAC!"=="1" (
+    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM response, use NTLMv2 session security if negotiated >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM response, use NTLMv2 session security if negotiated)
+) else if "!HKLM_LAC!"=="0" (
+    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM responses >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM responses)
+)
+
+:: Check LANMAN Hash Storage
+:: Initialize default values
+set "HKLM_LMH=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_LMH: !HKLM_LMH!
+    echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "NoLmHash" HKLM_LMH
+    )
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "NoLmHash" HKLM_LMH
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_LMH: !HKLM_LMH!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_LMH! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_LMH)
+    set "HKLM_LMH=!HKLM_LMH:0x=!"
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Normalized HKLM_LMH: !HKLM_LMH!)
+
+if "!HKLM_LMH!"=="1" (
+    echo [+] NoLmHash registry key is configured: !HKLM_LMH! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [+] NoLmHash registry key is configured: !HKLM_LMH!)
+) else (
+    echo [-] NoLmHash registry key is not configured >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] NoLmHash registry key is not configured)
+) 
+
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckLanman)
+goto :eof 
+
+:: #############################
+:: Check RDP Deny
+:CheckRDPDeny
+if "!TESTING!"=="true" (echo [DEBUG] Called CheckRDPDeny)
+
+:: Check AllowRemoteRPC Disabled
+:: Initialize default values
+set "HKLM_RPC=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_RPC: !HKLM_RPC!
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" HKLM_RPC)
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" HKLM_RPC
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_RPC: !HKLM_RPC!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_RPC! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_RPC)
+    set "HKLM_RPC=!HKLM_RPC:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_RPC: !HKLM_RPC!
+)
+
+if "!HKLM_RPC!"=="0" (
+    echo [+] AllowRemoteRPC is not enabled: !HKLM_RPC! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [+] AllowRemoteRPC is not enabled: !HKLM_RPC!)
+) else (
+    echo [-] AllowRemoteRPC is enabled: !HKLM_RPC! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] AllowRemoteRPC is enabled: !HKLM_RPC!)
+)
+
+:: Check fDenyTSConnections Enabled
+:: Initialize default values
+set "HKLM_DTS=1"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_DTS: !HKLM_DTS!
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "fDenyTSConnections" HKLM_DTS)
+call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "fDenyTSConnections" HKLM_DTS
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_DTS: !HKLM_DTS!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_DTS! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_DTS)
+    set "HKLM_DTS=!HKLM_DTS:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_DTS: !HKLM_DTS!
+)
+
+if "!HKLM_DTS!"=="1" (
+    echo [+] fDenyTSConnections is enabled: !HKLM_DTS! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [+] fDenyTSConnections is enabled: !HKLM_DTS!)
+) else (
+    echo [-] fDenyTSConnections is not enabled: !HKLM_DTS! >> "%OUTFILE%"
+    if "!TESTING!"=="true" (echo [-] fDenyTSConnections is not enabled: !HKLM_DTS!)
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRDPDeny)
+goto :eof
+
+:: #############################
+:: Check CheckWDigest Credential Storage
+:CheckWDigest
+if "!TESTING!"=="true" ( echo [DEBUG] Called CheckWDigest )
+
+:: Initialize default values
+set "HKLM_WDC=0"
+
+if "!TESTING!"=="true" ( echo [DEBUG] Default HKLM_WDC: !HKLM_WDC! )
+
+:: Check HKLM
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" HKLM_WDC )
+call :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" HKLM_WDC
+
+if "!TESTING!"=="true" ( echo [DEBUG] HKLM_WDC: !HKLM_WDC! )
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists )
+echo !HKLM_WDC! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_WDC )
+    set "HKLM_WDC=!HKLM_WDC:0x=!"
+)
+
+if "!TESTING!"=="true" ( echo [DEBUG] Normalized HKLM_WDC: !HKLM_WDC! )
+
+:: Now check values
+if "!HKLM_WDC!"=="0" (
+    echo [+] WDigest UseLogonCredential key is Disabled >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [+] WDigest UseLogonCredential key is Disabled: !HKLM_WDC! )
+) else if "!HKLM_WDC!"=="1" (
+    echo [-] WDigest UseLogonCredential key is Enabled: !HKLM_WDC! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [-] WDigest UseLogonCredential key is Enabled: !HKLM_WDC!)
+) 
+
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckWDigest)
+goto :eof 
+
+:: #############################
+:: Check Interactive Login Configuration
+:CheckInteractiveLogin
+if "!TESTING!"=="true" echo [DEBUG] Called CheckInteractiveLogin
+
+:: Check CurrentControlSet Configuration
+:: Initialize default values
+set "HKLM_LAT=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_LAT: !HKLM_LAT!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_LAT
+call :GetRegistryValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_LAT
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_LAT: !HKLM_LAT!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_LAT! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_LAT)
+    set "HKLM_LAT=!HKLM_LAT:0x=!"
+)
+
+if "!TESTING!"=="true" ( echo [DEBUG] Normalized HKLM_LAT: !HKLM_LAT! )
+
+:: Now check values
+if "!HKLM_LAT!"=="1" (
+    echo [-] LocalAccountTokenFilterPolicy Is Set: !HKLM_LAT! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [-] LocalAccountTokenFilterPolicy is set: !HKLM_LAT! )
+) else (
+    echo [+] LocalAccountTokenFilterPolicy is not set: !HKLM_LAT! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [+] LocalAccountTokenFilterPolicy is not set: !HKLM_LAT! )
+)
+
+:: Check Wow6432 Version
+:: Initialize default values
+set "HKLM_WowLAT=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_WowLAT: !HKLM_WowLAT!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_WowLAT
+call :GetRegistryValue "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_WowLAT
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_WowLAT: !HKLM_WowLAT!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_WowLAT! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_WowLAT)
+    set "HKLM_WowLAT=!HKLM_WowLAT:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_WowLAT: !HKLM_WowLAT!
+)
+
+:: Now check values
+if "!HKLM_WowLAT!"=="1" (
+    echo [-] LocalAccountTokenFilterPolicy in Wow6432 Node is set: !HKLM_WowLAT! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [-] LocalAccountTokenFilterPolicy in Wow6432 Node is set: !HKLM_WowLAT! )
+) else (
+    echo [+] LocalAccountTokenFilterPolicy in Wow6432 Node is not set: !HKLM_WowLAT! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [+] LocalAccountTokenFilterPolicy in Wow6432 Node is not set: !HKLM_WowLAT! )
+)
+
+if "!TESTING!"=="true" ( echo [DEBUG] Completed :CheckInteractiveLogin)
+goto :eof 
+
+:: #############################
+:: Check GPO Pre-processing Configuration
+:CheckGPOProcessing
+if "!TESTING!"=="true" echo [DEBUG] Called CheckGPOProcessing
+
+:: Initialize default values
+set "HKLM_GPP=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_GPP: !HKLM_GPP!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoGPOListChanges" HKLM_GPP
+call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoGPOListChanges" HKLM_GPP
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_GPP: !HKLM_GPP!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_GPP! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_GPP)
+    set "HKLM_GPP=!HKLM_GPP:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_GPP: !HKLM_GPP!
+)
+
+:: Now check values
+if "!HKLM_GPP!"=="0" (
+    echo [+] GPO NoGPOListChanges setting requires GPOs to be reapplied when processed: !HKLM_GPP! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [+] GPO settings are configured to be applied when GPOs are processed: !HKLM_GPP!)
+) else (
+    echo [-] GPO NoGPOListChanges setting does not require GPOs to be applied when processed: !HKLM_GPP! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [-] GPO NoGPOListChanges setting does not require GPOs to be applied when processed: !HKLM_GPP!)
+)
+
+:: Check NoBackgroundPolicy Setting
+:: Initialize default values
+set "HKLM_GNB=0"
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Default HKLM_GNB: !HKLM_GNB!
+)
+
+:: Check HKLM
+if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoBackgroundPolicy" HKLM_GNB
+call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoBackgroundPolicy" HKLM_GNB
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] HKLM_GNB: !HKLM_GNB!
+)
+
+:: Remove 0x prefix if it esists
+if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
+echo !HKLM_GNB! | findstr /i "^0x" >nul
+if !errorlevel! == 0 (
+    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_GNB)
+    set "HKLM_GNB=!HKLM_GNB:0x=!"
+)
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Normalized HKLM_GNB: !HKLM_GNB!
+)
+
+:: Now check values
+if "!HKLM_GNB!"=="0" (
+    echo [+] GPO NoBackgroundPolicy setting is configured to process GPOs even while computer is in use: !HKLM_GNB! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [+] GPO NoBackgroundPolicy setting is configured to process GPOs even while computer is in use: !HKLM_GNB!)
+) else (
+    echo [-] GPO NoBackgroundPolicy setting is configured not to process GPOs if computer is in use: !HKLM_GNB! >> "%OUTFILE%"
+    if "!TESTING!"=="true" ( echo [-] GPO NoBackgroundPolicy setting is configured not to process GPOs if computer is in use: !HKLM_GNB!)
+)
+
+if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckGPOProcessing)
+goto :eof 
+
+:: #############################
+:: Check WINSConfig
+:CheckWINSConfig
+setlocal EnableDelayedExpansion
+
+if "!TESTING!"=="true" (
+    echo [DEBUG] Called CheckWINSConfig
+    echo [DEBUG] Calling :GetWMICValue nicconfig DNSEnabledForWINSResolution value IPEnabled TRUE
+)
+
+call :GetWMICValue nicconfig DNSEnabledForWINSResolution value IPEnabled TRUE
+if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetWMICValue)
+set "WINS_DNS=!RESULT!"
+if "!TESTING!"=="true" ( echo [DEBUG] WINS_DNS: !WINS_DNS!)
+if "!WINS_DNS!"=="TRUE" (
+    echo [-] WINSConfig DNSEnabledForWINSResolution is enabled >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [-] WINSConfig DNSEnabledForWINSResolution is enabled)
+) else if "!WINS_DNS!"=="FALSE" (
+    echo [+] WINSConfig DNSEnabledForWINSResolution is disabled >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [+] WINSConfig DNSEnabledForWINSResolution is disabled)
+) else (
+    echo [*] Testing for WINS DNSEnabledForWINSResolution failed >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [*] Testing for WINS DNSEnabledForWINSResolution failed )
+)
+
+if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetWMICValue nicconfig WINSEnableLMHostsLookup value IPEnabled TRUE)
+call :GetWMICValue nicconfig WINSEnableLMHostsLookup value IPEnabled TRUE
+if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetWMICValue)
+set "WINS_LM=!RESULT!"
+if "!TESTING!"=="true" ( echo [DEBUG] WINS_LM: !WINS_LM!)
+if "!WINS_LM!"=="TRUE" (
+    echo [-] WINSConfig WINSEnableLMHostsLookup is enabled >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [-] WINSConfig WINSEnableLMHostsLookup is enabled)
+) else if "!WINS_LM!"=="FALSE" (
+    echo [+] WINSConfig WINSEnableLMHostsLookup is disabled >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [+] WINSConfig WINSEnableLMHostsLookup is disabled)
+) else (
+    echo [*] Testing for WINS WINSEnableLMHostsLookup failed >> %OUTFILE%
+    if "!TESTING!"=="true" ( echo [*] Testing for WINS WINSEnableLMHostsLookup failed )
+)
+endlocal & goto :eof 
+
