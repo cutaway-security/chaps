@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 2 - PSv3 Bug Fixes and Check Audit
+**Phase**: Phase 3 - PSv3 New Checks
 **Status**: Not Started
-**Focus**: Fix confirmed bugs, complete stubs, update outdated checks in PSv3
+**Focus**: Add new security checks (USB, antivirus, software inventory, netstat, SYSMON, firewall, ASR)
 
 ## Phases
 
@@ -37,30 +37,37 @@ Branches to delete remotely (pending user confirmation):
 
 ### Phase 2: PSv3 Bug Fixes and Check Audit
 
-**Status**: Not Started
+**Status**: Complete
 
 Fix confirmed bugs:
-- [ ] Fix line 595 Get-UntrustedFonts(): uses `$ressh` instead of `$resuf` (wrong variable reference)
-- [ ] Fix line 107: date format `"yyyyddMM_HHmmss"` should be `"yyyyMMdd_HHmmss"` (day/month reversed)
-- [ ] Fix line 903 Get-WPAD(): registry path uses `HKEY_CURRENT_USER\` instead of `HKCU:\` (invalid for Get-ItemProperty)
-- [ ] Fix line 1007 Get-NetBIOS(): WMI class typo `Win32_NetWorkAdapterConfiguration` (missing 'e' in Network)
-- [ ] Fix line 1250 Get-WinRM(): typo "WimRM" in error message should be "WinRM"
-- [ ] Fix lines 480, 589: Windows version checks use `-eq 10` instead of `-ge 10` (excludes Win11+)
+- [x] Fix Get-UntrustedFonts(): `$ressh` -> `$resuf` (wrong variable reference)
+- [x] Fix date format `yyyyddMM` -> `yyyyMMdd` (day/month reversed)
+- [x] Fix Get-WPAD(): registry path `HKEY_CURRENT_USER\` -> `HKCU:\`
+- [x] Fix Get-WPAD(): wrong variable `$resllmnr` -> `$reswpad` in hosts check (found during full read)
+- [x] Fix Get-NetBIOS(): WMI class typo `Win32_NetWorkAdapterConfiguration` -> `Win32_NetworkAdapterConfiguration`
+- [x] Fix Get-WinRM(): typo "WimRM" -> "WinRM"
+- [x] Fix Get-CredDeviceGuard and Get-UntrustedFonts: version checks `-eq 10` -> `-ge 10`
+- [x] Fix Get-LocalAdmin(): Catch block outside Try (structural syntax error, found during full read)
+- [x] Fix Get-LocalAdmin(): wrong variable `$content.length` -> `$numadmin.length` (found during full read)
 
 Complete stubbed functions:
-- [ ] Implement Get-NetSessionEnum() (lines 445-451, currently empty)
-- [ ] Implement Get-MSOffice() (lines 505-507, currently empty -- macro security checks)
+- [x] Implement Get-NetSessionEnum (SrvsvcSessionInfo + RestrictRemoteSAM checks)
+- [x] Implement Get-MSOffice (VBAWarnings, BlockContentExecutionFromInternet, GPO policy detection)
+- [x] Enable both checks (changed from `$false` to `$true`)
 
 Address TODOs in code:
-- [ ] Line 479 Get-CredDeviceGuard(): add Windows 11 support
-- [ ] Line 517 Get-SMBv1(): add SMBv3 encryption and signing checks
-- [ ] Line 1100 Get-PSModule(): add check for which modules are logged (should be '*')
-- [ ] Line 1165 Get-PSTranscript(): add check for transcript log location
+- [x] Get-CredDeviceGuard: version check now covers Win11+ via `-ge 10`
+- [x] Get-SMBv1: added SMBv3 EncryptData and RejectUnencryptedAccess checks
+- [x] Get-PSModule: added wildcard module check (verifies '*' in ModuleNames)
+- [x] Get-PSTranscript: added transcript OutputDirectory location output
 
 Update outdated checks:
-- [ ] Line 395 Get-EMET(): EMET is deprecated, update check to detect modern alternatives (Exploit Protection)
-- [ ] Line 413 Get-LAPS(): update from legacy DLL path to modern Windows LAPS detection
-- [ ] Add fallbacks where Get-NetFirewallRule (line 1255) or Get-WindowsOptionalFeature (line 1050) may not be available
+- [x] Get-EMET: detects Windows Exploit Protection (DEP, ASLR, CFG) on Win10+; falls back to EMET service on older
+- [x] Get-LAPS: detects Windows LAPS (registry policy + state) and legacy LAPS (AdmPwd.dll)
+- [x] Get-WinRM: netsh fallback when Get-NetFirewallRule unavailable
+- [x] Get-PSVersions: Get-WindowsFeature fallback for Server editions
+
+Script grew from 1,426 to 1,641 lines. Zero TODOs remaining. All curly braces balanced (504/504).
 
 ### Phase 3: PSv3 New Checks
 
