@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 7 - CMD Batch Script Implementation
+**Phase**: Phase 8 - Documentation and Release Prep
 **Status**: Not Started
-**Focus**: Port PSv3 checks to CMD batch with check parity and markdown output
+**Focus**: Update README, close issues/PRs, final validation, release
 
 ## Phases
 
@@ -174,23 +174,22 @@ VM testing deferred to after Phase 7 (CMD) for full fleet testing of all scripts
 
 ### Phase 7: CMD Batch Script Implementation
 
-**Status**: Not Started
+**Status**: Complete
 
-Check parity requirement: CMD must implement ALL PSv3 checks in the same order.
-Checks that cannot be performed must output `[*] <check name>: <reason not available>`.
+- [x] Complete rewrite of chaps.bat (1,367 lines) implementing all 59 canonical checks
+- [x] All checks in canonical order per CANONICAL_CHECKS.md
+- [x] reg query for registry checks, wmic for WMI, sc query for services
+- [x] netsh for firewall, net accounts/localgroup for account/admin checks
+- [x] auditpol for audit policy, wevtutil for event log sizes
+- [x] 4 PS logging checks via reg query (PSModule, PSScript, PSTranscript, PSProtectedEvent)
+- [x] 4 N/A checks with info messages (AppLocker, ASR, PSVersions, PSLanguage)
+- [x] Markdown output via echo to stdout (header table, ## sections, ### checks, status prefixes)
+- [x] Helper functions: GetRegVal, GetRegValTokens3, CheckSvcState, PrintRegCheck
+- [x] SETLOCAL ENABLEDELAYEDEXPANSION, proper quoting, exit /b 0
+- [x] No file writing -- users redirect: `chaps.bat > report.md`
 
-- [ ] Baseline from cmd-bat-refactor branch work (2,344 lines)
-- [ ] Implement all 67 PSv3 check functions as CMD equivalents (same order per CANONICAL_CHECKS.md)
-- [ ] Use reg query for all registry-based checks (most checks are registry-based)
-- [ ] Use wmic for WMI-based checks where available
-- [ ] Use netsh, net, auditpol, systeminfo for command-based checks
-- [ ] 4 PS logging checks (PSModule, PSScript, PSTranscript, PSProtectedEvent): implement via reg query
-- [ ] 2 truly N/A checks (PSVersions, PSLanguage): output info message "requires PowerShell runtime"
-- [ ] Implement markdown output using echo with markdown syntax, keep simple
-- [ ] Single output stream to stdout, same as PowerShell scripts -- redirect-friendly
-- [ ] Follow batch.md coding standards (delayed expansion, redirect safety, etc.)
-- [ ] Test on all target VMs via Proxmox
-- [ ] Validate output parity with PowerShell scripts (same checks, same order, same output format)
+Script: 1,367 lines. 236 status output lines. 59 check references.
+VM testing deferred to Phase 8 for full fleet testing of all three scripts.
 
 ### Phase 8: Documentation and Release Prep
 
