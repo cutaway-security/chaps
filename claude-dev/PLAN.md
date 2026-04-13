@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 5 - Testing Infrastructure
+**Phase**: Phase 6 - PSv2 Script Implementation
 **Status**: Not Started
-**Focus**: Set up Proxmox VM testing for validating scripts across Windows versions
+**Focus**: Port PSv3 checks to PSv2-compatible syntax with check parity and markdown output
 
 ## Phases
 
@@ -138,28 +138,19 @@ Script: 2,409 -> 2,374 lines (removed infrastructure code). 65 functions. 759/75
 
 ### Phase 5: Testing Infrastructure
 
-**Status**: Not Started
+**Status**: Complete
 
-Adapt Proxmox VM testing from ICSWatchDog project:
-- [ ] Create REMOTE_TESTING.md documenting VM testing procedures for CHAPS
-- [ ] Create TESTING_STANDARD.md with test matrix and pass criteria
-- [ ] Create remote-testing.example.conf template (gitignored local copy with real values)
-- [ ] Use same Proxmox VM fleet as ICSWatchDog:
-  - Win7 (PSv2 + CMD testing)
-  - Win10 (PSv3 + PSv2 + CMD testing)
-  - Win11 (PSv3 + PSv2 + CMD testing)
-  - Server 2016, 2019, 2022 (all scripts)
-- [ ] Document SSH-based deployment procedure: scp script to VM, ssh execute, scp results back
-- [ ] Define test procedure per script:
-  1. Copy script to VM via scp
-  2. Execute remotely via ssh
-  3. Verify script completes without errors
-  4. Retrieve output file via scp
-  5. Validate markdown output renders correctly
-  6. Compare check results across script variants for same VM
-- [ ] Test PSv3 script on all target VMs, record results
-- [ ] Fix any VM-specific failures discovered during testing
-- [ ] Document known per-OS quirks (Server Core differences, missing features, etc.)
+- [x] Create REMOTE_TESTING.md (topology, SSH access, deploy/execute/retrieve pattern, snapshots, known quirks)
+- [x] Create TESTING_STANDARD.md (test matrices for PSv3/PSv2/CMD x 6 OS versions, pass criteria, output validation commands, parity testing procedure)
+- [x] Create remote-testing.example.conf (VM connection template, local copy gitignored)
+- [x] Document shared Proxmox VM fleet: Win7, Win10, Win11, Server 2016/2019/2022
+- [x] Document SSH-based test pattern: scp deploy -> ssh execute -> capture stdout -> validate markdown
+- [x] Define pass criteria: clean exit, valid markdown, all sections present, no unexpected [x] errors, graceful non-admin handling
+- [x] Document known per-OS quirks (Win7 PSv2 limitations, Server no SecurityCenter2, Server 2016 32-bit)
+- [x] Update .gitignore for local config and results directory
+- [x] Update ARCHITECTURE.md and GIT_RELEASE_STEPS.md with new files
+
+Actual VM testing deferred to after PSv2/CMD implementation (Phases 6-7) so all three scripts can be tested together. PSv3 can be tested on VMs independently at any time using the documented procedure.
 
 ### Phase 6: PSv2 Script Implementation
 
