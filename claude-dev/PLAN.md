@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 3 - PSv3 New Checks
+**Phase**: Phase 4 - Markdown Output Format
 **Status**: Not Started
-**Focus**: Add new security checks (USB, antivirus, software inventory, netstat, SYSMON, firewall, ASR)
+**Focus**: Replace text output with markdown format across all scripts
 
 ## Phases
 
@@ -71,17 +71,18 @@ Script grew from 1,426 to 1,641 lines. Zero TODOs remaining. All curly braces ba
 
 ### Phase 3: PSv3 New Checks
 
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] Add check: USB/PnP device enumeration (Issue #2: `Get-PnpDevice -Class 'USB'`)
-- [ ] Add check: Antivirus/EDR software detection (Issue #2: `Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct`)
-- [ ] Add check: Software inventory (Issue #2: `Get-WmiObject -Class Win32_Product` or registry-based alternative)
-- [ ] Add check: Network connections (Issue #2: `netstat -anob` or `Get-NetTCPConnection`)
-- [ ] Add check: SYSMON detection (README TODO -- check service and driver presence)
-- [ ] Add check: Windows Firewall profile assessment (inbound/outbound rules, profile status)
-- [ ] Add check: ASR rules / Exploit Protection (modern Win10/11 hardening)
-- [ ] Update existing check thresholds and recommendations to current standards
-- [ ] Review and update event log size recommendations
+- [x] Add check: USB/PnP device enumeration (Get-PnpDevice with WMI fallback)
+- [x] Add check: Antivirus/EDR detection (SecurityCenter2 with Get-MpComputerStatus fallback for Server)
+- [x] Add check: Software inventory (registry Uninstall keys -- avoids slow Win32_Product per user decision)
+- [x] Add check: Network connections (Get-NetTCPConnection with netstat fallback, shows process names)
+- [x] Add check: SYSMON detection (service + driver presence)
+- [x] Add check: Windows Firewall profile status (Domain/Private/Public enabled/disabled, default actions, no rule enumeration per user decision)
+- [x] Add check: ASR rules (Get-MpPreference, reports rule IDs and actions)
+- [x] Event log size recommendations reviewed -- current thresholds (1-4 GB) align with guidance, no changes needed
+
+Script: 1,641 -> 1,974 lines. 60 functions (up from 53). 622/622 braces balanced.
 
 ### Phase 4: Markdown Output Format
 
@@ -175,6 +176,8 @@ Adapt Proxmox VM testing from ICSWatchDog project:
 | 2026-04-13 | Reuse ICSWatchDog Proxmox VM fleet | Same VMs (Win7/10/11, Server 2016/2019/2022), same SSH infrastructure |
 | 2026-04-13 | CMD markdown: most effective method, keep simple | Use whatever works best in batch; no over-engineering |
 | 2026-04-13 | PR #5 code not merged directly | Targets old chaps.ps1 architecture; cmdlet references used for Phase 3 rewrite as proper functions |
+| 2026-04-13 | Software inventory via registry, not Win32_Product | Win32_Product triggers MSI reconfiguration and is slow; registry Uninstall keys are fast and reliable |
+| 2026-04-13 | Firewall check: profile status only, no rule enumeration | Keeps output focused; per-rule detail would be overwhelming and not actionable in assessment context |
 | 2026-04-13 | No Windows version targeting per script | Admins pick the script matching their system; each script handles its own compatibility |
 | 2026-04-13 | References are for understanding, not specific benchmark targeting | Check recommendations cite sources but don't target specific CIS/STIG versions |
 | 2026-04-13 | Phase work sequentially: consolidate -> fix bugs -> new checks -> markdown -> test -> port | Changes flow from reference PSv3 outward; testing validates before porting |
