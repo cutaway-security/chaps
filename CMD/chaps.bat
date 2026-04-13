@@ -1,2343 +1,1367 @@
 :: chaps.bat - a Windows batch script for checking system security
-:: when conducting an assessment of systems where the Microsoft 
+:: when conducting an assessment of systems where the Microsoft
 :: Policy Analyzer and other assessment tools cannot be installed.
-:: The batch script does not perform every check included with the 
-:: CHAPS PowerShell scripts, and should only be used when using a 
-:: PowerShell version is not possible.
-
+:: All output goes to stdout in markdown format. Redirect to file:
+::   chaps.bat > report.md
+::
 :: Author: Don C. Weber (@cutaway)
 :: Date:   April 22, 2025
+::
+:: License:
+:: Copyright (c) 2025, Cutaway Security, Inc. <dev [@] cutawaysecurity.com>
+::
+:: chaps.bat is free software: you can redistribute it and/or modify
+:: it under the terms of the GNU General Public License as published by
+:: the Free Software Foundation, either version 3 of the License, or
+:: (at your option) any later version.
+::
+:: chaps.bat is distributed in the hope that it will be useful,
+:: but WITHOUT ANY WARRANTY; without even the implied warranty of
+:: MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+:: GNU General Public License for more details.
+:: You should have received a copy of the GNU General Public License
+:: along with this program.  If not, see <http://www.gnu.org/licenses/>.
+:: Point Of Contact:    Don C. Weber <dev [@] cutawaysecurity.com>
+
 @echo off
-setlocal enabledelayedexpansion
+SETLOCAL ENABLEDELAYEDEXPANSION
 
 :: #############################
-:: Set User-Configurable Variables
+:: Configuration
 :: #############################
-
-:: Set to "true" for debugging output (write to screen in addition to output file)
-set "TESTING=true"
-
-:: Set COMPANY and SITENAME to empty string to disable
-set "COMPANY="
-set "SITENAME="
-
-:: Set CUTSEC_FOOTER to false to disable
-set "CUTSEC_FOOTER=false"
-
-:: Configure the output directory and filenames
-set "OUTDIR=%CD%"
-set "OUTFILENAME=%COMPUTERNAME%_chaps.txt"
-set "SYSINFO_FILENAME=%COMPUTERNAME%_sysinfo.txt"
-
-:: Enable/Disable Specific Checks - Set to false to disable
-set "CheckAlwaysInstallElevatedEnabled=false"
-set "CheckCachedLogonsEnabled=false"
-set "CheckGPOProcessingEnabled=false"
-set "CheckInteractiveLoginEnabled=false"
-set "CheckLanmanEnabled=false"
-set "CheckNTLMSessionSecEnabled=false"
-set "CheckRDPDenyEnabled=false"
-set "CheckRestrictAnonymousEnabled=false"
-set "CheckRestrictRemoteClientsEnabled=false"
-set "CheckWDigestEnabled=false"
-set "CheckWindowsScriptHostEnabled=false"
-set "CheckWINSConfigEnabled=false"
-
-:: #############################
-:: Perform basic checks to help with script flow
-:: #############################
-
-:: Check if WMIC is available and set flag
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWMICAvailable)
-call :CheckWMICAvailable
-if "!TESTING!"=="true" (
-    echo [DEBUG] Returned from CheckWMICAvailable
-    echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!
-)
-
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :SetWMICExe)
-    call :SetWMICExe
-    if "!TESTING!"=="true" (
-        echo [DEBUG] Returned from :SetWMICExe
-        echo [DEBUG] WMIC_EXE: !WMIC_EXE!
-    )
-)
-
-:: Get the current date and time components for setting output directory
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetDate filename)
-call :GetDate filename 
-if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetDate with RESULT: !RESULT!)
-
-set "FILENAME_DATE=!RESULT!"
-if "!TESTING!"=="true" ( 
-    echo [DEBUG] FILENAME_DATE: !FILENAME_DATE!
-    echo [DEBUG] Calling :GetDate readable 
-)
-call :GetDate readable
-if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetDate with RESULT: !RESULT!)
-set "READABLE_DATE=!RESULT!"
-if "!TESTING!"=="true" ( echo [DEBUG] READABLE_DATE: !READABLE_DATE!)
-
-:: Create output directory if it doesn't exist
-set "OUTDIR=!OUTDIR!\%COMPUTERNAME%_%FILENAME_DATE%"
-if "!TESTING!"=="true" ( echo [DEBUG] Checking for !OUTDIR!)
-if not exist "!OUTDIR!" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Creating OUTDIR: !OUTDIR!)
-    mkdir "!OUTDIR!" >nul 2>&1
-)
-
-:: #############################
-:: Set Non-Configurable Variables
-:: #############################
-
 set "SCRIPTNAME=chaps.bat"
 set "SCRIPTVERSION=1.0.0"
-set "OUTFILE=%OUTDIR%\%OUTFILENAME%"
-set "SYSINFO_FILE=%OUTDIR%\%SYSINFO_FILENAME%"
-
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] COMPANY: !COMPANY!
-    echo [DEBUG] SITENAME: !SITENAME!
-    echo [DEBUG] CUTSEC_FOOTER: !CUTSEC_FOOTER!
-    echo [DEBUG] FILENAME_DATE: !FILENAME_DATE!
-    echo [DEBUG] timezone: !timezone!
-    echo [DEBUG] READABLE_DATE: !READABLE_DATE!
-    echo [DEBUG] OUTDIR: !OUTDIR!
-    echo [DEBUG] OUTFILENAME: !OUTFILENAME!
-    echo [DEBUG] SYSINFO_FILENAME: !SYSINFO_FILENAME!
-    echo [DEBUG] SCRIPTNAME: !SCRIPTNAME!
-    echo [DEBUG] SCRIPTVERSION: !SCRIPTVERSION!
-    echo [DEBUG] OUTFILE: !OUTFILE!
-    echo [DEBUG] SYSINFO_FILE: !SYSINFO_FILE!
-)
-:: #############################
-:: Print Document Header
-:: #############################
-
-:: Show where document is saved to (not written to report)
-echo ##########################
-echo # Saving output to: %OUTFILE%
-echo ##########################
-
-:: Create outfile and begin writing to it.
-if "!TESTING!"=="true" (
-    echo [DEBUG] Create outfile and begin writing to it 
-    echo ##########################
-    echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%
-    if defined COMPANY ( echo # Auditing Company: %COMPANY%)
-    if defined SITENAME ( echo # Site/Plant: %SITENAME%)
-    echo ##########################
-    echo # Computer Name: %COMPUTERNAME%
-    echo # Start Time: %READABLE_DATE%
-)
-echo ########################## > "%OUTFILE%"
-echo # CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION% >> "%OUTFILE%"
-if defined COMPANY ( echo # Auditing Company: %COMPANY% >> "%OUTFILE%")
-if defined SITENAME ( echo # Site/Plant: %SITENAME% >> "%OUTFILE%")
-echo ########################## >> "%OUTFILE%"
-echo # Computer Name: %COMPUTERNAME% >> "%OUTFILE%"
-echo # Start Time: %READABLE_DATE% >> "%OUTFILE%"
-
-:: Check Admin rights
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckAdminRights)
-call :CheckAdminRights
-if "!TESTING!"=="true" (
-    echo [DEBUG] Returned from :CheckAdminRights
-)
-if "!TESTING!"=="true" (
-    echo ##########################
-)
-echo ########################## >> "%OUTFILE%"
-
-:: ###########################
-:: System Info Checks
-:: ###########################
-if "!TESTING!"=="true" (echo [DEBUG] Calling PrtSectionHeader System Info)
-call :PrtSectionHeader System Info
-if "!TESTING!"=="true" (echo [DEBUG] Returned from PrtSectionHeader)
-echo [*] Collecting systeminfo to: %SYSINFO_FILE%
-systeminfo > "%SYSINFO_FILE%"
-
-set "OS_NAME=Unknown"
-set "OS_VERSION_FULL=Unknown"
-set "OS_ARCH=Unknown"
-set "SYS_TYPE=Unknown"
-set "DOMAIN=Unknown"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] OS_NAME: !OS_NAME!
-    echo [DEBUG] OS_VERSION_FULL: !OS_VERSION_FULL!
-    echo [DEBUG] OS_ARCH: !OS_ARCH!
-    echo [DEBUG] SYS_TYPE: !SYS_TYPE!
-    echo [DEBUG] DOMAIN: !DOMAIN!
-)
-
-:: Get Poduct Name
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Product Name)
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Caption value)
-    call :GetWMICValue os Caption value 
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_NAME using RESULT: !RESULT!)
-    set "OS_NAME=!RESULT!"
-)
-
-:: Get System Type
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get System Type)
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem SystemType value)
-    call :GetWMICValue computersystem SystemType value
-    if "!TESTING!"=="true" (echo [DEBUG] Setting SYS_TYPE to !RESULT!)
-    set "SYS_TYPE=!RESULT!"
-    if "!TESTING!"=="true" (echo [DEBUG] SYS_TYPE: !SYS_TYPE!)
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITECTURE environment value)
-    set "SYS_TYPE=%PROCESSOR_ARCHITECTURE%"
-    if "!TESTING!"=="true" (echo [DEBUG] SYS_TYPE: !SYS_TYPE!)
-)
-
-:: Get OS Version
- if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Version)
- if "!WMIC_PRESENT!"=="true" (
-     if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os Version value)
-     call :GetWMICValue os Version value
-     if "!TESTING!"=="true" (echo [DEBUG] Setting OS_VERSION_FULL to !RESULT!)
-     set "OS_VERSION_FULL=!RESULT!"
- ) else (
-     if "!TESTING!"=="true" (
-        echo [DEBUG] Attempting to use 'ver' command
-    )
-    
-    :: Get the VER command output
-    for /f "tokens=*" %%A in ('ver') do (
-        set "VER_OUTPUT=%%A"
-    )
-
-    if "!TESTING!"=="true" (
-        echo [DEBUG] VER_OUTPUT: !VER_OUTPUT!
-        echo [DEBUG] Getting OS_VERSION_FULL from VER_OUTPUT
-    )
-
-    :: Extract the version and build number from inside the brackets
-    for /f "tokens=2 delims=[]" %%A in ("!VER_OUTPUT!") do (
-        set "OS_VERSION_FULL=%%A"
-    )
-)
-
-:: Remove the word "Version" if present
-if "!TESTING!"=="true" (echo [DEBUG] Removing 'Version' from OS_VERSION_FULL)
-set "OS_VERSION_FULL=!OS_VERSION_FULL:Version =!"
-if "!TESTING!"=="true" (echo [DEBUG] OS_VERSION_FULL: !OS_VERSION_FULL!)
-
-:: Split OS_VERSION_FULL on .
-for /f "tokens=1,2,3 delims=." %%A in ('echo !OS_VERSION_FULL!') do (
-    set "OS_MAJOR=%%A"
-    set "OS_MINOR=%%B"
-    set "OS_BUILD_NUMBER=%%C"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] OS_MAJOR: !OS_MAJOR!
-    echo [DEBUG] OS_MINOR: !OS_MINOR!
-    echo [DEBUG] OS_BUILD_NUMBER: !OS_BUILD_NUMBER!
-)
-
-set "OS_MAJOR_MINOR=!OS_MAJOR!.!OS_MINOR!"
-if "!TESTING!"=="true" (echo [DEBUG] OS_MAJOR_MINOR: !OS_MAJOR!.!OS_MINOR!)
-
-if "!OS_NAME!"=="Unknown" (
-if !TESTING!=="true" (
-    echo [DEBUG] Using Version number to get OS_NAME 
-    echo [DEBUG] Getting OS_MAJOR, OS_MINOR, and OS_BUILD_NUMBER
-)
-
-    :: Use Version to map to friendly name
-    if "!TESTING!"=="true" echo [DEBUG] Getting WIN_OS_NAME from version 
-    if "!OS_MAJOR_MINOR!"=="4.00" set "OS_NAME=Windows 95"
-    if "!OS_MAJOR_MINOR!"=="5.0" set "OS_NAME=Windows NT 4.0"
-    if "!OS_MAJOR_MINOR!"=="4.10" set "OS_NAME=Windows 98"
-    if "!OS_MAJOR_MINOR!"=="4.90" set "OS_NAME=Windows Me"
-    if "!OS_MAJOR_MINOR!"=="5.0" set "OS_NAME=Windows 2000"
-    if "!OS_MAJOR_MINOR!"=="5.1" set "OS_NAME=Windows XP"
-    if "!OS_MAJOR_MINOR!"=="5.2" set "OS_NAME=Windows Server 2003 or Windows XP x64"
-    if "!OS_MAJOR_MINOR!"=="6.0" (
-        if "!OS_BUILD_NUMBER!"=="6002" set "OS_NAME=Windows Vista"
-        if "!OS_BUILD_NUMBER!"=="6003" set "OS_NAME=Windows Server 2008"
-    )
-    if "!OS_MAJOR_MINOR!"=="6.1" set "OS_NAME=Windows 7 or Server 2008 R2"
-    if "!OS_MAJOR_MINOR!"=="6.2" set "OS_NAME=Windows 8 or Server 2012"
-    if "!OS_MAJOR_MINOR!"=="6.3" set "OS_NAME=Windows 8.1 or Server 2012 R2"
-    if "!OS_MAJOR_MINOR!"=="10.0" (
-        if "!OS_BUILD!" geq "22000" (
-            set "OS_NAME=Windows 11"
-        ) else (
-            set "OS_NAME=Windows 10 or Server 2016/2019/2022"
-        )
-    )
-)
-
-:: Get Architecture
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get OS Architecture)
-
-if "!WMIC_PRESENT!"=="true" (    
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :GETWMICValue os OSArchitecture value)
-    call :GetWMICValue os OSArchitecture value
-    if "!TESTING!"=="true" (echo [DEBUG] Setting OS_ARCH: !RESULT!)
-    set "OS_ARCH=!RESULT!"
-) 
-if "!OS_ARCH!"=="Unknown" (
-    if "!TESTING!"=="true" (echo [DEBUG] Attempting to use PROCESSOR_ARCHITEW6432 environment value)
-    :: On 64-bit Windows launched under WoW64, PROCESSOR_ARCHITEW6432 is defined
-    if defined PROCESSOR_ARCHITEW6432 (
-        set "OS_ARCH=64-bit"
-    ) else (
-        :: Otherwise check %PROCESSOR_ARCHITECTURE
-        if /i "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
-            set "OS_ARCH=64-bit"
-        ) else if /i "%PROCESSOR_ARCHITECTURE%"=="IA64" (
-            set "OS_ARCH=64-bit"
-        ) else (
-            :: Haven't found evidence of 64-bit architecture
-            set "OS_ARCH=32-bit"
-        ) 
-    )
-)
-
-:: Get Domain / Workgroup
-if "!TESTING!"=="true" (echo [DEBUG] Attempting to get Domain/Workgroup)
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling GetWMICValue computersystem Domain value)
-    call :GetWMICValue computersystem Domain value
-    if "!TESTING!"=="true" (echo [DEBUG] Setting DOMAIN: !RESULT!)
-    set "DOMAIN=!RESULT!"
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting DOMAIN: Unknown WMIC not available)
-    set "DOMAIN=Unknown (WMIC not available)"
-)
-
-if "!TESTING!"=="true" (
-    echo [*] Windows Product: !OS_NAME!
-    echo [*] OS Version: !OS_VERSION_FULL!
-    echo [*] OS Architecture: !OS_ARCH!
-    echo [*] System Type: !SYS_TYPE!
-    echo [*] Domain/Workgroup: !DOMAIN!
-    echo [*] Effective Path: %PATH%    
-)
-echo [*] Windows Product: !OS_NAME! >> "%OUTFILE%"
-echo [*] OS Version: !OS_VERSION_FULL! >> "%OUTFILE%"
-echo [*] OS Architecture: !OS_ARCH! >> "%OUTFILE%"
-echo [*] System Type: !SYS_TYPE! >> "%OUTFILE%"
-echo [*] Domain/Workgroup: !DOMAIN! >> "%OUTFILE%"
-echo [*] Effective Path: %PATH% >> "%OUTFILE%"
-
-:: Check IPv4 Address
-echo. >> "%OUTFILE%"
-:: Clear any previous IPv4 address
-if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to empty)
-set "IPv4_ADDR="
-
-:: Look for a modern label (e.g. IPv4 or IPv6 Address)
-if "!TESTING!"=="true" (echo [DEBUG] Checking for string "IPv4 Address" in ipconfig)
-for /f "tokens=2 delims=:" %%A in ('
-    ipconfig ^| findstr /C:"IPv4 Address"
-') do (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to: "%%A")
-    echo [DEBUG] Setting IPv4_ADDR to: "%%A"
-
-    :: Trim leading spaces
-    for /f "tokens=* delims= " %%B in ("%%A") do set "IPv4_ADDR=%%B"
-    if "!TESTING!"=="true" (echo [DEBUG] Set IPv4_ADDR: !IPv4_ADDR!)
-    echo [DEBUG] Set IPv4_ADDR: !IPv4_ADDR!
-)
-if "!TESTING!"=="true" (echo [DEBUG] Finished checking for "IPv4 Address" - IPv4_ADDR: !IPv4_ADDR!)
-echo [DEBUG] Finished checking for "IPv4 Address" - IPv4_ADDR: !IPv4_ADDR!
-:: if that failed (e.g. Windows XP), look for the old label
-if not defined IPv4_ADDR (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] IPv4_ADDR is not defined
-        echo [DEBUG] Checking for string "IP Address"
-    )
-    for /f "tokens=2 delims=:" %%A in ('
-        ipconfig ^| findstr /C:"IP Address"
-    ') do (
-        if "!TESTING!"=="true" (echo [DEBUG] Found String "IP Address": %%A)
-        for /f "tokens=* delims= " %%B in ("%%A") do (
-            if "!TESTING!"=="true" (echo [DEBUG] Setting IPv4_ADDR to: %%B)
-            set "IPv4_ADDR=%%B"
-            if "!TESTING!"=="true" (
-                echo [DEBUG] IPv4_ADDR: !IPv4_ADDR!
-                echo [DEBUG] Going to gotIPv4
-            )
-            goto :gotIPv4
-        )
-    )
-)
-
-:gotIPv4
-if "!TESTING!"=="true" (echo [DEBUG] Inside gotIPv4 and IPv4_ADDR: !IPv4_ADDR!)
-if defined IPv4_ADDR (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] IPv4_ADDR is defined
-        echo [*] Network Interfaces - IPv4:
-        echo !IPv4_ADDR!
-    )
-    echo [*] Network Interfaces - IPv4: >> "%OUTFILE%"
-    echo !IPv4_ADDR! >> "%OUTFILE%"
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] IPv4_ADDR is not defined
-        echo [*] No IPv4 address found
-    ) 
-    echo [*] No IPv4 address found >> "%OUTFILE%"
-)
-
-:: Check IPv6 Address
-echo. >> "%OUTFILE%"
-echo [*] Network Interfaces - IPv6: >> %OUTFILE%
-if "!TESTING!"=="true" (
-    echo [*] Network Interfaces - IPv6:
-    echo [DEBUG] Setting IPv6_FOUND to false
-)
-set "IPv6_FOUND=false"
-if "!TESTING!"=="true" (echo [DEBUG] Set IPV6_FOUND: !IPv6_FOUND!)
-for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /C:"IPv6 Address"') do (
-    :: Strip leading spaces
-    if "!TESTING!"=="true" (echo [DEBUG] Found IPv6 Address: %%A)
-    for /f "tokens=* delims= " %%B in ("%%A%") do (
-        set "addr=%%B"
-        :: Skip link-local IPv6 addresses
-        if /I "!addr:~0,4!"=="fe80" (
-            if "!TESTING!"=="true" (echo [DEBUG] Skipping link-local address: !addr!)
-        ) else (
-            if "!TESTING!"=="true" (
-                echo [DEBUG] Found non-link-local IPv6 address
-                echo [*] !addr!
-                echo [DEBUG] Setting IPv6_FOUND to true
-            )
-            echo [*] !addr! >> %OUTFILE%
-            set "IPv6_FOUND=true"
-        )
-    )
-)
-if "!TESTING!"=="true" (
-    echo [DEBUG] Done testing IPv6 addresses
-    echo [DEBUG] IPv6_FOUND: !IPv6_FOUND!
-)
-if "!IPv6_FOUND!"=="false" (
-    if "!TESTING!"=="true" (echo [*] No non-link-local IPv6 address detected)
-    echo [*] No non-link-local IPv6 address detected >> "%OUTFILE%"
-)
-
-:: Anonymous Access Restrictions Check
-if "!TESTING!"=="true" (echo [DEBUG] Checking LSA Restrict Anonymous configured)
-echo. >> "%OUTFILE%"
-:: Query LSA\restrictanonymous value from registry
-
-
-:: Auto Update Registry Check
-if "!TESTING!"=="true" (echo [DEBUG] Checking Auto Update Registry configuration)
-echo. >> "%OUTFILE%"
-:: Query AUOptions value from registry
-for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v AUOptions 2^>nul') do (
-    set "AU_VAL=%%A"
-)
-if "!TESTING!"=="true" (echo [DEBUG] Queried AUOptions value AU_VAL: !AU_VAL!)
-:: Decode the value (if present)
-if defined AU_VAL (
-    if "!TESTING!"=="true" (echo [DEBUG] AU_VAL is defined: !AU_VAL!)
-    if "!AU_VAL!"=="1" set "AU_DESC=Disabled"
-    if "!AU_VAL!"=="2" set "AU_DESC=Notify before download"
-    if "!AU_VAL!"=="3" set "AU_DESC=Notify before installation"
-    if "!AU_VAL!"=="4" set "AU_DESC=Scheduled installation"
-    if "!AU_VAL!"=="0" set "AU_DESC=Not configured"
-    if "!TESTING!"=="true" (echo [DEBUG] Setting AU_DESC: !AU_DESC!)
-
-    set /a AU_NUM=!AU_VAL! >nul 2>&1
-    if !AU_NUM! EQU 4 (
-        if "!TESTING!"=="true" (
-            echo [+] Auto Update setting: !AU_VAL! - !AU_DESC!
-        )
-        echo [+] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
-    ) else (
-        if "!TESTING!"=="true" (
-            echo [-] Auto Update setting: !AU_VAL! - !AU_DESC!
-        )
-        echo [-] Auto Update setting: !AU_VAL! - !AU_DESC! >> "%OUTFILE%"
-    )
-) else (
-    if "!TESTING!"=="true" (
-        echo [x] Windows AutoUpdate test failed - AUOptions registry value not found
-    )
-    echo [x] Windows AutoUpdate test failed - AUOptions registry value not found >> "%OUTFILE%"
-)
-
-:: BitLocker Status
-if "!TESTING!"=="true" (
-    echo [DEBUG] Checking for BitLocker status
-    echo [DEBUG] Setting BL_STATUS to false
-)
-set "BL_STATUS=false"
-echo. >> "%OUTFILE%"
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Checking BitLocker service with WMIC)
-    for /f "skip=1 tokens=2 delims==" %%S in ('
-        wmic service where "Name='BDESVC'" get State /value 2^>nul
-    ') do set "raw=%%S"
-    if "!TESTING!"=="true" (echo [DEBUG] WMIC svcState raw: !raw!)
-
-    :: Strip leading/trailing spaces
-    for /f "tokens=* delims= " %%T in ("!raw!") do set "svcState=%%T"
-    if "!TESTING!"=="true" (echo [DEBUG] WMIC trimmed svcState: !svcState!)
-
-    if /i "!svcState!"=="Running" (
-        if "!TESTING!"=="true" (
-            echo [+] BitLocker service is running
-            echo [DEBUG] Setting BL_STATUS to true
-        )
-        set "BL_STATUS=true"
-        echo [+] BitLocker service is running >> %OUTFILE%
-
-        
-    ) else if /i "!svcState!"=="Stopped" (
-        if "!TESTING!"=="true" (echo [-] BitLocker service is installed but stopped)
-        echo [-] BitLocker service is installed but stopped >> %OUTFILE%
-    ) else (
-        if "!TESTING!"=="true" (echo [-] BitLocker service not found)
-        echo [-] BitLocker service not found >> %OUTFILE%
-    )
-) else (
-    if "!TESTING!"=="true" (echo [DEBUG] WMIC not installed, testing with sc query)
-    sc query BDESVC >nul 2>&1
-    if "!TESTING!"=="true" (echo [DEBUG] sc query error leve: %errorlevel%)
-    if %errorlevel%==0 (
-        if "!TESTING!"=="true" (echo [+] BitLocker service BDESVC is installed)
-        echo [+] BitLocker service BDESVC is installed >> %OUTFILE%
-    ) else (
-        echo [-] BitLocker service BDESVC not present >> %OUTFILE%
-        if "!TESTING!"=="true" (
-            echo [-] BitLocker service BDESVC not present
-            echo [DEBUG] Testing if BitLocker management binary installed
-        )
-        set "BitLockerBinary=%windir%\System32\manage-bde.exe"
-        if exist "%BLTOOL%" (
-            echo [+] BitLocker tools present: %BitLockerBinary% >> %OUTFILE%
-            if "!TESTING!"=="true" (echo [+] BitLocker tools present: %BitLockerBinary%)
-        ) else (
-            echo [-] BitLocker tools NOT found >> %OUTFILE%
-            if "!TESTING!"=="true" (echo [-] BitLocker tools NOT found)
-        )
-    )
-)
-
-:: Enhancement - use manage-bde status to check individual drive volumes
-
-:: #############################
-:: SMB Configurations
-:: #############################
-echo. >> "%OUTFILE%"
-if "!TESTING!"=="true" (echo [*] Checking SMB Configurations)
-
-:: For Windows XP (OS version 5.2) and below, only SMBv1 is available
-if !OS_MAJOR! LSS 5 (
-    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is less than 5; set SMBv1_ONLY to true
-    set "SMBv1_ONLY=true"
-) else if !OS_MAJOR! EQU 5 (
-    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR equals 5
-    if !OS_MINOR! LSS 3 (
-        if "!TESTING!"=="true" echo [DEBUG] OS_MINOR is less than 3; set SMBv1_ONLY to true
-        set "SMBv1_ONLY=true"
-    ) else (
-        if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is 2 or higher; set SMBv1_ONLY to false
-        set "SMBv1_ONLY=false"
-    )
-) else (
-    if "!TESTING!"=="true" echo [DEBUG] OS_MAJOR is higher than 5; set SMBv1_ONLY to false
-    set "SMBv1_ONLY=false"
-)
-
-:: #############################
-:: Check SMBv1 Client
-if "!TESTING!"=="true" (
-    echo [*] Checking if SMBv1 Client is installed and/or running
-    echo [DEBUG] SMBv1_ONLY: !SMBv1_ONLY!
-)
-
-if "!SMBv1_ONLY!"=="true" (
-    set "SMBv1_DRIVER_NAME=mrxsmb"
-) else (
-    set "SMBv1_DRIVER_NAME=mrxsmb10"
-)
-
-set "SMBv1_CLIENT=NotInstalled"
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Using wmic sysdriver where Name^="!SMBv1_DRIVER_NAME!" get State /value)
-    for /f "skip=1 tokens=2 delims==" %%S in ('wmic sysdriver where Name^="!SMBv1_DRIVER_NAME!" get State /value 2^>nul') do (
-        :: Trim white space
-        for /f "tokens=* delims= " %%G in ("%%S") do (
-            if "!TESTING!"=="true" (echo [DEBUG] Setting SMBv1_CLIENT to: %%G)
-            set "SMBv1_CLIENT=%%G"
-        )
-    )
-)
-
-if "!SMBv1_CLIENT!"=="NotInstalled" (
-    :: Use sc query to check if SMB client is installed
-    if "!TESTING!"=="true" echo [DEBUG] Using sc query to check for SMBv1_CLIENT
-    for /f "tokens=2 delims=:" %%A in ('sc query lanmanworkstation ^| findstr /i "STATE"') do (
-        if "!TESTING!"=="true" echo [DEBUG] Found a value: %%A
-        for /f "tokens=2" %%B in ("%%A") do (
-            if "!TESTING!"=="true" (echo [DEBUG] Seting SMBv1_CLIENT to: %%B)
-            set "SMBv1_CLIENT=%%B"
-        )
-    )
-)
-
-:: Report on SMBv1 Client
-if "!TESTING!"=="true" (echo [DEBUG] SMBv1_CLIENT: !SMBv1_CLIENT!)
-
-if /i "!SMBv1_CLIENT!"=="Running" (
-    echo [-] SMBv1 Client driver is INSTALLED and RUNNING >> %OUTFILE%
-    if "!TESTING!"=="true" (echo [-] SMBv1 Client driver is INSTALLED and RUNNING)
-) else if /i "!SMBv1_CLIENT!"=="Stopped" (
-    echo [-] SMBv1 Client driver is INSTALLED but STOPPED >> %OUTFILE%
-    if "!TESTING!"=="true" (echo [-] SMBv1 Client driver is INSTALLED but STOPPED)
-) else (
-    echo [+] SMBv1 Client driver is NOT installed >> %OUTFILE%
-    if "!TESTING!"=="true" (echo [+] SMBv1 Client driver is NOT installed)
-)
-
-:: #############################
-:: Check SMB Server
-
-if "!TESTING!"=="true" echo [DEBUG] Setting SMB_SERVER to NotInstalled
-set "SMB_SERVER=NotInstalled"
-if "!TESTING!"=="true" echo [DEBUG] SMB_SERVER: !SMB_SERVER!
-
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Using wmic to check for SMB_SERVER)
-    for /f "skip=1 tokens=2 delims== " %%A in ('wmic service where name^="LanmanServer" get State /value 2^>nul') do (
-        set "SMB_SERVER=%%A"
-        if "!TESTING!"=="true" echo [DEBUG] Setting SMB server state to: %%A
-    )
-) else (
-    if "!TESTING!"=="true" echo [DEBUG] Using sc query to check for SMB_SERVER
-    for /f "tokens=2 delims=:" %%A in ('sc query lanmanserver ^| findstr /i "STATE"') do (
-        if "!TESTING!"=="true" echo [DEBUG] Found a value: %%A
-        for /f "tokens=2" %%B in ("%%A") do (
-            if "!TESTING!"=="true" (echo [DEBUG] Setting SMB_SERVER to: %%B)
-            set "SMB_SERVER=%%B"
-        )
-    )
-)
-if "!TESTING!"=="true" echo [DEBUG] SMB_SERVER: !SMB_SERVER!
-
-if "!SMB_SERVER!"=="NotInstalled" (
-    echo [+] SMB Server is NOT installed 
-    if "!TESTING!"=="true" echo [+] SMB Server is NOT installed 
-) else if "!SMBv1_ONLY!"=="true" (
-    set "SMBv1_SERVER=!SMB_SERVER!"
-    set "SMBv2_SERVER=NotInstalled"
-) else if !OS_MAJOR! LSS 6 (
-    if "!TESTING!"=="true" echo [DEBUG] OS Major version is 5 or less
-    set "use_wmic_sysdriver=true"
-) else if !OS_MAJOR! EQU 6 (
-    if !OS_MINOR! LSS 2 (
-        if "!TESTING!"=="true" echo [DEBUG] OS version is 6.1 or less
-        set "use_wmic_sysdriver=true"
-    ) else (
-        if "!TESTING!"=="true" (
-            echo [DEBUG] OS version is 6.2 or higher
-            echo [DEBUG] Calling CheckSMBRegQuery
-        )
-        :: Can use reg query
-        call :CheckSMBRegQuery SMB1 
-        if "!TESTING!"=="true" echo [DEBUG] SMB1 Result: !RESULT!
-        set "SMBv1_SERVER=!RESULT!"
-        call :CheckSMBRegQuery SMB2
-        if "!TESTING!"=="true" echo [DEBUG] SMB2 Result: !RESULT!
-        set "SMBv2_SERVER=!RESULT!"
-    )
-)
-if "!use_wmic_sysdriver!"=="true" (
-    if "!TESTING!"=="true" echo [DEBUG] Using wmic sysdriver to check for SMB servers
-    for /f "tokens=2 delims==" %%A in ('wmic sysdriver where Name^="srv" get State /value') do (
-        set "SMBv1_SERVER=%%A"
-    )
-    for /f "tokens=2 delims==" %%A in ('wmic sysdriver where Name^="srv2" get State /value') do (
-        set "SMBv2_SERVER=%%A"
-    )
-)
-
-:: StartType Codes: 0 = Boot Start; 1 = System Start; 2 = Auto Start; 3 = Demand Start; 4 = Disabled
-if "!SMBv1_SERVER!"=="NotInstalled" (
-    echo [+] SMBv1 Server is NOT installed  >> %OUTFILE%
-    if "!TESTING!"=="true" echo [+] SMBv1 Server is NOT installed
-) else (
-    echo [-] SMBv1 Server is INSTALLED and !SMBv1_SERVER! >> %OUTFILE%
-    if "!TESTING!"=="true" echo [-] SMBv1 Server is INSTALLED and !SMBv1_SERVER!
-    :: Get the start type, since it's present
-    for /f "tokens=3" %%A in ('sc qc !SMBv1_DRIVER_NAME! ^| findstr /i "START_TYPE"') do set "startType=%%A"
-    :: Strip any spaces
-    set "startType=!startType: =!"
-    if "!TESTING!"=="true" echo [DEBUG] SMBv1 startType: !startType!
-    if "!startType!"=="4" (
-        if "!TESTING!"=="true" (echo [+] SMBv1 server driver START_TYPE is !startType! - DISABLED)
-        echo [+] SMBv1 server driver START_TYPE is !startType! - Disabled >> "%OUTFILE%"
-    ) else if "!startType!"=="3" (
-        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !startType! - Manual Start)
-        echo [-] SMBv1 server driver START_TYPE is !startType! - Manual Start >> %OUTFILE%"
-    ) else if "!startType!"=="2" (
-        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !START_TYPE! - Auto Start)
-        echo [-] SMBv1 server driver START_TYPE is !startType! - Auto Start >> "%OUTFILE%"
-    ) else if "!startType!"=="1" (
-        if "!TESTING!"=="true" (echo [-] SMBv1 server driver START_TYPE is !startType! - System Start)
-        echo [-] SMBv1 server driver START_TYPE is !startType! - System Start >> "%OUTFILE%"
-    )
-)
-
-if "!SMBv2_SERVER!"=="NotInstalled" (
-    echo [+] SMBv2 Server is NOT installed  >> %OUTFILE%
-    if "!TESTING!"=="true" echo [+] SMBv2 Server is NOT installed
-) else (
-    echo [-] SMBv2 Server is INSTALLED and !SMBv1_SERVER! >> %OUTFILE%
-    if "!TESTING!"=="true" echo [-] SMBv2 Server is INSTALLED and !SMBv1_SERVER!
-    :: Get the start type, since it's present
-    for /f "tokens=3" %%A in ('sc qc !SMBv1_DRIVER_NAME! ^| findstr /i "START_TYPE"') do set "startType=%%A"
-    :: Strip any spaces
-    set "startType=!startType: =!"
-    if "!TESTING!"=="true" echo [DEBUG] SMBv2 startType: !startType!
-    if "!startType!"=="4" (
-        if "!TESTING!"=="true" (echo [+] SMBv2 server driver START_TYPE is !startType! - DISABLED)
-        echo [+] SMBv2 server driver START_TYPE is !startType! - Disabled >> "%OUTFILE%"
-    ) else if "!startType!"=="3" (
-        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - Manual Start)
-        echo [-] SMBv2 server driver START_TYPE is !startType! - Manual Start >> %OUTFILE%"
-    ) else if "!startType!"=="2" (
-        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - Auto Start)
-        echo [-] SMBv2 server driver START_TYPE is !startType! - Auto Start >> "%OUTFILE%"
-    ) else if "!startType!"=="1" (
-        if "!TESTING!"=="true" (echo [-] SMBv2 server driver START_TYPE is !startType! - System Start)
-        echo [-] SMBv2 server driver START_TYPE is !startType! - System Start >> "%OUTFILE%"
-    )
-)
-
-:: #############################
-:: Local Administrator Accounts
-if "!TESTING!"=="true" echo [DEBUG] Checkign Local Administrator Accounts
-set "foundSeparator=false"
-set /a numAdmins=0
-set "adminList="
-if "!TESTING!"=="true" (
-    echo [DEBUG] foundSeparator: !foundSeparator!
-    echo [DEBUG] numAdmins: !numAdmins!
-    echo [DEBUG] adminList: !adminList!
-)
-
-:: Loop through each line of the net localgroup output
-for /f "tokens=* delims=" %%L in ('net localgroup Administrators') do (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] Checking line in net localgroup output
-        echo %%L
-    )
-    set "line=%%L"
-    if "!foundSeparator!"=="false" (
-        :: Look for dashed separator line
-        if "!line:~0,4!"=="----" (
-            if "!TESTING!"=="true" echo [DEBUG] Found the separator line 
-            set "foundSeparator=true"
-            if "!TESTING!"=="true" echo [DEBUG] foundSeparator: !foundSeparator!
-        )
-    ) else (
-        :: Stop if the success footer is seen
-        if /i "!line!"=="The command completed successfully." goto :reportLocalAdmins
-
-        :: Count any non-blank member line
-        if not "!line!"=="" (
-            set /a numAdmins+=1
-            if defined adminList (
-                set "adminList=!adminList!, !line!"
-            ) else (
-                set "adminList=!line!"
-            )
-        )
-    )
-)
-
-:reportLocalAdmins
-if "!TESTING!"=="true" (
-    echo [DEBUG] foundSeparator: !foundSeparator!
-    echo [DEBUG] numAdmins: !numAdmins!
-    echo [DEBUG] adminList: !adminList!
-)
-if !numAdmins! GTR 1 (
-    if "!TESTING!"=="true" ( echo [-] More than one account is in local Administrators group: %numAdmins%)
-    echo [-] More than one account is in local Administrators group: %numAdmins% >> "%OUTFILE%"
-) else (
-    if "!TESTING!"=="true" ( echo [+] One account in local Administrators group )
-    echo [+] One account in local Administrators group >> "%OUTFILE%"
-)
-if "!TESTING!"=="true" ( echo [*] Administrator Account Groups: !adminList!)
-echo [*] Administrator Accounts: !adminList! >> "%OUTFILE%"
-
-:: #############################
-:: Check AlwaysInstallElevated Privileges
-if "!CheckAlwaysInstallElevatedEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckAlwaysInstallElevated)
-    call :CheckAlwaysInstallElevated
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckAlwaysInstallElevated)
-) else (
-if "!TESTING!"=="true" ( echo [DEBUG] CheckAlwaysInstallElevatedEnabled : !CheckAlwaysInstallElevatedEnabled!)
-)
-
-:: #############################
-:: Check RestrictAnonymous Configuration
-if "!CheckRestrictAnonymousEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRestrictAnonymous)
-    call :CheckRestrictAnonymous
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRestrictAnonymous)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckRestrictAnonymousEnabled: !CheckRestrictAnonymousEnabled!)
-)
-
-:: #############################
-:: Check CachedLogonsCount Configuration
-if "!CheckCachedLogonsEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckCachedLogons)
-    call :CheckCachedLogons
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckCachedLogons)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckCachedLogonsEnabled: !CheckCachedLogonsEnabled!)
-)
-:: #############################
-:: Check RestrictRemoteClients Configuration
-if "!CheckRestrictRemoteClientsEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRestrictRemoteClients)
-    call :CheckRestrictRemoteClients
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRestrictRemoteClients)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckRestrictRemoteClientsEnabled: !CheckRestrictRemoteClientsEnabled!)
-)
-:: #############################
-:: Check if Windows Script Host Enabled
-if "!CheckWindowsScriptHostEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWindowsScriptHost)
-    call :CheckWindowsScriptHost
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWindowsScriptHost)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckWindowsScriptHostEnabled: !CheckWindowsScriptHostEnabled!)
-)
-:: #############################
-:: Check NTLM Session Security
-if "!CheckNTLMSessionSecEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckNTLMSessionSec)
-    call :CheckNTLMSessionSec
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckNTLMSessionSec)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckNTLMSessionSecEnabled: !CheckNTLMSessionSecEnabled!)
-)
-:: #############################
-:: Check LANMAN
-if "!CheckLanmanEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckLanman)
-    call :CheckLanman
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckLanman)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckLanmanEnabled: !CheckLanmanEnabled!)
-)
-
-:: #############################
-:: Check RDP Deny
-if "!CheckRDPDenyEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckRDPDeny)
-    call :CheckRDPDeny
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckRDPDeny)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckRDPDenyEnabled: !CheckRDPDenyEnabled!)
-)
-:: #############################
-:: Check WDigest Credential Storing
-if "!CheckWDigestEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWDigest)
-    call :CheckWDigest
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWDigest)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckWDigestEnabled: !CheckWDigestEnabled!)
-)
-:: #############################
-:: Check Interactive Login
-if "!CheckInteractiveLoginEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckInteractiveLogin)
-    call :CheckInteractiveLogin
-    if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckInteractiveLogin)
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckInteractiveLoginEnabled: !CheckInteractiveLoginEnabled!)
-)
-:: #############################
-:: Check GPO Re-Processing Policy
-if "!CheckGPOProcessingEnabled!"=="true" (
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckGPOProcessing)
-call :CheckGPOProcessing
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckGPOProcessingEnabled: !CheckGPOProcessingEnabled!)
-)
-:: #############################
-:: Check WINSConfig
-:: Requires WMIC for check
-if "!CheckWINSConfigEnabled!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
-    if "!WMIC_PRESENT!"=="true" (
-        if "!TESTING!"=="true" ( echo [DEBUG] Calling :CheckWINSConfig)
-        call :CheckWINSConfig
-        if "!TESTING!"=="true" ( echo [DEBUG] Returned from :CheckWINSConfig)
-    ) else (
-        if "!TESTING!"=="true" ( echo [*] WINSConfig check requires WMIC to be present)
-        echo [*] WINSConfig check requires WMIC to be present >> %OUTFILE%
-    )
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] CheckWINSConfigEnabled: !CheckWINSConfigEnabled!)
-)
-
-:: #############################
-:: Print the Footers and Finish
-:: #############################
-
-:: Print Document Footer
-if "!TESTING!"=="true" (echo [DEBUG] Calling :PrintDocumentFooter)
-call :PrintDocumentFooter
-
-:: #############################
-:: Print Cutsec Footer
-if "%CUTSEC_FOOTER%"=="true" (
-    if "!TESTING!"=="true" (echo [DEBUG] Calling :PrintCutsecFooter)
-    call :PrintCutsecFooter
-    if "!TESTING!"=="true" (echo [DEBUG] Returned from :PrintCutsecFooter)
-)
-
-
-:: #############################
-:: Exit the Script
-if "!TESTING!"=="true" (echo [DEBUG] Finished - exiting script)
-:: If script started by double-clicking file, then pause so cmd window stays open
-set "CMDLINE="
-for /f "delims=" %%i in ('cmd /c "echo !cmdcmdline!"') do set "CMDLINE=%%i"
-if "!TESTING!"=="true" (echo [DEBUG] CMDLINE: !CMDLINE!)
-if "!CMDLINE:~0,3!"=="/c """ (
-    if "!TESTING!"=="true" ( echo [DEBUG] Script was launched by double-click. Pausing...)
-    pause
-)
-
-:: End the script safely
-goto :eof 
-
+set "COMPANY="
+set "SITENAME="
+set "CUTSEC_FOOTER=true"
+
+:: Skip helper functions, jump to main
+goto :main
 
 :: #############################
 :: Helper Functions
 :: #############################
 
-:: Get date formatted for either report or filename
-:: Call with :GetDate [readable/filename]
-:GetDate
-@echo off 
+:GetRegVal
+:: %1 = registry path, %2 = value name, %3 = output variable
 setlocal enabledelayedexpansion
-if "!TESTING!"=="true" ( echo [DEBUG] Entered :GetDate)
-set "dateFormat=%~1"
-if "!TESTING!"=="true" ( echo [DEBUG] Entered :GetDate with format: !dateFormat!)
-
-set "READABLE_DATE="
-if "!WMIC_PRESENT!"=="true" (
-    if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetWMICValue os localdatetime value)
-    call :GetWMICValue os localdatetime value
-    set dt=!RESULT!
-    :: for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value"') do set dt=%%i
-    if "!TESTING!"=="true" (
-        echo [DEBUG] dt: !dt!
-        echo [DEBUG] Setting yyyy: !dt:~0,4!
-        echo [DEBUG] Setting dd: !dt:~6,2!
-        echo [DEBUG] Setting MONTH: !dt:~4,2!
-        echo [DEBUG] Setting HH: !dt:~8,2!
-        echo [DEBUG] Setting mm: !dt:~10,2!
-        echo [DEBUG] Setting ss: !dt:~12,2!
-        echo [DEBUG] Setting timezone: UTC!dt:~21,3!
-    )
-    set "yyyy=!dt:~0,4!"
-    set "dd=!dt:~6,2!"
-    set "MONTH=!dt:~4,2!"
-    set "HH=!dt:~8,2!"
-    set "mm=!dt:~10,2!"
-    set "ss=!dt:~12,2!"
-    set "timezone=UTC!dt:~21,3!"
-    if "!dateFormat!"=="readable" (
-        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to READABLE_DATE: !MONTH!/!dd!/!yyyy! !HH!:!mm!:!ss! !timezone!)
-        set "DATE_OUTPUT=!MONTH!/!dd!/!yyyy! !HH!:!mm!:!ss! !timezone!"
-        goto get_date_done
-    ) else if "!dateFormat!"=="filename" (
-        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FILENAME_DATE: !yyyy!-!MONTH!-!dd!_!HH!!mm!!ss!)
-        set "DATE_OUTPUT=!yyyy!-!MONTH!-!dd!_!HH!!mm!!ss!"
-        goto get_date_done
-    ) else (
-        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FALLBACK_DATE: !yyyy!-!mm!-!dd!)
-        set "DATE_OUTPUT=!yyyy!-!mm!-!dd!"
-        goto get_date_done
-    )
-) else (
-    :: Parsing DATE and TIME depends on locale settings
-    set "RAW_DATE=%DATE%"
-    set "RAW_TIME=%TIME%"
-    if "!TESTING!"=="true" (
-        echo [DEBUG] RAW_DATE: !RAW_DATE!
-        echo [DEBUG] RAW_TIME: !RAW_TIME!
-    )
-    if "!dateFormat!"=="readable" (
-        :: We'll just use the raw output for the readable date
-        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to READABLE_DATE: !RAW_DATE! !RAW_TIME!)
-        set "DATE_OUTPUT=!RAW_DATE! !RAW_TIME!"
-        goto get_date_done
-    ) else (
-        :: We'll just extract the digits from the date, it'll probably be ddmmyyyy, yyyymmdd, or mmddyyyy
-        set "DATE_OUTPUT="
-        for /l %%I in (0,1,31) do (
-            set "char=!RAW_DATE:~%%I,1!"
-            if "!char!"=="" goto get_date_done
-            for %%D in (0 1 2 3 4 5 6 7 8 9) do if "!char!"=="%%D" set "DATE_OUTPUT=!DATE_OUTPUT!!char!"
-        )
-        if "!TESTING!"=="true" ( echo [DEBUG] Setting DATE_OUTPUT to FILENAME_DATE: !DATE_OUTPUT!)
-        goto get_date_done
-    )
-)
-
-:get_date_done
-if "!TESTING!"=="true" (echo [DEBUG] Returning: !DATE_OUTPUT!)
-for /f "delims=" %%# in ("!DATE_OUTPUT!") do (
-    endlocal & set "RESULT=%%#"
-)
-goto :eof 
-
-:: #############################
-:: Check for Admin RIghts
-:CheckAdminRights
-@echo off 
-setlocal enabledelayedexpansion
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Called :CheckAdminRights
-    echo [DEBUG] Checking Administrator permissions using whoami
-)
-
-whoami /groups | findstr /i "S-1-5-32-544" >nul
-if %errorlevel%==0 (
-    if "!TESTING!"=="true" ( echo [+] Script running as Administrator)
-    echo [+] Script running as Administrator >> "%OUTFILE%"
-) else (
-    if "!TESTING!"=="true" ( echo [x] Script NOT running as Administrator)
-    echo [x] Script NOT running as Administrator >> "%OUTFILE%"
-)
-
-endlocal & goto :eof 
-
-:: #############################
-:: Sanitize Value
-:SanitizeValue
-setlocal enabledelayedexpansion
-set "val=%~1"
-if "!TESTING!"=="true" ( echo [DEBUG] Called :SanitizeValue !val!)
-
-:: Trim leading/trailing spaces
-for /f "tokens=* delims=" %%A in ("!val!") do set "val=%%A"
-
-:: Strip outer single quotes if present
-if "!val:~0,1!"=="'" if "!val:~-1!"=="'" set "val=!val:~1,-1!"
-
-:: Remove stray CR/LF by re-tokenizing once more
-for /f "tokens=* delims=" %%# in ("!val!") do set "val=%%#"
-
-endlocal & set "CLEANED_VALUE=%val%"
-if "!TESTING!"=="true" ( echo [DEBUG] Finished :SanitizedValue CLEANED_VALUE: !CLEANED_VALUE!)
-goto :eof 
-
-:: #############################
-:: Helper Functions - Printing Report
-:: #############################
-
-:: Print Cutsec Footer
-:PrintCutsecFooter
-setlocal enabledelayedexpansion
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Called :PrintCutsecFooter
-    echo ##########################
-    echo # CHAPS Audit Script: !SCRIPTNAME! !SCRIPTVERSION!
-    echo # Brought to you by Cutaway Security, LLC
-    echo # For assessment and auditing help, contact info [@] cutawaysecurity.com
-    echo # For script help, contact dev [@] cutawaysecurity.com
-    echo ##########################
-)
-echo. >> "%OUTFILE%"
-echo ########################## >> "%OUTFILE%"
-echo # CHAPS Audit Script: !SCRIPTNAME! !SCRIPTVERSION! >> "!OUTFILE!"
-echo # Brought to you by Cutaway Security, LLC >> "!OUTFILE!"
-echo # For assessment and auditing help, contact info [@] cutawaysecurity.com >> "!OUTFILE!"
-echo # For script help, contact dev [@] cutawaysecurity.com >> "!OUTFILE!"
-echo ########################## >> "!OUTFILE!"
-if "!TESTING!"=="true" (echo [DEBUG] Finished :PrintCutsecFooter)
-goto :eof 
-
-:: #############################
-:: Print Document Footer
-:PrintDocumentFooter
-@echo off
-setlocal enabledelayedexpansion
-
-if "!TESTING!"=="true" (echo [DEBUG] Called :PrintDocumentFooter)
-:: Get the current date and time components
-call :GetDate readable
-set "FINISH_TIME=!RESULT!"
-
-if "!TESTING!"=="true" (
-    echo ##########################
-    echo # %SCRIPTNAME% completed
-    echo # Stop Time: !FINISH_TIME!
-    echo ##########################
-)
-echo. >> "%OUTFILE%"
-echo ########################## >> "%OUTFILE%"
-echo # %SCRIPTNAME% completed >> "%OUTFILE%"
-echo # Stop Time: !FINISH_TIME! >> "%OUTFILE%"
-echo ########################## >> "%OUTFILE%"
-echo # Report saved to: %OUTFILE%
-echo ##########################
-
-endlocal & goto :eof
-
-:: #############################
-:: Print Section Header
-:PrtSectionHeader
-if "!TESTING!"=="true" (
-    echo ##########################
-    echo # %*
-    echo ##########################
-)
->> "%OUTFILE%" echo.
->> "%OUTFILE%" echo ##########################
->> "%OUTFILE%" echo # %*
->> "%OUTFILE%" echo ##########################
-goto :eof
-
-:: #############################
-:: Helper Functions - WMIC
-:: #############################
-:CheckWMICAvailable
-@echo off
-
-if "!TESTING!"=="true" ( echo [DEBUG] Called :CheckWMICAvailable)
-where wmic >nul 2>&1
-if %errorlevel%==0 (
-    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_PRESENT to true)
-    set "WMIC_PRESENT=true"
-) else (
-    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_PRESENT to false)
-    set "WMIC_PRESENT=false"
-)
-if "!TESTING!"=="true" (echo [DEBUG] WMIC_PRESENT: !WMIC_PRESENT!)
-goto :eof
-
-:: Set WMIC_EXE based on 32- or 64-bit Windows
-:: #############################
-:SetWMICExe
-@echo off
-
-if "!TESTING!"=="true" ( echo [DEBUG] Called :SetWMICExe)
-
-if exist "%windir%\sysnative\wbem\wmic.exe" (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_EXE for 32-bit)
-    set "WMIC_EXE=%windir%\sysnative\wbem\wmic.exe"
-) else if exist "%windir%\system32\wbem\wmic.exe" (
-    if "!TESTING!"=="true" (echo [DEBUG] Setting WMIC_EXE for 64-bit)
-    set "WMIC_EXE=%windir%\system32\wbem\wmic.exe"
-)
-if "!TESTING!"=="true" (echo [DEBUG] Set WMIC_EXE: !WMIC_EXE!)
-goto :eof
-
-:: Get WMIC Value 
-:: #############################
-:GetWMICValue
-@echo off
-setlocal enabledelayedexpansion
-
-:: Cache parameters to local variables
-set "WMIC_CLASS=%~1"
-set "WMIC_PROPERTY=%~2"
-set "WMIC_RESULT_TYPE=%~3"
-set "WMIC_FILTER_KEY=%~4"
-set "WMIC_FILTER_VALUE=%~5"
-if "!TESTING!"=="true" (
-    echo [DEBUG] Called GetWMICValue
-    echo [DEBUG] WMIC_CLASS: !WMIC_CLASS!
-    echo [DEBUG] WMIC_PROPERTY: !WMIC_PROPERTY!
-    echo [DEBUG] WMIC_RESULT_TYPE: !WMIC_RESULT_TYPE!
-)
-
-: Set Result Type
-if "!WMIC_RESULT_TYPE!"=="value" ( 
-    if "!TESTING!"=="true" ( echo [DEBUG] Setting WMIC_TYPE_TAG: value)
-    set "WMIC_TYPE_TAG=value"
-) else if "!WMIC_RESULT_TYPE!"=="list" (
-    set "WMIC_TYPE_TAG=format:list"
-) else ( set "WMIC_TYPE_TAG=")
-if "!TESTING!"=="true" ( echo [DEBUG] WMIC_TYPE_TAG: !WMIC_TYPE_TAG!)
-
-:: Build optional WHERE statement
-set "WHERE_CLAUSE="
-if defined WMIC_FILTER_KEY if defined WMIC_FILTER_VALUE (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] WMIC_FILTER_KEY: !WMIC_FILTER_KEY!
-        echo [DEBUG] WMIC_FILTER_VALUE: !WMIC_FILTER_VALUE!
-    )
-    set "WHERE_CLAUSE=where !WMIC_FILTER_KEY!='!WMIC_FILTER_VALUE!'"
-)
-
-if "!TESTING!"=="true" ( echo [DEBUG] Attempting: wmic !WMIC_CLASS! !WHERE_CLAUSE! get !WMIC_PROPERTY! ^/!WMIC_TYPE_TAG!)
-for /f "tokens=2 delims==" %%L in ('"%WMIC_EXE%" !WMIC_CLASS! !WHERE_CLAUSE! get !WMIC_PROPERTY! ^/!WMIC_TYPE_TAG! 2^>nul') do (
-    if "!TESTING!"=="true" ( echo [DEBUG] WMIC Result: %%L)
-    endlocal & set "RESULT=%%L"
-    goto wmic_returned
-)
-
-:: If we fell through, there was nothing
-if "!TESTING!"=="true" ( echo [DEBUG] WMIC returned nothing)
-endlocal & set "RESULT=Unknown"
-goto wmic_returned
-
-:wmic_returned
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :SanitizeValue "%RESULT%")
-call :SanitizeValue "%RESULT%"
-if "!TESTING!"=="true" ( echo [DEBUG] Returned to :GetWMICValue)
-set "RESULT=%CLEANED_VALUE%"
-if "!TESTING!"=="true" ( echo [DEBUG] Returning RESULT: !RESULT!)
-goto :eof
-
-:: #############################
-:GetRegistryValue
-:: %1 = registry path
-:: %2 = value name
-:: %3 = output variable name
-setlocal enabledelayedexpansion
-set "outval=0"
-
-for /f "tokens=3" %%A in ('reg query "%~1" /v %2 2^>nul') do (
-    set "outval=%%A"
-)
-
+set "outval="
+for /f "tokens=2,*" %%A in ('reg query "%~1" /v "%~2" 2^>nul ^| findstr /i "%~2"') do set "outval=%%B"
 endlocal & set "%~3=%outval%"
 goto :eof
 
-:: #############################
-:: Helper Functions - Specific Checks
-:: #############################
-
-:: #############################
-:: System Info Checks
-:: #############################
-
-:: #############################
-:CheckSMBRegQuery
-@echo off
-setlocal EnableDelayedExpansion
-
-set "v=%~1"
-if "!TESTING!"=="true" (
-    echo [DEBUG] Called CheckSMBRegQuery
-    echo [DEBUG] v: !v!
-    echo [DEBUG] Trying reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "!v!"
-)
-
-for /f "skip=1 tokens=3" %%A in ('
-  reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "!v!" 2^>nul
-') do set "SMB_VAL=%%A"
-
-if "!SMB_VAL!"=="1" (
-  echo [DEBUG] !v! SERVER protocol: ENABLED
-  endlocal & set "RESULT=ENABLED"
-) else if "%SMB1%"=="0" (
-  echo [DEBUG] !v! SERVER protocol: DISABLED
-  endlocal & set "RESULT=DISABLED"
-) else (
-  echo [DEBUG] !v! SERVER protocol: not set
-  endlocal & set "RESULT="
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Returning RESULT: "!RESULT!")
-goto :eof 
-
-:: #############################
-:: Check AlwaysInstallElevated settings (HKLM and HKCU)
-:CheckAlwaysInstallElevated
-if "!TESTING!"=="true" echo [DEBUG] Called CheckAlwaysInstallElevated
-
-:: Initialize default values
-set "HKLM_AIE=0"
-set "HKCU_AIE=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_AIE: !HKLM_AIE!
-    echo [DEBUG] Default HKCU_AIE: !HKCU_AIE!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKLM_AIE
-call :GetRegistryValue "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKLM_AIE
-
-:: Check HKCU
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKCU_AIE 
-call :GetRegistryValue "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKCU_AIE
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_AIE: !HKLM_AIE!
-    echo [DEBUG] HKCU_AIE: !HKCU_AIE!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_AIE! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
-    set "HKLM_AIE=!HKLM_AIE:0x=!"
-)
-echo !HKCU_AIE! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKCU)
-    set "HKCU_AIE=!HKCU_AIE:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_AIE: !HKLM_AIE!
-    echo [DEBUG] Normalized HKCU_AIE: !HKCU_AIE!
-)
-
-:: Now check values
-if "!HKLM_AIE!"=="1" (
-    if "!HKCU_AIE!"=="1" (
-        echo [-] Users can install software as NT AUTHORITY\SYSTEM >> "%OUTFILE%"
-        echo [-] AlwaysInstallElevated registry values ^(HKLM and HKCU^) = 1 >> "%OUTFILE%"
-        if "!TESTING!"=="true" (
-            echo [-] Users can install software as NT AUTHORITY\SYSTEM. ^(HKLM and HKCU^) = 1
-            echo [-] AlwaysInstallElevated registry values ^(HKLM and HKCU^) = 1
-        )
-    ) else (
-        goto :not_elevated
-    )
-) else (
-    goto :not_elevated
-)
-goto :AEI_check_done
-
-:not_elevated
-echo [+] Users cannot install software as NT AUTHORITY\SYSTEM >> "%OUTFILE%"
-echo [*] AlwaysInstallElevated Registry Values: ^(HKLM=!HKLM_AIE!, HKCU=!HKCU_AIE!^) >> "%OUTFILE%"
-if "!TESTING!"=="true" (
-    echo [+] Users cannot install software as NT AUTHORITY\SYSTEM
-    echo [*] AlwaysInstallElevated Registry Values: ^(HKLM=!HKLM_AIE!, HKCU=!HKCU_AIE!^)
-)
-:AEI_check_done
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckAlwaysInstallElevated)
-goto :eof 
-
-:: #############################
-:: Check Anonymous Access Restrictions settings
-:CheckRestrictAnonymous
-if "!TESTING!"=="true" echo [DEBUG] Called CheckRestrictAnonymous
-
-:: Initialize default values
-set "HKLM_AAR=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_AIE: !HKLM_AAR!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RestrictAnonymous" HKLM_AAR
-call :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RestrictAnonymous" HKLM_AAR
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_ARR: !HKLM_AAR!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_AAR! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
-    set "HKLM_AAR=!HKLM_AAR:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_AAR: !HKLM_AAR!
-)
-
-:: Now check values
-if "!HKLM_AAR!"=="0" (
-    echo [-] RestrictAnonymous registry key is not configured >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] RestrictAnonymous registry key is not configured
-        )
-) else (
-    goto :AAR_configured
-)
-goto :AAR_check_done
-
-:AAR_configured
-echo [+] RestrictAnonymous registry key is configured >> "%OUTFILE%"
-echo [*] LSA.RestrictAnonymous Registry HKLM Value: !HKLM_AAR! >> "%OUTFILE%"
-if "!TESTING!"=="true" (
-    echo [+] RestrictAnonymous registry key is configured
-    echo [*] LSA.RestrictAnonymous Registry HKLM Value: !HKLM_AAR!
-)
-:AAR_check_done
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRestrictAnonymous)
-goto :eof 
-
-:: #############################
-:: Check Cached Logon settings
-:CheckCachedLogons
-if "!TESTING!"=="true" echo [DEBUG] Called CheckCachedLogons
-
-:: Initialize default values
-set "HKLM_CLO=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_CLO !HKLM_CLO!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" HKLM_CLO
-call :GetRegistryValue "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" HKLM_CLO
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_CLO: !HKLM_CLO!
-)
-
-:: Now check values
-if not defined HKLM_CLO (
-    echo [*] CachedLogonsCount is not configured >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [*] CachedLogonsCount is not configured
-        )
-) else (
-    if "!TESTING!"=="true" (
-        echo [DEBUG] Converting HKLM_CLO to numeric
-    )
-    set /a HKLM_CLO_NUM=!HKLM_CLO!
-    if "!TESTING!"=="true" (
-        echo [DEBUG] Converted HKLM_CLO to numeric
-    )
-    if !HKLM_CLO_NUM! LSS 2 (
-        echo [+] CachedLogonsCount is set to: !HKLM_CLO_NUM! >> "%OUTFILE%"
-        if "!TESTING!"=="true" (
-            echo [+] CachedLogonsCount is set to: !HKLM_CLO_NUM!
-        )
-        goto :CLO_check_done
-    ) else (
-        echo [-] CachedLogonsCount is set to: !HKLM_CLO_NUM! >> "%OUTFILE%"
-        if "!TESTING!"=="true" (
-            echo [-] CachedLogonsCount is set to !HKLM_CLO_NUM!
-        )
-        goto :CLO_check_done
-    )
-)
-
-:CLO_check_done
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckCachedLogons)
-goto :eof 
-
-:: #############################
-:: Check RPC RestrictRemoteClients Configuration
-:CheckRestrictRemoteClients
-if "!TESTING!"=="true" echo [DEBUG] Called CheckRestrictRemoteClients
-
-:: Initialize default values
-set "HKLM_RRC=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_RRC !HKLM_RRC!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" HKLM_RRC
-call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" HKLM_RRC
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_RRC: !HKLM_RRC!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_RRC! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
-    set "HKLM_RRC=!HKLM_RRC:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_RRC: !HKLM_RRC!
-)
-:: Now check values
-if not defined HKLM_RRC (
-    echo [-] RPC RestrictRemoteClients is not configured >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] RPC RestrictRemoteClients is not configured
-        )
-    goto :RRC_check_done
-) else if "!HKLM_RRC!"=="1" (
-    echo [+] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Enabled >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated
-    )
-    goto :RRC_check_done
-) else if "!HKLM_RRC!"=="2" (
-    echo [-] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated without exceptions >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] RPC RestrictRemoteClients is set to: !HKLM_RRC! - Authenticated without exceptions
-    )
-    goto :RRC_check_done
-) else (
-    echo [-] RPC RestrictRemoteClients is not enabled ^(invalid setting^): !HKLM_RRC!  >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] RPC RestrictRemoteClients is not enabled ^(invalid setting^): !HKLM_RRC! 
-        )
-    goto :RRC_check_done
-)
-
-:RRC_check_done
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRestrictRemoteClients)
+:GetRegValTokens3
+:: %1 = registry path, %2 = value name, %3 = output variable
+:: Uses tokens=3 for standard REG_DWORD / REG_SZ output
+setlocal enabledelayedexpansion
+set "outval="
+for /f "tokens=3" %%A in ('reg query "%~1" /v "%~2" 2^>nul ^| findstr /i "%~2"') do set "outval=%%A"
+endlocal & set "%~3=%outval%"
 goto :eof
 
-:: #############################
-:: Check Windows Script Host Configuration
-:CheckWindowsScriptHost
-if "!TESTING!"=="true" echo [DEBUG] Called CheckWindowsScriptHost
-
-:: Initialize default value
-set "HKLM_WSH=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_WSH: !HKLM_WSH!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" HKLM_WSH
-call :GetRegistryValue "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" HKLM_WSH
-
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_WSH: !HKLM_WSH!
-    echo [DEBUG] HKCU_WSH: !HKCU_WSH!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_WSH! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM)
-    set "HKLM_WSH=!HKLM_WSH:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_WSH: !HKLM_WSH!
-)
-
-:: Now check values
-if "!HKLM_WSH!"=="1" (
-    echo [-] Windows Script Host is Enabled: HKLM = !HKLM_WSH! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] Windows Script Host is Enabled: HKLM = !HKLM_WSH!
-    )
-) else (
-    echo [+] Windows Script Host is Not Enabled >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] Windows Script Host is Not Enabled
-    )
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckWindowsScriptHost)
-goto :eof 
-
-:: #############################
-:: Check NTLMv2 Session Security Configuration
-:CheckNTLMSessionSec
-if "!TESTING!"=="true" (echo [DEBUG] Called CheckNTLMSessionSec)
-
-:: Initialize default values
-set "HKLM_NSS=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_NSS: !HKLM_NSS!
-)
-
-:: Check Server Session Security
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" HKLM_NSS
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" HKLM_NSS
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_NSS: !HKLM_NSS!
-)
-
-:: Convert from Hex to Dec
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_NSS! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Converting to Decimal value)
-    set /a "HKLM_NSS_DEC=!HKLM_NSS!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Converted HKLM_NSS_DEC: !HKLM_NSS_DEC!
-)
-
-:: Now check values
-if "!HKLM_NSS_DEC!"=="537395200" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [-] NTLM SSP server message integrity not required
-        echo [-] NTLM SSP server message confidentiality not required
-    )
-) else if "!HKLM_NSS_DEC!"=="537395232" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [-] NTLM SSP server message integrity not required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="537395248" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [+] NTLM SSP server message integrity is required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="537395216" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [+] NTLM SSP server message integrity is required
-        echo [-] NTLM SSP server message confidentiality is not required
-    )
-) else if "!HKLM_NSS_DEC!"=="536870912" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [-] NTLM SSP server message integrity is not required
-        echo [-] NTLM SSP server message confidentiality is not required
-    )
-) else if "!HKLM_NSS_DEC!"=="536870944" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [-] NTLM SSP server message integrity is not required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="536870960" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server 128-bit encryption is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [+] NTLM SSP server 128-bit encryption is required
-        echo [+] NTLM SSP server message integrity is required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="524336" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [+] NTLM SSP server message integrity is required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="524320" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [-] NTLM SSP server message integrity is not required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="524304" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [+] NTLM SSP server message integrity is required
-        echo [-] NTLM SSP server message confidentiality is not required
-    )
-) else if "!HKLM_NSS_DEC!"=="524288" (
-    echo [+] NTLMv2 server session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [-] NTLM SSP server message integrity is not required
-        echo [-] NTLM SSP server message confidentiality is not required
-    )
-) else if "!HKLM_NSS_DEC!"=="16" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [+] NTLM SSP server message integrity is required
-        echo [-] NTLM SSP server message confidentiality is not required
-    )
-) else if "!HKLM_NSS_DEC!"=="48" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [+] NTLM SSP server message integrity is required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-) else if "!HKLM_NSS_DEC!"=="32" (
-    echo [-] NTLMv2 server session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP server message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP server message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 server session security is not required
-        echo [-] NTLM SSP server 128-bit encryption is not required
-        echo [-] NTLM SSP server message integrity is not required
-        echo [+] NTLM SSP server message confidentiality is required
-    )
-)
-
-echo [*] NtlmMinServerSec registry value: !HKLM_NSS_DEC! >> "%OUTFILE%"
-if "!TESTING!"=="true" (
-    echo [*] NtlmMinServerSec registry value: !HKLM_NSS_DEC!
-    echo [DEBUG] Completed NTLM Session Security Server check 
-)
-
-:: Check Client Session Security
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinClientSec" HKLM_NSC
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinClientSec" HKLM_NSC
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_NSC: !HKLM_NSC!
-)
-
-:: Convert from Hex to Dec
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_NSC! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Converting to Decimal value)
-    set /a "HKLM_NSC_DEC=!HKLM_NSC!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Converted HKLM_NSC_DEC: !HKLM_NSC_DEC!
-)
-
-:: Now check values
-if "!HKLM_NSC_DEC!"=="537395200" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [-] NTLM SSP client message integrity not required
-        echo [-] NTLM SSP client message confidentiality not required
-    )
-) else if "!HKLM_NSC_DEC!"=="537395232" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 server session security is required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [-] NTLM SSP client message integrity not required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="537395248" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [+] NTLM SSP client message integrity is required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="537395216" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [+] NTLM SSP client message integrity is required
-        echo [-] NTLM SSP client message confidentiality is not required
-    )
-) else if "!HKLM_NSC_DEC!"=="536870912" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [-] NTLM SSP client message integrity is not required
-        echo [-] NTLM SSP client message confidentiality is not required
-    )
-) else if "!HKLM_NSC_DEC!"=="536870944" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [-] NTLM SSP client message integrity is not required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="536870960" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client 128-bit encryption is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [+] NTLM SSP client 128-bit encryption is required
-        echo [+] NTLM SSP client message integrity is required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="524336" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [+] NTLM SSP client message integrity is required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="524320" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [-] NTLM SSP client message integrity is not required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="524304" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [+] NTLM SSP client message integrity is required
-        echo [-] NTLM SSP client message confidentiality is not required
-    )
-) else if "!HKLM_NSC_DEC!"=="524288" (
-    echo [+] NTLMv2 client session security is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [+] NTLMv2 client session security is required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [-] NTLM SSP client message integrity is not required
-        echo [-] NTLM SSP client message confidentiality is not required
-    )
-) else if "!HKLM_NSC_DEC!"=="16" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message confidentiality is not required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [+] NTLM SSP client message integrity is required
-        echo [-] NTLM SSP client message confidentiality is not required
-    )
-) else if "!HKLM_NSC_DEC!"=="48" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message integrity is required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [+] NTLM SSP client message integrity is required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-) else if "!HKLM_NSC_DEC!"=="32" (
-    echo [-] NTLMv2 client session security is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client 128-bit encryption is not required >> "%OUTFILE%"
-    echo [-] NTLM SSP client message integrity is not required >> "%OUTFILE%"
-    echo [+] NTLM SSP client message confidentiality is required >> "%OUTFILE%"
-    if "!TESTING!"=="true" (
-        echo [-] NTLMv2 client session security is not required
-        echo [-] NTLM SSP client 128-bit encryption is not required
-        echo [-] NTLM SSP client message integrity is not required
-        echo [+] NTLM SSP client message confidentiality is required
-    )
-)
-
-echo [*] NtlmMinClientSec registry value: !HKLM_NSC_DEC! >> "%OUTFILE%"
-if "!TESTING!"=="true" (
-    echo [*] NtlmMinClientSec registry value: !HKLM_NSC_DEC!
-    echo [DEBUG] Completed NTLM Session Security Client check 
-    echo [DEBUG] Completed :CheckNTLMSessionSec
-)
-goto :eof 
-
-:: #############################
-:: Check LANMAN Security Configuration
-:CheckLanman
-if "!TESTING!"=="true" (echo [DEBUG] Called CheckLanman)
-
-:: Check LANMAN Authentication Compatability Level
-:: Initialize default values
-set "HKLM_LAC=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_LAC: !HKLM_LAC!
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" HKLM_LAC)
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" HKLM_LAC
-
-if "!TESTING!"=="true" (echo [DEBUG] HKLM_LAC: !HKLM_LAC!)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_LAC! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_LAC)
-    set "HKLM_LAC=!HKLM_LAC:0x=!"
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Normalized HKLM_LAC: !HKLM_LAC!)
-
-if "!HKLM_LAC!"=="5" (
-    echo [+] LM Compatability Level is configured correctly: !HKLM_LAC! - Send NTLMv2 response only, refuse LM and NTLM >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [+] LM Compatability Level is configured correctly: !HKLM_LAC! - Send NTLMv2 response only, refuse LM and NTLM)
-) else if "!HKLM_LAC!"=="4" (
-    echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only, refuse LM, Allow NTLM >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only, refuse LM)
-) else if "!HKLM_LAC!"=="3" (
-    echo [-] LM Compatability Level is not configured to prevent NTLM or LM: !HKLM_LAC! - Send NTLMv2 response only >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to prevent NTLM: !HKLM_LAC! - Send NTLMv2 response only)
-) else if "!HKLM_LAC!"=="2" (
-    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send NTLM response only >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send NTLM response only)
-) else if "!HKLM_LAC!"=="1" (
-    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM response, use NTLMv2 session security if negotiated >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM response, use NTLMv2 session security if negotiated)
-) else if "!HKLM_LAC!"=="0" (
-    echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM responses >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] LM Compatability Level is not configured to use NTLMv2: !HKLM_LAC! - Send LM and NTLM responses)
-)
-
-:: Check LANMAN Hash Storage
-:: Initialize default values
-set "HKLM_LMH=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_LMH: !HKLM_LMH!
-    echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "NoLmHash" HKLM_LMH
-    )
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Lsa" "NoLmHash" HKLM_LMH
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_LMH: !HKLM_LMH!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_LMH! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_LMH)
-    set "HKLM_LMH=!HKLM_LMH:0x=!"
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Normalized HKLM_LMH: !HKLM_LMH!)
-
-if "!HKLM_LMH!"=="1" (
-    echo [+] NoLmHash registry key is configured: !HKLM_LMH! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [+] NoLmHash registry key is configured: !HKLM_LMH!)
-) else (
-    echo [-] NoLmHash registry key is not configured >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] NoLmHash registry key is not configured)
-) 
-
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckLanman)
-goto :eof 
-
-:: #############################
-:: Check RDP Deny
-:CheckRDPDeny
-if "!TESTING!"=="true" (echo [DEBUG] Called CheckRDPDeny)
-
-:: Check AllowRemoteRPC Disabled
-:: Initialize default values
-set "HKLM_RPC=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_RPC: !HKLM_RPC!
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" HKLM_RPC)
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" HKLM_RPC
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_RPC: !HKLM_RPC!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_RPC! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_RPC)
-    set "HKLM_RPC=!HKLM_RPC:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_RPC: !HKLM_RPC!
-)
-
-if "!HKLM_RPC!"=="0" (
-    echo [+] AllowRemoteRPC is not enabled: !HKLM_RPC! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [+] AllowRemoteRPC is not enabled: !HKLM_RPC!)
-) else (
-    echo [-] AllowRemoteRPC is enabled: !HKLM_RPC! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] AllowRemoteRPC is enabled: !HKLM_RPC!)
-)
-
-:: Check fDenyTSConnections Enabled
-:: Initialize default values
-set "HKLM_DTS=1"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_DTS: !HKLM_DTS!
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Calling :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "fDenyTSConnections" HKLM_DTS)
-call :GetRegistryValue "HKLM\System\CurrentControlSet\Control\Terminal Server" "fDenyTSConnections" HKLM_DTS
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_DTS: !HKLM_DTS!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_DTS! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_DTS)
-    set "HKLM_DTS=!HKLM_DTS:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_DTS: !HKLM_DTS!
-)
-
-if "!HKLM_DTS!"=="1" (
-    echo [+] fDenyTSConnections is enabled: !HKLM_DTS! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [+] fDenyTSConnections is enabled: !HKLM_DTS!)
-) else (
-    echo [-] fDenyTSConnections is not enabled: !HKLM_DTS! >> "%OUTFILE%"
-    if "!TESTING!"=="true" (echo [-] fDenyTSConnections is not enabled: !HKLM_DTS!)
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckRDPDeny)
+:CheckSvcState
+:: %1 = service name, %2 = output variable (Running, Stopped, NotFound)
+setlocal enabledelayedexpansion
+set "svcstate=NotFound"
+for /f "tokens=4" %%A in ('sc query "%~1" 2^>nul ^| findstr /i "STATE"') do set "svcstate=%%A"
+endlocal & set "%~2=%svcstate%"
 goto :eof
 
-:: #############################
-:: Check CheckWDigest Credential Storage
-:CheckWDigest
-if "!TESTING!"=="true" ( echo [DEBUG] Called CheckWDigest )
-
-:: Initialize default values
-set "HKLM_WDC=0"
-
-if "!TESTING!"=="true" ( echo [DEBUG] Default HKLM_WDC: !HKLM_WDC! )
-
-:: Check HKLM
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" HKLM_WDC )
-call :GetRegistryValue "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" HKLM_WDC
-
-if "!TESTING!"=="true" ( echo [DEBUG] HKLM_WDC: !HKLM_WDC! )
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists )
-echo !HKLM_WDC! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_WDC )
-    set "HKLM_WDC=!HKLM_WDC:0x=!"
+:PrintRegCheck
+:: %1 = path, %2 = value name, %3 = good value, %4 = good msg, %5 = bad msg
+setlocal enabledelayedexpansion
+set "_rv="
+for /f "tokens=3" %%A in ('reg query "%~1" /v "%~2" 2^>nul ^| findstr /i "%~2"') do set "_rv=%%A"
+if "!_rv!"=="%~3" (
+    echo [+] %~4
+) else if "!_rv!"=="" (
+    echo [*] %~2: not configured ^(registry value not found^)
+) else (
+    echo [-] %~5: !_rv!
 )
+endlocal
+goto :eof
 
-if "!TESTING!"=="true" ( echo [DEBUG] Normalized HKLM_WDC: !HKLM_WDC! )
-
-:: Now check values
-if "!HKLM_WDC!"=="0" (
-    echo [+] WDigest UseLogonCredential key is Disabled >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [+] WDigest UseLogonCredential key is Disabled: !HKLM_WDC! )
-) else if "!HKLM_WDC!"=="1" (
-    echo [-] WDigest UseLogonCredential key is Enabled: !HKLM_WDC! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [-] WDigest UseLogonCredential key is Enabled: !HKLM_WDC!)
-) 
-
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckWDigest)
-goto :eof 
+:main
 
 :: #############################
-:: Check Interactive Login Configuration
-:CheckInteractiveLogin
-if "!TESTING!"=="true" echo [DEBUG] Called CheckInteractiveLogin
-
-:: Check CurrentControlSet Configuration
-:: Initialize default values
-set "HKLM_LAT=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_LAT: !HKLM_LAT!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_LAT
-call :GetRegistryValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_LAT
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_LAT: !HKLM_LAT!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_LAT! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_LAT)
-    set "HKLM_LAT=!HKLM_LAT:0x=!"
-)
-
-if "!TESTING!"=="true" ( echo [DEBUG] Normalized HKLM_LAT: !HKLM_LAT! )
-
-:: Now check values
-if "!HKLM_LAT!"=="1" (
-    echo [-] LocalAccountTokenFilterPolicy Is Set: !HKLM_LAT! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [-] LocalAccountTokenFilterPolicy is set: !HKLM_LAT! )
-) else (
-    echo [+] LocalAccountTokenFilterPolicy is not set: !HKLM_LAT! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [+] LocalAccountTokenFilterPolicy is not set: !HKLM_LAT! )
-)
-
-:: Check Wow6432 Version
-:: Initialize default values
-set "HKLM_WowLAT=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_WowLAT: !HKLM_WowLAT!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_WowLAT
-call :GetRegistryValue "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system" "LocalAccountTokenFilterPolicy" HKLM_WowLAT
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_WowLAT: !HKLM_WowLAT!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" ( echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_WowLAT! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" ( echo [DEBUG] Stripping 0x prefix from HKLM_WowLAT)
-    set "HKLM_WowLAT=!HKLM_WowLAT:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_WowLAT: !HKLM_WowLAT!
-)
-
-:: Now check values
-if "!HKLM_WowLAT!"=="1" (
-    echo [-] LocalAccountTokenFilterPolicy in Wow6432 Node is set: !HKLM_WowLAT! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [-] LocalAccountTokenFilterPolicy in Wow6432 Node is set: !HKLM_WowLAT! )
-) else (
-    echo [+] LocalAccountTokenFilterPolicy in Wow6432 Node is not set: !HKLM_WowLAT! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [+] LocalAccountTokenFilterPolicy in Wow6432 Node is not set: !HKLM_WowLAT! )
-)
-
-if "!TESTING!"=="true" ( echo [DEBUG] Completed :CheckInteractiveLogin)
-goto :eof 
+:: Check admin rights
+:: #############################
+set "IS_ADMIN=false"
+whoami /groups 2>nul | findstr /i "S-1-5-32-544" >nul 2>&1
+if %errorlevel%==0 set "IS_ADMIN=true"
 
 :: #############################
-:: Check GPO Pre-processing Configuration
-:CheckGPOProcessing
-if "!TESTING!"=="true" echo [DEBUG] Called CheckGPOProcessing
-
-:: Initialize default values
-set "HKLM_GPP=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_GPP: !HKLM_GPP!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoGPOListChanges" HKLM_GPP
-call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoGPOListChanges" HKLM_GPP
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_GPP: !HKLM_GPP!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_GPP! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_GPP)
-    set "HKLM_GPP=!HKLM_GPP:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_GPP: !HKLM_GPP!
-)
-
-:: Now check values
-if "!HKLM_GPP!"=="0" (
-    echo [+] GPO NoGPOListChanges setting requires GPOs to be reapplied when processed: !HKLM_GPP! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [+] GPO settings are configured to be applied when GPOs are processed: !HKLM_GPP!)
+:: Get date/time
+:: #############################
+set "REPORT_DATE=%DATE% %TIME%"
+where wmic >nul 2>&1
+if %errorlevel%==0 (
+    set "WMIC_PRESENT=true"
+    for /f "tokens=2 delims==" %%i in ('"wmic os get localdatetime /value 2>nul"') do set "dt=%%i"
+    if defined dt (
+        set "REPORT_DATE=!dt:~4,2!/!dt:~6,2!/!dt:~0,4! !dt:~8,2!:!dt:~10,2!:!dt:~12,2!"
+    )
 ) else (
-    echo [-] GPO NoGPOListChanges setting does not require GPOs to be applied when processed: !HKLM_GPP! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [-] GPO NoGPOListChanges setting does not require GPOs to be applied when processed: !HKLM_GPP!)
+    set "WMIC_PRESENT=false"
 )
-
-:: Check NoBackgroundPolicy Setting
-:: Initialize default values
-set "HKLM_GNB=0"
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Default HKLM_GNB: !HKLM_GNB!
-)
-
-:: Check HKLM
-if "!TESTING!"=="true" echo [DEBUG] Calling :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoBackgroundPolicy" HKLM_GNB
-call :GetRegistryValue "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoBackgroundPolicy" HKLM_GNB
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] HKLM_GNB: !HKLM_GNB!
-)
-
-:: Remove 0x prefix if it esists
-if "!TESTING!"=="true" (echo [DEBUG] Checking if 0x prefix exists)
-echo !HKLM_GNB! | findstr /i "^0x" >nul
-if !errorlevel! == 0 (
-    if "!TESTING!"=="true" (echo [DEBUG] Stripping 0x prefix from HKLM_GNB)
-    set "HKLM_GNB=!HKLM_GNB:0x=!"
-)
-
-if "!TESTING!"=="true" (
-    echo [DEBUG] Normalized HKLM_GNB: !HKLM_GNB!
-)
-
-:: Now check values
-if "!HKLM_GNB!"=="0" (
-    echo [+] GPO NoBackgroundPolicy setting is configured to process GPOs even while computer is in use: !HKLM_GNB! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [+] GPO NoBackgroundPolicy setting is configured to process GPOs even while computer is in use: !HKLM_GNB!)
-) else (
-    echo [-] GPO NoBackgroundPolicy setting is configured not to process GPOs if computer is in use: !HKLM_GNB! >> "%OUTFILE%"
-    if "!TESTING!"=="true" ( echo [-] GPO NoBackgroundPolicy setting is configured not to process GPOs if computer is in use: !HKLM_GNB!)
-)
-
-if "!TESTING!"=="true" (echo [DEBUG] Completed :CheckGPOProcessing)
-goto :eof 
 
 :: #############################
-:: Check WINSConfig
-:CheckWINSConfig
-setlocal EnableDelayedExpansion
+:: Markdown Header
+:: #############################
+echo # CHAPS Report
+echo.
+echo ^| Field ^| Value ^|
+echo ^| ----- ^| ----- ^|
+echo ^| Script ^| %SCRIPTNAME% %SCRIPTVERSION% ^|
+echo ^| Computer ^| %COMPUTERNAME% ^|
+echo ^| Date ^| !REPORT_DATE! ^|
+echo ^| Admin ^| !IS_ADMIN! ^|
+if defined COMPANY echo ^| Company ^| %COMPANY% ^|
+if defined SITENAME echo ^| Site ^| %SITENAME% ^|
+echo.
 
-if "!TESTING!"=="true" (
-    echo [DEBUG] Called CheckWINSConfig
-    echo [DEBUG] Calling :GetWMICValue nicconfig DNSEnabledForWINSResolution value IPEnabled TRUE
-)
+:: =============================================================
+:: SYSTEM INFO CHECKS (1-23)
+:: =============================================================
+echo ## System Info Checks
+echo.
 
-call :GetWMICValue nicconfig DNSEnabledForWINSResolution value IPEnabled TRUE
-if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetWMICValue)
-set "WINS_DNS=!RESULT!"
-if "!TESTING!"=="true" ( echo [DEBUG] WINS_DNS: !WINS_DNS!)
-if "!WINS_DNS!"=="TRUE" (
-    echo [-] WINSConfig DNSEnabledForWINSResolution is enabled >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [-] WINSConfig DNSEnabledForWINSResolution is enabled)
-) else if "!WINS_DNS!"=="FALSE" (
-    echo [+] WINSConfig DNSEnabledForWINSResolution is disabled >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [+] WINSConfig DNSEnabledForWINSResolution is disabled)
+:: -------------------------------------------------------
+:: CHECK 1: System Information
+:: -------------------------------------------------------
+echo ### Check 1: System Information
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    set "OS_NAME="
+    set "OS_VER="
+    set "OS_ARCH="
+    for /f "tokens=2 delims==" %%A in ('"wmic os get Caption /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do set "OS_NAME=%%B"
+    )
+    for /f "tokens=2 delims==" %%A in ('"wmic os get Version /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do set "OS_VER=%%B"
+    )
+    for /f "tokens=2 delims==" %%A in ('"wmic os get OSArchitecture /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do set "OS_ARCH=%%B"
+    )
+    echo [*] OS: !OS_NAME!
+    echo [*] Version: !OS_VER!
+    echo [*] Architecture: !OS_ARCH!
 ) else (
-    echo [*] Testing for WINS DNSEnabledForWINSResolution failed >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [*] Testing for WINS DNSEnabledForWINSResolution failed )
+    echo [*] WMIC not available. Using ver command.
+    for /f "tokens=*" %%A in ('ver') do echo [*] %%A
 )
+echo.
 
-if "!TESTING!"=="true" ( echo [DEBUG] Calling :GetWMICValue nicconfig WINSEnableLMHostsLookup value IPEnabled TRUE)
-call :GetWMICValue nicconfig WINSEnableLMHostsLookup value IPEnabled TRUE
-if "!TESTING!"=="true" ( echo [DEBUG] Returned from :GetWMICValue)
-set "WINS_LM=!RESULT!"
-if "!TESTING!"=="true" ( echo [DEBUG] WINS_LM: !WINS_LM!)
-if "!WINS_LM!"=="TRUE" (
-    echo [-] WINSConfig WINSEnableLMHostsLookup is enabled >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [-] WINSConfig WINSEnableLMHostsLookup is enabled)
-) else if "!WINS_LM!"=="FALSE" (
-    echo [+] WINSConfig WINSEnableLMHostsLookup is disabled >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [+] WINSConfig WINSEnableLMHostsLookup is disabled)
+:: -------------------------------------------------------
+:: CHECK 2: Windows Version
+:: -------------------------------------------------------
+echo ### Check 2: Windows Version
+echo.
+for /f "tokens=*" %%A in ('ver') do echo [*] %%A
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 3: User PATH
+:: -------------------------------------------------------
+echo ### Check 3: User PATH
+echo.
+echo [*] PATH: %PATH%
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 4: Auto Update Configuration
+:: -------------------------------------------------------
+echo ### Check 4: Auto Update Configuration
+echo.
+set "AU_VAL="
+for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v AUOptions 2^>nul ^| findstr /i "AUOptions"') do set "AU_VAL=%%A"
+if defined AU_VAL (
+    set "AU_DESC=Unknown"
+    if "!AU_VAL!"=="0x1" set "AU_DESC=Disabled"
+    if "!AU_VAL!"=="0x2" set "AU_DESC=Notify before download"
+    if "!AU_VAL!"=="0x3" set "AU_DESC=Notify before installation"
+    if "!AU_VAL!"=="0x4" set "AU_DESC=Scheduled installation"
+    if "!AU_VAL!"=="0x0" set "AU_DESC=Not configured"
+    if "!AU_VAL!"=="0x4" (
+        echo [+] Auto Update: !AU_VAL! - !AU_DESC!
+    ) else (
+        echo [-] Auto Update: !AU_VAL! - !AU_DESC!. Recommended: Scheduled installation ^(4^)
+    )
 ) else (
-    echo [*] Testing for WINS WINSEnableLMHostsLookup failed >> %OUTFILE%
-    if "!TESTING!"=="true" ( echo [*] Testing for WINS WINSEnableLMHostsLookup failed )
+    echo [*] AUOptions registry value not found. Auto Update may be managed by other means.
 )
-endlocal & goto :eof 
+echo.
 
+:: -------------------------------------------------------
+:: CHECK 5: Missing Patches / Installed Hotfixes
+:: -------------------------------------------------------
+echo ### Check 5: Installed Hotfixes
+echo.
+echo [*] Installed hotfixes ^(review for missing patches^):
+if "!WMIC_PRESENT!"=="true" (
+    for /f "tokens=*" %%A in ('"wmic qfe get HotFixID,InstalledOn /format:table 2>nul"') do (
+        set "line=%%A"
+        if not "!line!"=="" echo [*]   !line!
+    )
+) else (
+    echo [*] WMIC not available. Use systeminfo to review installed hotfixes.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 6: BitLocker
+:: -------------------------------------------------------
+echo ### Check 6: BitLocker
+echo.
+call :CheckSvcState BDESVC _blsvc
+if /i "!_blsvc!"=="RUNNING" (
+    echo [+] BitLocker service ^(BDESVC^) is running.
+) else if /i "!_blsvc!"=="STOPPED" (
+    echo [-] BitLocker service ^(BDESVC^) is installed but stopped.
+) else (
+    if exist "%windir%\System32\manage-bde.exe" (
+        echo [*] BitLocker service not found but manage-bde.exe exists.
+    ) else (
+        echo [-] BitLocker does not appear to be available on this system.
+    )
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 7: AlwaysInstallElevated
+:: -------------------------------------------------------
+echo ### Check 7: AlwaysInstallElevated
+echo.
+set "HKLM_AIE="
+set "HKCU_AIE="
+call :GetRegValTokens3 "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKLM_AIE
+call :GetRegValTokens3 "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer" "AlwaysInstallElevated" HKCU_AIE
+set "aie_bad=false"
+if "!HKLM_AIE!"=="0x1" (
+    echo [-] HKLM AlwaysInstallElevated is ENABLED. This is a privilege escalation risk.
+    set "aie_bad=true"
+) else (
+    echo [+] HKLM AlwaysInstallElevated is not enabled: !HKLM_AIE!
+)
+if "!HKCU_AIE!"=="0x1" (
+    echo [-] HKCU AlwaysInstallElevated is ENABLED. This is a privilege escalation risk.
+    set "aie_bad=true"
+) else (
+    echo [+] HKCU AlwaysInstallElevated is not enabled: !HKCU_AIE!
+)
+if "!aie_bad!"=="false" if "!HKLM_AIE!"=="" if "!HKCU_AIE!"=="" (
+    echo [+] AlwaysInstallElevated is not configured ^(good^).
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 8: EMET / Exploit Protection
+:: -------------------------------------------------------
+echo ### Check 8: EMET / Exploit Protection
+echo.
+call :CheckSvcState EMET_Service _emetsvc
+if /i "!_emetsvc!"=="RUNNING" (
+    echo [+] EMET service is running.
+) else if /i "!_emetsvc!"=="STOPPED" (
+    echo [*] EMET service is installed but stopped.
+) else (
+    echo [*] EMET service not found. On Windows 10+, Exploit Protection is built in.
+    echo [*] Use PowerShell Get-ProcessMitigation to check Exploit Protection settings.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 9: LAPS
+:: -------------------------------------------------------
+echo ### Check 9: LAPS
+echo.
+set "laps_found=false"
+reg query "HKLM\Software\Microsoft\Policies\LAPS" >nul 2>&1
+if %errorlevel%==0 (
+    echo [+] LAPS registry key found.
+    set "laps_found=true"
+)
+reg query "HKLM\Software\Policies\Microsoft Services\AdmPwd" >nul 2>&1
+if %errorlevel%==0 (
+    echo [+] Legacy LAPS ^(AdmPwd^) registry key found.
+    set "laps_found=true"
+)
+if exist "C:\Program Files\LAPS\CSE\Admpwd.dll" (
+    echo [+] LAPS CSE DLL found at C:\Program Files\LAPS\CSE\Admpwd.dll
+    set "laps_found=true"
+)
+if "!laps_found!"=="false" (
+    echo [-] LAPS does not appear to be configured on this system.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 10: GPO Reprocessing
+:: -------------------------------------------------------
+echo ### Check 10: GPO Reprocessing
+echo.
+set "GPO_NOGLC="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}" "NoGPOListChanges" GPO_NOGLC
+if "!GPO_NOGLC!"=="0x0" (
+    echo [+] NoGPOListChanges is 0: GPOs are reapplied even when unchanged ^(good^).
+) else if "!GPO_NOGLC!"=="0x1" (
+    echo [-] NoGPOListChanges is 1: GPOs are NOT reapplied when unchanged. Recommend setting to 0.
+) else if "!GPO_NOGLC!"=="" (
+    echo [*] NoGPOListChanges not configured. Default behavior applies.
+) else (
+    echo [*] NoGPOListChanges: !GPO_NOGLC!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 11: Net Session Enumeration
+:: -------------------------------------------------------
+echo ### Check 11: Net Session Enumeration
+echo.
+set "RRSAM="
+call :GetRegValTokens3 "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RestrictRemoteSAM" RRSAM
+if defined RRSAM (
+    echo [+] RestrictRemoteSAM is configured: !RRSAM!
+) else (
+    echo [-] RestrictRemoteSAM is not configured. Remote SAM enumeration may be possible.
+)
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\DefaultSecurity" /v SrvsvcSessionInfo >nul 2>&1
+if %errorlevel%==0 (
+    echo [*] SrvsvcSessionInfo default security descriptor is present.
+) else (
+    echo [*] SrvsvcSessionInfo not found in registry.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 12: AppLocker
+:: -------------------------------------------------------
+echo ### Check 12: AppLocker
+echo.
+echo [*] AppLocker: Not available in CMD. Requires PowerShell Get-AppLockerPolicy cmdlet.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 13: Credential Guard / Device Guard
+:: -------------------------------------------------------
+echo ### Check 13: Credential Guard / Device Guard
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    set "dg_found=false"
+    for /f "tokens=2 delims==" %%A in ('"wmic /namespace:\\root\Microsoft\Windows\DeviceGuard path Win32_DeviceGuard get SecurityServicesConfigured /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if not "%%B"=="" (
+                echo [*] SecurityServicesConfigured: %%B
+                set "dg_found=true"
+            )
+        )
+    )
+    for /f "tokens=2 delims==" %%A in ('"wmic /namespace:\\root\Microsoft\Windows\DeviceGuard path Win32_DeviceGuard get SecurityServicesRunning /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if not "%%B"=="" (
+                echo [*] SecurityServicesRunning: %%B
+                set "dg_found=true"
+            )
+        )
+    )
+    if "!dg_found!"=="false" (
+        echo [*] Device Guard WMI class not available or returned no data.
+    )
+) else (
+    echo [*] WMIC not available. Cannot query Device Guard status.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 14: MS Office Macros
+:: -------------------------------------------------------
+echo ### Check 14: MS Office Macro Security
+echo.
+set "macro_checked=false"
+for %%V in (16.0 15.0 14.0 12.0) do (
+    for %%A in (Word Excel PowerPoint) do (
+        set "_vba="
+        for /f "tokens=3" %%X in ('reg query "HKCU\Software\Microsoft\Office\%%V\%%A\Security" /v VBAWarnings 2^>nul ^| findstr /i "VBAWarnings"') do set "_vba=%%X"
+        if defined _vba (
+            set "macro_checked=true"
+            if "!_vba!"=="0x4" (
+                echo [+] Office %%V %%A VBAWarnings: !_vba! ^(macros disabled^)
+            ) else if "!_vba!"=="0x3" (
+                echo [+] Office %%V %%A VBAWarnings: !_vba! ^(all macros disabled except digitally signed^)
+            ) else if "!_vba!"=="0x2" (
+                echo [-] Office %%V %%A VBAWarnings: !_vba! ^(macros disabled with notification^)
+            ) else if "!_vba!"=="0x1" (
+                echo [-] Office %%V %%A VBAWarnings: !_vba! ^(all macros enabled^)
+            ) else (
+                echo [*] Office %%V %%A VBAWarnings: !_vba!
+            )
+        )
+    )
+)
+if "!macro_checked!"=="false" (
+    echo [*] No Office VBAWarnings registry keys found. Office may not be installed or macros are at default.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 15: Sysmon
+:: -------------------------------------------------------
+echo ### Check 15: Sysmon
+echo.
+set "sysmon_running=false"
+for %%S in (Sysmon Sysmon64 SysmonDrv) do (
+    call :CheckSvcState %%S _syssvc
+    if /i "!_syssvc!"=="RUNNING" (
+        echo [+] %%S service is running.
+        set "sysmon_running=true"
+    ) else if /i "!_syssvc!"=="STOPPED" (
+        echo [*] %%S service is installed but stopped.
+    )
+)
+if "!sysmon_running!"=="false" (
+    echo [-] No Sysmon service detected. Consider deploying Sysmon for endpoint visibility.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 16: USB Devices
+:: -------------------------------------------------------
+echo ### Check 16: USB Devices
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    echo [*] USB controller devices:
+    for /f "tokens=*" %%A in ('"wmic path Win32_USBControllerDevice get Dependent 2>nul"') do (
+        set "uline=%%A"
+        if not "!uline!"=="" echo [*]   !uline!
+    )
+) else (
+    echo [*] WMIC not available. Cannot enumerate USB devices.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 17: Antivirus / EDR
+:: -------------------------------------------------------
+echo ### Check 17: Antivirus / EDR
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    set "av_found=false"
+    for /f "tokens=2 delims==" %%A in ('"wmic /namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if not "%%B"=="" (
+                echo [+] Antivirus detected: %%B
+                set "av_found=true"
+            )
+        )
+    )
+    if "!av_found!"=="false" (
+        echo [*] No antivirus detected via SecurityCenter2. This WMI namespace may not exist on servers.
+    )
+) else (
+    echo [*] WMIC not available. Cannot query antivirus status.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 18: Software Inventory
+:: -------------------------------------------------------
+echo ### Check 18: Software Inventory
+echo.
+echo [*] Installed software ^(HKLM Uninstall^):
+for /f "tokens=2,*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" /s 2^>nul ^| findstr /i "DisplayName"') do (
+    if not "%%B"=="" echo [*]   %%B
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 19: UAC Configuration
+:: -------------------------------------------------------
+echo ### Check 19: UAC Configuration
+echo.
+set "UAC_PATH=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+set "_elua="
+call :GetRegValTokens3 "%UAC_PATH%" "EnableLUA" _elua
+if "!_elua!"=="0x1" (
+    echo [+] EnableLUA: Enabled ^(UAC is on^)
+) else if "!_elua!"=="0x0" (
+    echo [-] EnableLUA: Disabled. UAC is OFF. This is a significant security risk.
+) else (
+    echo [*] EnableLUA: !_elua!
+)
+set "_cpba="
+call :GetRegValTokens3 "%UAC_PATH%" "ConsentPromptBehaviorAdmin" _cpba
+echo [*] ConsentPromptBehaviorAdmin: !_cpba! ^(5=prompt for consent for non-Windows binaries, 2=prompt for credentials^)
+set "_posd="
+call :GetRegValTokens3 "%UAC_PATH%" "PromptOnSecureDesktop" _posd
+if "!_posd!"=="0x1" (
+    echo [+] PromptOnSecureDesktop: Enabled
+) else (
+    echo [-] PromptOnSecureDesktop: !_posd! ^(Recommend 1^)
+)
+set "_fat="
+call :GetRegValTokens3 "%UAC_PATH%" "FilterAdministratorToken" _fat
+if "!_fat!"=="0x1" (
+    echo [+] FilterAdministratorToken: Enabled
+) else (
+    echo [*] FilterAdministratorToken: !_fat! ^(0=default, consider enabling on sensitive systems^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 20: Account Policies
+:: -------------------------------------------------------
+echo ### Check 20: Account Policies
+echo.
+echo [*] Net accounts output:
+for /f "tokens=*" %%A in ('net accounts 2^>nul') do echo [*]   %%A
+echo.
+echo [*] Guest account status:
+for /f "tokens=*" %%A in ('net user Guest 2^>nul ^| findstr /i "Account active"') do echo [*]   %%A
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    echo [*] Built-in Administrator account ^(SID -500^):
+    for /f "tokens=2 delims==" %%A in ('"wmic useraccount where \"SID like '%%-500'\" get Name,Disabled /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if not "%%B"=="" echo [*]   %%B
+        )
+    )
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 21: Secure Boot
+:: -------------------------------------------------------
+echo ### Check 21: Secure Boot
+echo.
+set "_sboot="
+call :GetRegValTokens3 "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State" "UEFISecureBootEnabled" _sboot
+if "!_sboot!"=="0x1" (
+    echo [+] UEFI Secure Boot is enabled.
+) else if "!_sboot!"=="0x0" (
+    echo [-] UEFI Secure Boot is disabled. Recommend enabling if hardware supports it.
+) else (
+    echo [*] Secure Boot status could not be determined: !_sboot!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 22: LSA Protection (RunAsPPL)
+:: -------------------------------------------------------
+echo ### Check 22: LSA Protection
+echo.
+set "_ppl="
+call :GetRegValTokens3 "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" _ppl
+if "!_ppl!"=="0x1" (
+    echo [+] LSA Protection ^(RunAsPPL^) is enabled.
+) else if "!_ppl!"=="0x2" (
+    echo [+] LSA Protection ^(RunAsPPL^) is enabled ^(UEFI lock^).
+) else if "!_ppl!"=="0x0" (
+    echo [-] LSA Protection ^(RunAsPPL^) is disabled. Recommend enabling to protect LSASS.
+) else (
+    echo [*] RunAsPPL not configured: !_ppl! ^(Default: not protected^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 23: Risky Services
+:: -------------------------------------------------------
+echo ### Check 23: Risky Services
+echo.
+for %%S in (Spooler RemoteRegistry SNMP TlntSvr RemoteAccess NetTcpPortSharing SharedAccess) do (
+    call :CheckSvcState %%S _rsvc
+    if /i "!_rsvc!"=="RUNNING" (
+        echo [-] %%S service is RUNNING. Evaluate whether this service is needed.
+    ) else if /i "!_rsvc!"=="STOPPED" (
+        echo [*] %%S service is installed but stopped.
+    ) else (
+        echo [+] %%S service is not installed.
+    )
+)
+echo.
+
+:: =============================================================
+:: SECURITY CHECKS (24-30)
+:: =============================================================
+echo ## Security Checks
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 24: SMB Server Configuration
+:: -------------------------------------------------------
+echo ### Check 24: SMB Server Configuration
+echo.
+set "SMB_PATH=HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"
+set "_smb1="
+call :GetRegValTokens3 "%SMB_PATH%" "SMB1" _smb1
+if "!_smb1!"=="0x0" (
+    echo [+] SMB1 server protocol is disabled.
+) else if "!_smb1!"=="0x1" (
+    echo [-] SMB1 server protocol is ENABLED. Recommend disabling SMBv1.
+) else (
+    echo [*] SMB1 registry value not found. SMBv1 may be enabled by default on older systems.
+)
+set "_smb2="
+call :GetRegValTokens3 "%SMB_PATH%" "SMB2" _smb2
+if "!_smb2!"=="0x0" (
+    echo [-] SMB2 server protocol is disabled. This is unusual.
+) else if "!_smb2!"=="0x1" (
+    echo [+] SMB2 server protocol is enabled.
+) else (
+    echo [*] SMB2 registry value not set ^(enabled by default on modern systems^).
+)
+set "_asmb1="
+call :GetRegValTokens3 "%SMB_PATH%" "AuditSmb1Access" _asmb1
+if "!_asmb1!"=="0x1" (
+    echo [+] SMB1 access auditing is enabled.
+) else (
+    echo [*] AuditSmb1Access: !_asmb1! ^(Recommend enabling^)
+)
+set "_srss="
+call :GetRegValTokens3 "%SMB_PATH%" "RequireSecuritySignature" _srss
+if "!_srss!"=="0x1" (
+    echo [+] SMB server signing is required.
+) else (
+    echo [-] SMB server RequireSecuritySignature: !_srss! ^(Recommend 1^)
+)
+set "_senc="
+call :GetRegValTokens3 "%SMB_PATH%" "EncryptData" _senc
+if "!_senc!"=="0x1" (
+    echo [+] SMB server encryption is enabled.
+) else (
+    echo [*] SMB server EncryptData: !_senc! ^(Recommend enabling for SMB 3.0+^)
+)
+set "_srue="
+call :GetRegValTokens3 "%SMB_PATH%" "RejectUnencryptedAccess" _srue
+if "!_srue!"=="0x1" (
+    echo [+] SMB server rejects unencrypted access.
+) else (
+    echo [*] RejectUnencryptedAccess: !_srue!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 25: Anonymous Enumeration
+:: -------------------------------------------------------
+echo ### Check 25: Anonymous Enumeration
+echo.
+set "_ra="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "RestrictAnonymous" _ra
+if "!_ra!"=="0x1" (
+    echo [+] RestrictAnonymous: 1 ^(anonymous enumeration of SAM accounts/shares restricted^)
+) else if "!_ra!"=="0x2" (
+    echo [+] RestrictAnonymous: 2 ^(no access without explicit anonymous permissions^)
+) else if "!_ra!"=="0x0" (
+    echo [-] RestrictAnonymous: 0 ^(anonymous access allowed^). Recommend setting to 1 or 2.
+) else (
+    echo [*] RestrictAnonymous: !_ra!
+)
+set "_ras="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "RestrictAnonymousSAM" _ras
+if "!_ras!"=="0x1" (
+    echo [+] RestrictAnonymousSAM: 1 ^(anonymous SAM enumeration restricted^)
+) else if "!_ras!"=="0x0" (
+    echo [-] RestrictAnonymousSAM: 0. Recommend setting to 1.
+) else (
+    echo [*] RestrictAnonymousSAM: !_ras!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 26: Untrusted Font Blocking
+:: -------------------------------------------------------
+echo ### Check 26: Untrusted Font Blocking
+echo.
+set "_mopt="
+call :GetRegVal "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel" "MitigationOptions" _mopt
+if defined _mopt (
+    echo [*] MitigationOptions value: !_mopt!
+    echo [*] Review this value for untrusted font blocking ^(third nibble from right^).
+) else (
+    echo [*] MitigationOptions not configured. Untrusted font blocking is at default.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 27: ASR Rules
+:: -------------------------------------------------------
+echo ### Check 27: ASR Rules
+echo.
+echo [*] ASR Rules: Not available in CMD. Requires PowerShell Get-MpPreference cmdlet.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 28: SMB Client Signing
+:: -------------------------------------------------------
+echo ### Check 28: SMB Client Signing
+echo.
+set "SMBC_PATH=HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
+set "_crss="
+call :GetRegValTokens3 "%SMBC_PATH%" "RequireSecuritySignature" _crss
+if "!_crss!"=="0x1" (
+    echo [+] SMB client signing is required.
+) else (
+    echo [-] SMB client RequireSecuritySignature: !_crss! ^(Recommend 1^)
+)
+set "_cess="
+call :GetRegValTokens3 "%SMBC_PATH%" "EnableSecuritySignature" _cess
+if "!_cess!"=="0x1" (
+    echo [+] SMB client signing is enabled.
+) else (
+    echo [*] SMB client EnableSecuritySignature: !_cess!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 29: TLS/SSL Protocol Configuration
+:: -------------------------------------------------------
+echo ### Check 29: TLS/SSL Protocol Configuration
+echo.
+set "SCHANNEL_BASE=HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols"
+for %%P in ("SSL 2.0" "SSL 3.0" "TLS 1.0" "TLS 1.1" "TLS 1.2" "TLS 1.3") do (
+    set "_tls_en="
+    for /f "tokens=3" %%A in ('reg query "%SCHANNEL_BASE%\%%~P\Server" /v Enabled 2^>nul ^| findstr /i "Enabled"') do set "_tls_en=%%A"
+    if "!_tls_en!"=="0x0" (
+        echo [+] %%~P Server: Disabled
+    ) else if "!_tls_en!"=="0x1" (
+        set "_proto=%%~P"
+        if "!_proto!"=="TLS 1.2" (
+            echo [+] %%~P Server: Enabled
+        ) else if "!_proto!"=="TLS 1.3" (
+            echo [+] %%~P Server: Enabled
+        ) else (
+            echo [-] %%~P Server: Enabled. Recommend disabling legacy protocols.
+        )
+    ) else (
+        echo [*] %%~P Server: Not explicitly configured ^(OS default applies^)
+    )
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 30: Audit Policy
+:: -------------------------------------------------------
+echo ### Check 30: Audit Policy
+echo.
+echo [*] Audit policy settings:
+for /f "tokens=*" %%A in ('auditpol /get /category:* 2^>nul') do echo [*]   %%A
+echo.
+
+:: =============================================================
+:: AUTHENTICATION CHECKS (31-39)
+:: =============================================================
+echo ## Authentication Checks
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 31: RDP Deny
+:: -------------------------------------------------------
+echo ### Check 31: RDP Configuration
+echo.
+set "_arrpc="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" _arrpc
+if "!_arrpc!"=="0x0" (
+    echo [+] AllowRemoteRPC is disabled: !_arrpc!
+) else if "!_arrpc!"=="0x1" (
+    echo [-] AllowRemoteRPC is enabled: !_arrpc! ^(Recommend disabling^)
+) else (
+    echo [*] AllowRemoteRPC: !_arrpc!
+)
+set "_fdts="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server" "fDenyTSConnections" _fdts
+if "!_fdts!"=="0x1" (
+    echo [+] fDenyTSConnections: 1 ^(RDP connections denied^)
+) else if "!_fdts!"=="0x0" (
+    echo [-] fDenyTSConnections: 0 ^(RDP connections allowed^)
+) else (
+    echo [*] fDenyTSConnections: !_fdts!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 32: Local Administrators
+:: -------------------------------------------------------
+echo ### Check 32: Local Administrators
+echo.
+set "foundSep=false"
+set /a numAdmins=0
+set "adminList="
+for /f "tokens=* delims=" %%L in ('net localgroup Administrators 2^>nul') do (
+    set "line=%%L"
+    if "!foundSep!"=="true" (
+        if /i not "!line!"=="The command completed successfully." (
+            if not "!line!"=="" (
+                set /a numAdmins+=1
+                if defined adminList (
+                    set "adminList=!adminList!, !line!"
+                ) else (
+                    set "adminList=!line!"
+                )
+            )
+        )
+    )
+    if "!line:~0,4!"=="----" set "foundSep=true"
+)
+if !numAdmins! GTR 1 (
+    echo [-] !numAdmins! accounts in local Administrators group. Review membership.
+) else (
+    echo [+] !numAdmins! account in local Administrators group.
+)
+echo [*] Members: !adminList!
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 33: NTLM Session Security
+:: -------------------------------------------------------
+echo ### Check 33: NTLM Session Security
+echo.
+set "_nss="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" _nss
+if "!_nss!"=="0x20080030" (
+    echo [+] NtlmMinServerSec: !_nss! ^(NTLMv2 + 128-bit encryption required^)
+) else if defined _nss (
+    echo [*] NtlmMinServerSec: !_nss! ^(Recommend 0x20080030 for NTLMv2 + 128-bit^)
+) else (
+    echo [-] NtlmMinServerSec not configured. Recommend 0x20080030.
+)
+set "_nsc="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinClientSec" _nsc
+if "!_nsc!"=="0x20080030" (
+    echo [+] NtlmMinClientSec: !_nsc! ^(NTLMv2 + 128-bit encryption required^)
+) else if defined _nsc (
+    echo [*] NtlmMinClientSec: !_nsc! ^(Recommend 0x20080030 for NTLMv2 + 128-bit^)
+) else (
+    echo [-] NtlmMinClientSec not configured. Recommend 0x20080030.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 34: LAN Manager Authentication
+:: -------------------------------------------------------
+echo ### Check 34: LAN Manager Authentication
+echo.
+set "_lmcl="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" _lmcl
+if "!_lmcl!"=="0x5" (
+    echo [+] LmCompatibilityLevel: 5 ^(Send NTLMv2 only, refuse LM and NTLM^)
+) else if "!_lmcl!"=="0x4" (
+    echo [*] LmCompatibilityLevel: 4 ^(Send NTLMv2 only, refuse LM^)
+) else if "!_lmcl!"=="0x3" (
+    echo [*] LmCompatibilityLevel: 3 ^(Send NTLMv2 only^)
+) else if defined _lmcl (
+    echo [-] LmCompatibilityLevel: !_lmcl! ^(Recommend 5 to refuse LM and NTLM^)
+) else (
+    echo [-] LmCompatibilityLevel not configured. Default may allow LM/NTLM.
+)
+set "_nlmh="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "NoLmHash" _nlmh
+if "!_nlmh!"=="0x1" (
+    echo [+] NoLmHash: 1 ^(LM hash storage disabled^)
+) else (
+    echo [-] NoLmHash: !_nlmh! ^(Recommend 1 to prevent LM hash storage^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 35: Cached Logons
+:: -------------------------------------------------------
+echo ### Check 35: Cached Logons
+echo.
+set "_clc="
+call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" _clc
+if defined _clc (
+    echo [*] CachedLogonsCount: !_clc! ^(Recommend 4 or fewer for sensitive systems, 0-1 for high security^)
+) else (
+    echo [*] CachedLogonsCount not configured ^(default is 10^). Consider reducing.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 36: Interactive Login / LocalAccountTokenFilterPolicy
+:: -------------------------------------------------------
+echo ### Check 36: Interactive Login (LocalAccountTokenFilterPolicy)
+echo.
+set "_latfp="
+call :GetRegValTokens3 "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" "LocalAccountTokenFilterPolicy" _latfp
+if "!_latfp!"=="0x1" (
+    echo [-] LocalAccountTokenFilterPolicy is SET ^(1^). Remote local admin access enabled ^(pass-the-hash risk^).
+) else if "!_latfp!"=="0x0" (
+    echo [+] LocalAccountTokenFilterPolicy is 0. Remote admin tokens are filtered.
+) else (
+    echo [+] LocalAccountTokenFilterPolicy not set ^(default: filtered^).
+)
+:: Check Wow6432Node variant
+set "_wlatfp="
+call :GetRegValTokens3 "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Policies\System" "LocalAccountTokenFilterPolicy" _wlatfp
+if "!_wlatfp!"=="0x1" (
+    echo [-] LocalAccountTokenFilterPolicy ^(Wow6432Node^) is SET ^(1^).
+) else (
+    echo [+] LocalAccountTokenFilterPolicy ^(Wow6432Node^): !_wlatfp! ^(OK^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 37: WDigest
+:: -------------------------------------------------------
+echo ### Check 37: WDigest Credential Caching
+echo.
+set "_wdig="
+call :GetRegValTokens3 "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" _wdig
+if "!_wdig!"=="0x0" (
+    echo [+] WDigest UseLogonCredential is disabled ^(0^). Credentials are not cached in plaintext.
+) else if "!_wdig!"=="0x1" (
+    echo [-] WDigest UseLogonCredential is ENABLED ^(1^). Plaintext passwords cached in memory!
+) else (
+    echo [*] WDigest UseLogonCredential not configured. Default depends on OS version ^(disabled on Win 8.1+^).
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 38: Restrict RPC Clients
+:: -------------------------------------------------------
+echo ### Check 38: Restrict RPC Clients
+echo.
+set "_rrpc="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" _rrpc
+if "!_rrpc!"=="0x1" (
+    echo [+] RestrictRemoteClients: 1 ^(authenticated RPC only^)
+) else if "!_rrpc!"=="0x2" (
+    echo [+] RestrictRemoteClients: 2 ^(no exceptions^)
+) else if "!_rrpc!"=="0x0" (
+    echo [-] RestrictRemoteClients: 0 ^(no restrictions^). Recommend setting to 1.
+) else (
+    echo [*] RestrictRemoteClients: !_rrpc! ^(not configured, default applies^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 39: RDP NLA
+:: -------------------------------------------------------
+echo ### Check 39: RDP Network Level Authentication
+echo.
+set "_nla="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" "UserAuthentication" _nla
+if "!_nla!"=="0x1" (
+    echo [+] RDP NLA ^(UserAuthentication^) is enabled.
+) else if "!_nla!"=="0x0" (
+    echo [-] RDP NLA is disabled. Recommend enabling to require NLA before connection.
+) else (
+    echo [*] UserAuthentication: !_nla!
+)
+set "_mel="
+call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" "MinEncryptionLevel" _mel
+if "!_mel!"=="0x3" (
+    echo [+] RDP MinEncryptionLevel: 3 ^(High/FIPS^)
+) else if "!_mel!"=="0x2" (
+    echo [*] RDP MinEncryptionLevel: 2 ^(Client Compatible^)
+) else if defined _mel (
+    echo [-] RDP MinEncryptionLevel: !_mel! ^(Recommend 3 for high encryption^)
+) else (
+    echo [*] MinEncryptionLevel not configured.
+)
+echo.
+
+:: =============================================================
+:: NETWORK CHECKS (40-49)
+:: =============================================================
+echo ## Network Checks
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 40: IPv4 Interfaces
+:: -------------------------------------------------------
+echo ### Check 40: IPv4 Interfaces
+echo.
+set "ipv4_found=false"
+for /f "tokens=2 delims=:" %%A in ('ipconfig 2^>nul ^| findstr /C:"IPv4 Address" /C:"IP Address"') do (
+    for /f "tokens=* delims= " %%B in ("%%A") do (
+        echo [*] IPv4: %%B
+        set "ipv4_found=true"
+    )
+)
+if "!ipv4_found!"=="false" echo [*] No IPv4 addresses found.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 41: IPv6 Interfaces
+:: -------------------------------------------------------
+echo ### Check 41: IPv6 Interfaces
+echo.
+set "ipv6_global=false"
+for /f "tokens=2 delims=:" %%A in ('ipconfig 2^>nul ^| findstr /C:"IPv6 Address"') do (
+    for /f "tokens=* delims= " %%B in ("%%A") do (
+        set "addr=%%B"
+        echo !addr! | findstr /i "^fe80" >nul 2>&1
+        if !errorlevel!==0 (
+            echo [*] IPv6 link-local: !addr!
+        ) else (
+            echo [-] IPv6 non-link-local: !addr! ^(review if IPv6 is needed^)
+            set "ipv6_global=true"
+        )
+    )
+)
+if "!ipv6_global!"=="false" echo [+] No non-link-local IPv6 addresses detected.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 42: WPAD
+:: -------------------------------------------------------
+echo ### Check 42: WPAD Configuration
+echo.
+findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" >nul 2>&1
+if %errorlevel%==0 (
+    echo [*] WPAD entry found in hosts file:
+    for /f "tokens=*" %%A in ('findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" 2^>nul') do echo [*]   %%A
+) else (
+    echo [*] No WPAD entry in hosts file.
+)
+set "_wpad="
+call :GetRegValTokens3 "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" "WpadOverride" _wpad
+if defined _wpad echo [*] WpadOverride: !_wpad!
+call :CheckSvcState WinHttpAutoProxySvc _winsvc
+if /i "!_winsvc!"=="RUNNING" (
+    echo [*] WinHTTP Auto-Proxy Service is running.
+) else if /i "!_winsvc!"=="STOPPED" (
+    echo [+] WinHTTP Auto-Proxy Service is stopped.
+) else (
+    echo [+] WinHTTP Auto-Proxy Service not found.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 43: WINS
+:: -------------------------------------------------------
+echo ### Check 43: WINS Configuration
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    for /f "tokens=2 delims==" %%A in ('"wmic nicconfig where IPEnabled=TRUE get DNSEnabledForWINSResolution /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if /i "%%B"=="TRUE" (
+                echo [-] DNSEnabledForWINSResolution: TRUE. Consider disabling WINS resolution.
+            ) else if /i "%%B"=="FALSE" (
+                echo [+] DNSEnabledForWINSResolution: FALSE
+            )
+        )
+    )
+    for /f "tokens=2 delims==" %%A in ('"wmic nicconfig where IPEnabled=TRUE get WINSEnableLMHostsLookup /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if /i "%%B"=="TRUE" (
+                echo [-] WINSEnableLMHostsLookup: TRUE. Consider disabling LMHOSTS lookup.
+            ) else if /i "%%B"=="FALSE" (
+                echo [+] WINSEnableLMHostsLookup: FALSE
+            )
+        )
+    )
+) else (
+    echo [*] WMIC not available. Cannot query WINS configuration.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 44: LLMNR
+:: -------------------------------------------------------
+echo ### Check 44: LLMNR
+echo.
+set "_llmnr="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows NT\DNSClient" "EnableMulticast" _llmnr
+if "!_llmnr!"=="0x0" (
+    echo [+] LLMNR is disabled ^(EnableMulticast=0^).
+) else if "!_llmnr!"=="0x1" (
+    echo [-] LLMNR is enabled ^(EnableMulticast=1^). Recommend disabling to prevent name resolution poisoning.
+) else (
+    echo [-] EnableMulticast not configured. LLMNR is likely enabled by default.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 45: Computer Browser Service
+:: -------------------------------------------------------
+echo ### Check 45: Computer Browser Service
+echo.
+call :CheckSvcState Browser _brsvc
+if /i "!_brsvc!"=="RUNNING" (
+    echo [-] Computer Browser service is RUNNING. This is a legacy protocol, consider disabling.
+) else if /i "!_brsvc!"=="STOPPED" (
+    echo [*] Computer Browser service is installed but stopped.
+) else (
+    echo [+] Computer Browser service is not installed.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 46: NetBIOS over TCP/IP
+:: -------------------------------------------------------
+echo ### Check 46: NetBIOS over TCP/IP
+echo.
+if "!WMIC_PRESENT!"=="true" (
+    for /f "tokens=2 delims==" %%A in ('"wmic nicconfig where IPEnabled=TRUE get TcpipNetbiosOptions /value 2>nul"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do (
+            if "%%B"=="0" echo [*] TcpipNetbiosOptions: 0 ^(Default - DHCP controlled^)
+            if "%%B"=="1" echo [*] TcpipNetbiosOptions: 1 ^(NetBIOS enabled^)
+            if "%%B"=="2" echo [+] TcpipNetbiosOptions: 2 ^(NetBIOS disabled^)
+        )
+    )
+) else (
+    echo [*] WMIC not available. Cannot query NetBIOS over TCP/IP status.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 47: Network Connections
+:: -------------------------------------------------------
+echo ### Check 47: Network Connections
+echo.
+echo [*] Active network connections ^(netstat -ano^):
+for /f "tokens=*" %%A in ('netstat -ano 2^>nul') do echo [*]   %%A
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 48: Firewall Profiles
+:: -------------------------------------------------------
+echo ### Check 48: Firewall Profiles
+echo.
+echo [*] Firewall profile status:
+for /f "tokens=*" %%A in ('netsh advfirewall show allprofiles 2^>nul') do echo [*]   %%A
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 49: TCP/IP Stack Hardening
+:: -------------------------------------------------------
+echo ### Check 49: TCP/IP Stack Hardening
+echo.
+set "TCPIP_PATH=HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
+set "_disr="
+call :GetRegValTokens3 "%TCPIP_PATH%" "DisableIPSourceRouting" _disr
+if "!_disr!"=="0x2" (
+    echo [+] DisableIPSourceRouting: 2 ^(all source-routed packets dropped^)
+) else if defined _disr (
+    echo [-] DisableIPSourceRouting: !_disr! ^(Recommend 2^)
+) else (
+    echo [*] DisableIPSourceRouting not configured.
+)
+set "_eicmp="
+call :GetRegValTokens3 "%TCPIP_PATH%" "EnableICMPRedirect" _eicmp
+if "!_eicmp!"=="0x0" (
+    echo [+] EnableICMPRedirect: 0 ^(ICMP redirects ignored^)
+) else if defined _eicmp (
+    echo [-] EnableICMPRedirect: !_eicmp! ^(Recommend 0^)
+) else (
+    echo [*] EnableICMPRedirect not configured ^(default: enabled^).
+)
+set "_prd="
+call :GetRegValTokens3 "%TCPIP_PATH%" "PerformRouterDiscovery" _prd
+if "!_prd!"=="0x0" (
+    echo [+] PerformRouterDiscovery: 0 ^(disabled^)
+) else if defined _prd (
+    echo [-] PerformRouterDiscovery: !_prd! ^(Recommend 0^)
+) else (
+    echo [*] PerformRouterDiscovery not configured.
+)
+echo.
+
+:: =============================================================
+:: POWERSHELL CHECKS (50-56)
+:: =============================================================
+echo ## PowerShell Checks
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 50: PowerShell Versions
+:: -------------------------------------------------------
+echo ### Check 50: PowerShell Versions
+echo.
+echo [*] PowerShell Versions: Not available in CMD. Requires PowerShell runtime.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 51: PowerShell Language Mode
+:: -------------------------------------------------------
+echo ### Check 51: PowerShell Language Mode
+echo.
+echo [*] PowerShell Language Mode: Not available in CMD. Requires PowerShell runtime.
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 52: PowerShell Module Logging
+:: -------------------------------------------------------
+echo ### Check 52: PowerShell Module Logging
+echo.
+set "_pml="
+call :GetRegValTokens3 "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" "EnableModuleLogging" _pml
+if "!_pml!"=="0x1" (
+    echo [+] PowerShell Module Logging is enabled.
+    :: Check if all modules are logged
+    set "_pmn="
+    for /f "tokens=3" %%A in ('reg query "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" /v "*" 2^>nul ^| findstr /i "\*"') do set "_pmn=%%A"
+    if "!_pmn!"=="*" (
+        echo [+] All modules ^(*^) are being logged.
+    ) else (
+        echo [*] Module logging is enabled but not all modules may be logged. Check ModuleNames subkey.
+    )
+) else (
+    echo [-] PowerShell Module Logging is not enabled. Recommend enabling for audit visibility.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 53: PowerShell Script Block Logging
+:: -------------------------------------------------------
+echo ### Check 53: PowerShell Script Block Logging
+echo.
+set "_sbl="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockLogging" _sbl
+if "!_sbl!"=="0x1" (
+    echo [+] Script Block Logging is enabled.
+) else (
+    echo [-] Script Block Logging is not enabled. Recommend enabling for threat detection.
+)
+set "_sbil="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockInvocationLogging" _sbil
+if "!_sbil!"=="0x1" (
+    echo [+] Script Block Invocation Logging is enabled.
+) else (
+    echo [*] Script Block Invocation Logging: !_sbil! ^(optional, can be noisy^)
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 54: PowerShell Transcription
+:: -------------------------------------------------------
+echo ### Check 54: PowerShell Transcription
+echo.
+set "_pst="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableTranscripting" _pst
+if "!_pst!"=="0x1" (
+    echo [+] PowerShell Transcription is enabled.
+) else (
+    echo [-] PowerShell Transcription is not enabled. Recommend enabling.
+)
+set "_pih="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableInvocationHeader" _pih
+if "!_pih!"=="0x1" (
+    echo [+] Transcription Invocation Header is enabled.
+) else (
+    echo [*] Transcription EnableInvocationHeader: !_pih!
+)
+set "_pod="
+call :GetRegVal "HKLM\Software\Policies\Microsoft\Windows\PowerShell\Transcription" "OutputDirectory" _pod
+if defined _pod (
+    echo [*] Transcription OutputDirectory: !_pod!
+) else (
+    echo [*] Transcription OutputDirectory not configured ^(default location^).
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 55: PowerShell Protected Event Logging
+:: -------------------------------------------------------
+echo ### Check 55: PowerShell Protected Event Logging
+echo.
+set "_pel="
+call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging" "EnableProtectedEventLogging" _pel
+if "!_pel!"=="0x1" (
+    echo [+] Protected Event Logging is enabled.
+) else (
+    echo [*] Protected Event Logging is not enabled: !_pel!
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 56: WinRM
+:: -------------------------------------------------------
+echo ### Check 56: WinRM Service
+echo.
+call :CheckSvcState WinRM _wrmsvc
+if /i "!_wrmsvc!"=="RUNNING" (
+    echo [*] WinRM service is running. Verify this is intended and properly secured.
+) else if /i "!_wrmsvc!"=="STOPPED" (
+    echo [+] WinRM service is installed but stopped.
+) else (
+    echo [+] WinRM service is not installed.
+)
+echo [*] WinRM HTTP-In firewall rule:
+for /f "tokens=*" %%A in ('netsh advfirewall firewall show rule name^="Windows Remote Management (HTTP-In)" 2^>nul') do echo [*]   %%A
+echo.
+
+:: =============================================================
+:: LOGGING CHECKS (57-59)
+:: =============================================================
+echo ## Logging Checks
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 57: Event Log Sizes
+:: -------------------------------------------------------
+echo ### Check 57: Event Log Sizes
+echo.
+for %%L in (Application Security System "Windows PowerShell" "Microsoft-Windows-PowerShell/Operational" "Microsoft-Windows-Sysmon/Operational" "Microsoft-Windows-TaskScheduler/Operational" "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall" "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational" "Microsoft-Windows-WMI-Activity/Operational" "Microsoft-Windows-DNS-Client/Operational") do (
+    set "_logsize="
+    for /f "tokens=2 delims=:" %%A in ('wevtutil gl %%~L 2^>nul ^| findstr /i "maxSize"') do (
+        for /f "tokens=* delims= " %%B in ("%%A") do set "_logsize=%%B"
+    )
+    if defined _logsize (
+        echo [*] %%~L maxSize: !_logsize! bytes
+    ) else (
+        echo [*] %%~L: log not found or not accessible.
+    )
+    set "_logsize="
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 58: Command-Line Process Auditing
+:: -------------------------------------------------------
+echo ### Check 58: Command-Line Process Auditing
+echo.
+set "_claud="
+call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" "ProcessCreationIncludeCmdLine_Enabled" _claud
+if "!_claud!"=="0x1" (
+    echo [+] Command-line process auditing is enabled.
+) else (
+    echo [-] Command-line process auditing is not enabled. Recommend enabling for forensic visibility.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 59: Windows Script Host
+:: -------------------------------------------------------
+echo ### Check 59: Windows Script Host
+echo.
+set "_wsh="
+call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" _wsh
+if "!_wsh!"=="0x0" (
+    echo [+] Windows Script Host is disabled.
+) else if "!_wsh!"=="0x1" (
+    echo [-] Windows Script Host is enabled. Consider disabling if not needed.
+) else (
+    echo [*] Windows Script Host Enabled value: !_wsh! ^(default: enabled^)
+)
+echo.
+
+:: =============================================================
+:: FOOTER
+:: =============================================================
+echo ---
+echo.
+echo ## Report Footer
+echo.
+echo ^| Field ^| Value ^|
+echo ^| ----- ^| ----- ^|
+echo ^| Script ^| %SCRIPTNAME% %SCRIPTVERSION% ^|
+echo ^| Computer ^| %COMPUTERNAME% ^|
+echo ^| Completed ^| %DATE% %TIME% ^|
+echo.
+
+if "%CUTSEC_FOOTER%"=="true" (
+    echo ---
+    echo.
+    echo *CHAPS Audit Script: %SCRIPTNAME% %SCRIPTVERSION%*
+    echo *Brought to you by Cutaway Security, LLC*
+    echo *For assessment and auditing help, contact info [@] cutawaysecurity.com*
+    echo *For script help, contact dev [@] cutawaysecurity.com*
+    echo.
+)
+
+ENDLOCAL
+exit /b 0
