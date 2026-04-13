@@ -54,11 +54,19 @@ $getSysmonCheck             = $true
 $getUSBDevicesCheck         = $true
 $getAntiVirusCheck          = $true
 $getSoftwareInventoryCheck  = $true
+$getUACConfigCheck          = $true
+$getAccountPolicyCheck      = $true
+$getSecureBootCheck         = $true
+$getLSAProtectionCheck      = $true
+$getServiceHardeningCheck   = $true
 ## Security Checks
 $getSMBv1Check              = $true        
 $getAnonEnumCheck           = $true   
 $getUntrustedFontsCheck     = $true
 $getASRCheck                = $true
+$getSMBClientConfigCheck    = $true
+$getTLSConfigCheck          = $true
+$getAuditPolicyCheck        = $true
 ## Authentication Checks
 $getRDPDenyCheck            = $true     
 $getLocalAdminCheck         = $true  
@@ -68,6 +76,7 @@ $getCachedLogonCheck        = $true
 $getInteractiveLoginCheck   = $true
 $getWDigestCheck            = $true   
 $getRestrictRDPClientsCheck = $true
+$getRDPNLAConfigCheck       = $true
 ## Network Checks
 $getNetworkIPv4Check        = $true
 $getNetworkIPv6Check        = $true
@@ -78,6 +87,7 @@ $getCompBrowserCheck        = $true
 $getNetBIOSCheck            = $true
 $getNetConnectionsCheck     = $true
 $getFirewallProfileCheck    = $true
+$getTCPIPHardeningCheck     = $true
 ## PowerShell Checks
 $getPSVersionCheck          = $true
 $getPSLanguageCheck         = $true
@@ -209,11 +219,19 @@ function Show-Config{
     Write-Output "    Get USB Devices: $getUSBDevicesCheck"
     Write-Output "    Get AntiVirus Config: $getAntiVirusCheck"
     Write-Output "    Get Software Inventory: $getSoftwareInventoryCheck"
+    Write-Output "    Get UAC Config: $getUACConfigCheck"
+    Write-Output "    Get Account Policy: $getAccountPolicyCheck"
+    Write-Output "    Get Secure Boot: $getSecureBootCheck"
+    Write-Output "    Get LSA Protection: $getLSAProtectionCheck"
+    Write-Output "    Get Service Hardening: $getServiceHardeningCheck"
     ## Security Checks
     Write-Output "    Get SMBv1 Check: $getSMBv1Check"        
     Write-Output "    Get Anonmyous Enumeration: $getAnonEnumCheck"   
     Write-Output "    Get Untrusted Fonts: $getUntrustedFontsCheck"
     Write-Output "    Get ASR Rules: $getASRCheck"
+    Write-Output "    Get SMB Client Signing: $getSMBClientConfigCheck"
+    Write-Output "    Get TLS Config: $getTLSConfigCheck"
+    Write-Output "    Get Audit Policy: $getAuditPolicyCheck"
     ## Authentication Checks
     Write-Output "    Get RDP Deny Config: $getRDPDenyCheck"     
     Write-Output "    Get Local Administrator: $getLocalAdminCheck"  
@@ -223,6 +241,7 @@ function Show-Config{
     Write-Output "    Get Interactive Logon Config: $getInteractiveLoginCheck"
     Write-Output "    Get WDigest Config: $getWDigestCheck"   
     Write-Output "    Get Restrict RDP Clients: $getRestrictRDPClientsCheck"
+    Write-Output "    Get RDP NLA Config: $getRDPNLAConfigCheck"
     ## Network Checks
     Write-Output "    Get IPv4 Network: $getNetworkIPv4Check"
     Write-Output "    Get IPv6 Network: $getNetworkIPv6Check"
@@ -233,6 +252,7 @@ function Show-Config{
     Write-Output "    Get NetBIOS Config: $getNetBIOSCheck"
     Write-Output "    Get Network Connections: $getNetConnectionsCheck"
     Write-Output "    Get Firewall Profile: $getFirewallProfileCheck"
+    Write-Output "    Get TCP/IP Hardening: $getTCPIPHardeningCheck"
     ## PowerShell Checks
     Write-Output "    Get PS Version: $getPSVersionCheck"
     Write-Output "    Get PS Language: $getPSLanguageCheck"
@@ -837,6 +857,411 @@ function Get-SoftwareInventory {
     }
     Catch{
         Write-Output "$err_str Enumerating installed software failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-UACConfig {
+    # Check User Account Control configuration
+    # Ref: CIS Benchmark 2.3.17.x, https://learn.microsoft.com/en-us/windows/security/identity-protection/user-account-control
+    Try{
+        $uacPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+        $uac = Get-ItemProperty -path $uacPath -ErrorAction SilentlyContinue
+
+        # EnableLUA: UAC enabled (should be 1)
+        if ($uac.EnableLUA -ne $null){
+            if ($uac.EnableLUA -eq 1){
+                Write-Output "$pos_str UAC is enabled (EnableLUA: $($uac.EnableLUA))" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str UAC is disabled (EnableLUA: $($uac.EnableLUA))" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$neg_str EnableLUA registry key not found." | Tee-Object -FilePath $out_file -Append
+        }
+
+        # ConsentPromptBehaviorAdmin: 0=Elevate without prompting, 1=Prompt on secure desktop, 2=Prompt for consent on secure desktop
+        # CIS recommends 1 or 2
+        if ($uac.ConsentPromptBehaviorAdmin -ne $null){
+            $val = $uac.ConsentPromptBehaviorAdmin
+            if ([int]$val -ge 1 -and [int]$val -le 2){
+                Write-Output "$pos_str UAC admin prompt is configured securely (ConsentPromptBehaviorAdmin: $val)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str UAC admin prompt may not be secure (ConsentPromptBehaviorAdmin: $val)" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+
+        # PromptOnSecureDesktop: should be 1
+        if ($uac.PromptOnSecureDesktop -ne $null){
+            if ($uac.PromptOnSecureDesktop -eq 1){
+                Write-Output "$pos_str UAC prompts on secure desktop (PromptOnSecureDesktop: 1)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str UAC does not prompt on secure desktop (PromptOnSecureDesktop: $($uac.PromptOnSecureDesktop))" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+
+        # FilterAdministratorToken: should be 1 to filter built-in admin
+        if ($uac.FilterAdministratorToken -ne $null){
+            if ($uac.FilterAdministratorToken -eq 1){
+                Write-Output "$pos_str UAC filters built-in Administrator token (FilterAdministratorToken: 1)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str UAC does not filter built-in Administrator token (FilterAdministratorToken: $($uac.FilterAdministratorToken))" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing UAC configuration failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-AccountPolicy {
+    # Check password policy, account lockout, and special account status
+    # Ref: CIS Benchmark 1.1.x, 1.2.x
+    Try{
+        $netAccounts = net accounts 2>&1
+        if ($netAccounts -ne $null){
+            foreach ($line in $netAccounts){
+                $trimmed = "$line".Trim()
+                if ($trimmed -match 'Lockout threshold:\s+(.+)'){
+                    $threshold = $Matches[1].Trim()
+                    if ($threshold -eq 'Never'){
+                        Write-Output "$neg_str Account lockout threshold is not configured: $threshold" | Tee-Object -FilePath $out_file -Append
+                    } else {
+                        Write-Output "$pos_str Account lockout threshold is set: $threshold" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+                if ($trimmed -match 'Lockout duration.*:\s+(.+)'){
+                    Write-Output "$inf_str Account lockout duration: $($Matches[1].Trim())" | Tee-Object -FilePath $out_file -Append
+                }
+                if ($trimmed -match 'Minimum password length:\s+(.+)'){
+                    $minLen = $Matches[1].Trim()
+                    if ([int]$minLen -ge 14){
+                        Write-Output "$pos_str Minimum password length meets recommendation (14+): $minLen" | Tee-Object -FilePath $out_file -Append
+                    } elseif ([int]$minLen -ge 8) {
+                        Write-Output "$inf_str Minimum password length: $minLen (14+ recommended)" | Tee-Object -FilePath $out_file -Append
+                    } else {
+                        Write-Output "$neg_str Minimum password length is too short: $minLen" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+                if ($trimmed -match 'Maximum password age.*:\s+(.+)'){
+                    Write-Output "$inf_str Maximum password age: $($Matches[1].Trim())" | Tee-Object -FilePath $out_file -Append
+                }
+                if ($trimmed -match 'Password history length:\s+(.+)'){
+                    Write-Output "$inf_str Password history length: $($Matches[1].Trim())" | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Checking account policies via net accounts failed." | Tee-Object -FilePath $out_file -Append
+    }
+
+    # Check Guest account status
+    if (Test-CommandExists Get-LocalUser){
+        Try{
+            $guest = Get-LocalUser | Where-Object { $_.SID -like '*-501' } -ErrorAction SilentlyContinue
+            if ($guest -ne $null){
+                if ($guest.Enabled){
+                    Write-Output "$neg_str Guest account is enabled: $($guest.Name)" | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$pos_str Guest account is disabled: $($guest.Name)" | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        }
+        Catch{
+            Write-Output "$err_str Checking Guest account status failed." | Tee-Object -FilePath $out_file -Append
+        }
+
+        # Check if built-in Administrator is renamed
+        Try{
+            $admin = Get-LocalUser | Where-Object { $_.SID -like '*-500' } -ErrorAction SilentlyContinue
+            if ($admin -ne $null){
+                if ($admin.Name -eq 'Administrator'){
+                    Write-Output "$neg_str Built-in Administrator account has not been renamed." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$pos_str Built-in Administrator account has been renamed to: $($admin.Name)" | Tee-Object -FilePath $out_file -Append
+                }
+                Write-Output "$inf_str Built-in Administrator account enabled: $($admin.Enabled)" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Checking Administrator account status failed." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+}
+
+function Get-SecureBoot {
+    # Check Secure Boot / UEFI status
+    # Ref: CIS Benchmark, STIG V-63329
+    Try{
+        if (Test-CommandExists Confirm-SecureBootUEFI){
+            $sb = Confirm-SecureBootUEFI -ErrorAction Stop
+            if ($sb){
+                Write-Output "$pos_str Secure Boot is enabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str Secure Boot is not enabled." | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            # Fallback to registry
+            $sbReg = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State' -ErrorAction SilentlyContinue).UEFISecureBootEnabled
+            if ($sbReg -ne $null){
+                if ($sbReg -eq 1){
+                    Write-Output "$pos_str Secure Boot is enabled (registry)." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Secure Boot is not enabled (registry): $sbReg" | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$inf_str Secure Boot status could not be determined (BIOS/legacy boot may be in use)." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$inf_str Secure Boot check not supported on this system (may be BIOS/legacy boot)." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-LSAProtection {
+    # Check LSA Protection (RunAsPPL) - prevents credential dumping tools
+    # Ref: https://learn.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/configuring-additional-lsa-protection
+    Try{
+        $runasppl = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' -ErrorAction SilentlyContinue).RunAsPPL
+        if ($runasppl -ne $null){
+            if ([int]$runasppl -eq 1){
+                Write-Output "$pos_str LSA Protection (RunAsPPL) is enabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str LSA Protection (RunAsPPL) is not enabled: $runasppl" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$neg_str LSA Protection (RunAsPPL) registry key not found." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing LSA Protection (RunAsPPL) failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-ServiceHardening {
+    # Check that risky services are disabled
+    # Ref: CIS Benchmark 5.x, PrintNightmare, attack surface reduction
+    $riskyServices = @{
+        'Spooler'         = 'Print Spooler (PrintNightmare risk)'
+        'RemoteRegistry'  = 'Remote Registry'
+        'SNMP'            = 'SNMP Service'
+        'TlntSvr'         = 'Telnet Server'
+        'RemoteAccess'    = 'Routing and Remote Access'
+        'NetTcpPortSharing' = '.NET TCP Port Sharing'
+        'SharedAccess'    = 'Internet Connection Sharing'
+    }
+
+    foreach ($svcName in $riskyServices.Keys){
+        Try{
+            $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+            if ($svc -ne $null){
+                if ($svc.Status -eq 'Running'){
+                    Write-Output "$neg_str $($riskyServices[$svcName]) service is running." | Tee-Object -FilePath $out_file -Append
+                } elseif ($svc.StartType -eq 'Disabled') {
+                    Write-Output "$pos_str $($riskyServices[$svcName]) service is disabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$inf_str $($riskyServices[$svcName]) service status: $($svc.Status), start type: $($svc.StartType)" | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        }
+        Catch{
+            # Service doesn't exist on this system, skip
+        }
+    }
+}
+
+function Get-RDPNLAConfig {
+    # Check RDP Network Level Authentication requirement
+    # Ref: CIS Benchmark 18.9.65.3.9.2, STIG V-63597
+    Try{
+        $nla = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -ErrorAction SilentlyContinue).UserAuthentication
+        if ($nla -ne $null){
+            if ([int]$nla -eq 1){
+                Write-Output "$pos_str RDP Network Level Authentication (NLA) is required." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str RDP Network Level Authentication (NLA) is not required: $nla" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$inf_str RDP NLA registry key not found (RDP may not be configured)." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing RDP NLA configuration failed." | Tee-Object -FilePath $out_file -Append
+    }
+
+    # Check RDP encryption level
+    Try{
+        $rdpEnc = (Get-ItemProperty -path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -ErrorAction SilentlyContinue).MinEncryptionLevel
+        if ($rdpEnc -ne $null){
+            # 1=Low, 2=Client Compatible, 3=High, 4=FIPS
+            if ([int]$rdpEnc -ge 3){
+                Write-Output "$pos_str RDP minimum encryption level is High or FIPS: $rdpEnc" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str RDP minimum encryption level is below High: $rdpEnc" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing RDP encryption level failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-TCPIPHardening {
+    # Check TCP/IP stack hardening settings
+    # Ref: CIS Benchmark 18.4.x, STIG V-63493
+    $tcpPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+    Try{
+        $tcp = Get-ItemProperty -path $tcpPath -ErrorAction SilentlyContinue
+
+        # DisableIPSourceRouting: should be 2 (disabled)
+        if ($tcp.DisableIPSourceRouting -ne $null){
+            if ([int]$tcp.DisableIPSourceRouting -eq 2){
+                Write-Output "$pos_str IP source routing is disabled: $($tcp.DisableIPSourceRouting)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str IP source routing is not fully disabled: $($tcp.DisableIPSourceRouting)" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$inf_str DisableIPSourceRouting not configured (default behavior)." | Tee-Object -FilePath $out_file -Append
+        }
+
+        # EnableICMPRedirect: should be 0 (disabled)
+        if ($tcp.EnableICMPRedirect -ne $null){
+            if ([int]$tcp.EnableICMPRedirect -eq 0){
+                Write-Output "$pos_str ICMP redirects are disabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str ICMP redirects are enabled: $($tcp.EnableICMPRedirect)" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$neg_str EnableICMPRedirect not configured (ICMP redirects may be accepted)." | Tee-Object -FilePath $out_file -Append
+        }
+
+        # PerformRouterDiscovery: should be 0 (disabled)
+        if ($tcp.PerformRouterDiscovery -ne $null){
+            if ([int]$tcp.PerformRouterDiscovery -eq 0){
+                Write-Output "$pos_str IRDP router discovery is disabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str IRDP router discovery is enabled: $($tcp.PerformRouterDiscovery)" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing TCP/IP hardening settings failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-TLSConfig {
+    # Check TLS/SSL protocol versions enabled
+    # Ref: CIS Benchmark 18.4.x, NIST SP 800-52
+    $protocols = @('SSL 2.0', 'SSL 3.0', 'TLS 1.0', 'TLS 1.1', 'TLS 1.2', 'TLS 1.3')
+    $badProtocols = @('SSL 2.0', 'SSL 3.0', 'TLS 1.0', 'TLS 1.1')
+    $goodProtocols = @('TLS 1.2', 'TLS 1.3')
+
+    foreach ($proto in $protocols){
+        $serverPath = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\$proto\Server"
+        $clientPath = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\$proto\Client"
+        $isBad = $badProtocols -contains $proto
+
+        Try{
+            $serverEnabled = (Get-ItemProperty -path $serverPath -ErrorAction SilentlyContinue).Enabled
+            $serverDisabledByDefault = (Get-ItemProperty -path $serverPath -ErrorAction SilentlyContinue).DisabledByDefault
+
+            if ($serverEnabled -ne $null){
+                if ([int]$serverEnabled -eq 0){
+                    if ($isBad){
+                        Write-Output "$pos_str $proto Server is explicitly disabled." | Tee-Object -FilePath $out_file -Append
+                    } else {
+                        Write-Output "$neg_str $proto Server is explicitly disabled." | Tee-Object -FilePath $out_file -Append
+                    }
+                } else {
+                    if ($isBad){
+                        Write-Output "$neg_str $proto Server is enabled (should be disabled)." | Tee-Object -FilePath $out_file -Append
+                    } else {
+                        Write-Output "$pos_str $proto Server is enabled." | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+            } else {
+                if ($isBad){
+                    Write-Output "$inf_str $proto Server not explicitly configured (OS default behavior)." | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        }
+        Catch{
+            # Registry path doesn't exist, protocol not configured
+        }
+    }
+}
+
+function Get-AuditPolicy {
+    # Check basic audit policy configuration
+    # Ref: CIS Benchmark 17.x, STIG audit requirements
+    Try{
+        $auditOut = auditpol /get /category:* 2>&1
+        if ($auditOut -ne $null){
+            $noAudit = $true
+            $categories = @('Logon/Logoff', 'Account Logon', 'Object Access', 'Privilege Use', 'Policy Change', 'Account Management', 'System')
+            foreach ($cat in $categories){
+                $catLines = $auditOut | Select-String -Pattern $cat
+                $successFailure = $auditOut | Select-String -Pattern "Success and Failure|Success|Failure" | Where-Object { $_.LineNumber -gt ($catLines.LineNumber | Select-Object -First 1) }
+                # Simple approach: check if any auditing is configured
+            }
+            # Check for common critical subcategories
+            $criticalChecks = @(
+                @('Logon', 'Account Logon events'),
+                @('Logoff', 'Account Logoff events'),
+                @('Security Group Management', 'Security group changes'),
+                @('User Account Management', 'User account changes'),
+                @('Process Creation', 'Process creation events'),
+                @('Security System Extension', 'Security system changes')
+            )
+            foreach ($check in $criticalChecks){
+                $match = $auditOut | Select-String -Pattern $check[0] | Select-Object -First 1
+                if ($match -ne $null){
+                    $line = "$match".Trim()
+                    if ($line -match 'No Auditing'){
+                        Write-Output "$neg_str Audit policy for $($check[1]): No Auditing" | Tee-Object -FilePath $out_file -Append
+                    } elseif ($line -match 'Success and Failure') {
+                        Write-Output "$pos_str Audit policy for $($check[1]): Success and Failure" | Tee-Object -FilePath $out_file -Append
+                    } elseif ($line -match 'Success') {
+                        Write-Output "$inf_str Audit policy for $($check[1]): Success only" | Tee-Object -FilePath $out_file -Append
+                    } elseif ($line -match 'Failure') {
+                        Write-Output "$inf_str Audit policy for $($check[1]): Failure only" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Checking audit policy failed (may require admin privileges)." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-SMBClientConfig {
+    # Check SMB client-side signing configuration
+    # Ref: CIS Benchmark 2.3.8.x
+    Try{
+        $smbClientPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
+        $smbClient = Get-ItemProperty -path $smbClientPath -ErrorAction SilentlyContinue
+
+        if ($smbClient.RequireSecuritySignature -ne $null){
+            if ([int]$smbClient.RequireSecuritySignature -eq 1){
+                Write-Output "$pos_str SMB Client Require Security Signature is Enabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str SMB Client Require Security Signature is Disabled: $($smbClient.RequireSecuritySignature)" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$neg_str SMB Client RequireSecuritySignature not configured." | Tee-Object -FilePath $out_file -Append
+        }
+
+        if ($smbClient.EnableSecuritySignature -ne $null){
+            if ([int]$smbClient.EnableSecuritySignature -eq 1){
+                Write-Output "$pos_str SMB Client Enable Security Signature is Enabled." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str SMB Client Enable Security Signature is Disabled: $($smbClient.EnableSecuritySignature)" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing SMB Client signing configuration failed." | Tee-Object -FilePath $out_file -Append
     }
 }
 
@@ -1931,11 +2356,19 @@ if ($getSysmonCheck)            { Get-Sysmon }
 if ($getUSBDevicesCheck)        { Get-USBDevices }
 if ($getAntiVirusCheck)         { Get-AntiVirus }
 if ($getSoftwareInventoryCheck) { Get-SoftwareInventory }
+if ($getUACConfigCheck)         { Get-UACConfig }
+if ($getAccountPolicyCheck)     { Get-AccountPolicy }
+if ($getSecureBootCheck)        { Get-SecureBoot }
+if ($getLSAProtectionCheck)     { Get-LSAProtection }
+if ($getServiceHardeningCheck)  { Get-ServiceHardening }
 ## Security Checks
 if ($getSMBv1Check)             { Get-SMBv1 }
 if ($getAnonEnumCheck)          { Get-AnonEnum }
 if ($getUntrustedFontsCheck)    { Get-UntrustedFonts }
 if ($getASRCheck)               { Get-ASRRules }
+if ($getSMBClientConfigCheck)   { Get-SMBClientConfig }
+if ($getTLSConfigCheck)         { Get-TLSConfig }
+if ($getAuditPolicyCheck)       { Get-AuditPolicy }
 ## Authentication Checks
 if ($getRDPDenyCheck)           { Get-RDPDeny }
 if ($getLocalAdminCheck)        { Get-LocalAdmin }
@@ -1945,6 +2378,7 @@ if ($getCachedLogonCheck)       { Get-CachedLogons }
 if ($getInteractiveLoginCheck)  { Get-InteractiveLogin }
 if ($getWDigestCheck)           { Get-WDigest }
 if ($getRestrictRDPClientsCheck){ Get-RestrictRDPClients }
+if ($getRDPNLAConfigCheck)      { Get-RDPNLAConfig }
 ## Network Checks
 if ($getNetworkIPv4Check)       { Get-NetworkSettingsIPv4 }
 if ($getNetworkIPv6Check)       { Get-NetworkSettingsIPv6 }
@@ -1955,6 +2389,7 @@ if ($getCompBrowserCheck)       { Get-CompBrowser }
 if ($getNetBIOSCheck)           { Get-NetBIOS }
 if ($getNetConnectionsCheck)    { Get-NetConnections }
 if ($getFirewallProfileCheck)   { Get-FirewallProfile }
+if ($getTCPIPHardeningCheck)    { Get-TCPIPHardening }
 ## PowerShell Checks
 if ($getPSVersionCheck)         { Get-PSVersions }
 if ($getPSLanguageCheck)        { Get-PSLanguage }
