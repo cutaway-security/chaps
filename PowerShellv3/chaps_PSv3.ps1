@@ -46,10 +46,10 @@ $getInstallElevatedCheck    = $true
 $getEMETCheck               = $true        
 $getLAPSCheck               = $true       
 $getGPOCheck                = $true           
-$getNetSessionEnumCheck     = $false
+$getNetSessionEnumCheck     = $true
 $getAppLockerCheck          = $true   
 $getCredDeviceGuardCheck    = $true
-$getMSOfficeCheck           = $false     
+$getMSOfficeCheck           = $true     
 ## Security Checks
 $getSMBv1Check              = $true        
 $getAnonEnumCheck           = $true   
@@ -104,7 +104,7 @@ if ($ps_version -lt 3) {
 #############################
 $script_name            = 'chaps_PSv3+'
 $script_version         = '1.0.1'
-$filename_date	        = Get-Date -Format "yyyyddMM_HHmmss"
+$filename_date	        = Get-Date -Format "yyyyMMdd_HHmmss"
 $start_time_readable    = Get-Date -Format "dddd MM/dd/yyyy HH:mm:ss K"
 $computername           = $env:ComputerName
 $sysdrive               = $env:SystemDrive
@@ -391,33 +391,92 @@ function Get-InstallElevated {
 }
 
 function Get-EMET {
-    Try{
-        if ([System.Environment]::OSVersion.Version.Major -lt 10){
-            $resemet = (get-service EMET_Service).status
+    # EMET is deprecated as of Windows 10. Its mitigations are built into Windows Defender Exploit Protection.
+    # Ref: https://support.microsoft.com/en-us/topic/emet-mitigations-guidelines
+    if ([System.Environment]::OSVersion.Version.Major -ge 10){
+        Try{
+            if (Test-CommandExists Get-ProcessMitigation){
+                $sysmit = Get-ProcessMitigation -System
+                Write-Output "$inf_str EMET is deprecated. Windows Exploit Protection is the replacement." | Tee-Object -FilePath $out_file -Append
+                if ($sysmit.DEP.Enable -eq 'ON'){
+                    Write-Output "$pos_str System-wide DEP (Data Execution Prevention) is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str System-wide DEP (Data Execution Prevention) is not enabled: $($sysmit.DEP.Enable)" | Tee-Object -FilePath $out_file -Append
+                }
+                if ($sysmit.ASLR.ForceRelocateImages -eq 'ON'){
+                    Write-Output "$pos_str System-wide mandatory ASLR is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str System-wide mandatory ASLR is not enabled: $($sysmit.ASLR.ForceRelocateImages)" | Tee-Object -FilePath $out_file -Append
+                }
+                if ($sysmit.CFG.Enable -eq 'ON'){
+                    Write-Output "$pos_str System-wide Control Flow Guard (CFG) is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str System-wide Control Flow Guard (CFG) is not enabled: $($sysmit.CFG.Enable)" | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$inf_str Get-ProcessMitigation not available. Cannot check Exploit Protection settings." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing for Windows Exploit Protection settings failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        Try{
+            $resemet = (Get-Service EMET_Service -ErrorAction Stop).Status
             if ($resemet -eq 'Running'){
                 Write-Output "$pos_str EMET Service is running." | Tee-Object -FilePath $out_file -Append
             } else {
                 Write-Output "$neg_str EMET Service is not running: $resemet" | Tee-Object -FilePath $out_file -Append
             }
-        } else {
-            Write-Output "$inf_str EMET Service components are built into Windows 10." | Tee-Object -FilePath $out_file -Append
         }
-    }
-    Catch{
-        Write-Output "$err_str Testing for Microsoft EMET service failed." | Tee-Object -FilePath $out_file -Append
+        Catch{
+            Write-Output "$neg_str EMET Service not found. EMET may not be installed." | Tee-Object -FilePath $out_file -Append
+        }
     }
 }
 
 function Get-LAPS {
+    # Check for Windows LAPS (built-in on Win10 21H2+ / Server 2019+) and legacy LAPS
+    # Ref: https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-overview
+    $laps_found = $false
+
+    # Check for Windows LAPS (modern) via registry policy
     Try{
-        if (Get-ChildItem ‘C:\program files\LAPS\CSE\Admpwd.dll’ -ErrorAction Stop){
-            Write-Output "$pos_str Local Administrator Password Solution (LAPS) is installed." | Tee-Object -FilePath $out_file -Append
-        } else {
-            Write-Output "$neg_str Local Administrator Password Solution (LAPS) is not installed." | Tee-Object -FilePath $out_file -Append
+        $winlaps = Get-ItemProperty -path ‘HKLM:\Software\Microsoft\Policies\LAPS’ -ErrorAction Stop
+        if ($winlaps -ne $null){
+            Write-Output "$pos_str Windows LAPS policy is configured." | Tee-Object -FilePath $out_file -Append
+            $laps_found = $true
         }
     }
     Catch{
-        Write-Output "$err_str Testing for Microsoft LAPS failed." | Tee-Object -FilePath $out_file -Append
+        # Key doesn’t exist, continue checking
+    }
+
+    # Check for Windows LAPS via CSE registry (modern)
+    Try{
+        $winlapscse = Get-ItemProperty -path ‘HKLM:\Software\Microsoft\Windows\CurrentVersion\LAPS\State’ -ErrorAction Stop
+        if ($winlapscse -ne $null){
+            Write-Output "$pos_str Windows LAPS client state found in registry." | Tee-Object -FilePath $out_file -Append
+            $laps_found = $true
+        }
+    }
+    Catch{
+        # Key doesn’t exist, continue checking
+    }
+
+    # Check for legacy LAPS (AdmPwd.dll)
+    Try{
+        if (Test-Path ‘C:\Program Files\LAPS\CSE\Admpwd.dll’){
+            Write-Output "$pos_str Legacy LAPS (AdmPwd.dll) is installed." | Tee-Object -FilePath $out_file -Append
+            $laps_found = $true
+        }
+    }
+    Catch{
+        # File doesn’t exist, continue
+    }
+
+    if (-not $laps_found){
+        Write-Output "$neg_str Local Administrator Password Solution (LAPS) is not installed (checked Windows LAPS and legacy LAPS)." | Tee-Object -FilePath $out_file -Append
     }
 }
 
@@ -444,10 +503,35 @@ function Get-GPO {
 
 function Get-NetSessionEnum {
     # View Net Session Enum Permissions: https://gallery.technet.microsoft.com/scriptcenter/View-Net-Session-Enum-dfced139
-    #Net Cease - Hardening Net Session Enumeration: https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5b
+    # Net Cease - Hardening Net Session Enumeration: https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5b
+    # SrvsvcSessionInfo registry key restricts who can call NetSessionEnum
+    # Ref: https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/network-access-restrict-clients-allowed-to-make-remote-sam-calls
 
-    # Not configured, yet
-    # Write-Output "$inf_str Testing Net Session Enumeration configuration using the TechNet script NetSessEnumPerm.ps1" | Tee-Object -FilePath $out_file -Append
+    Try{
+        $regpath = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\DefaultSecurity'
+        $ressess = (Get-ItemProperty -path $regpath -ErrorAction SilentlyContinue).SrvsvcSessionInfo
+        if ($ressess -ne $null){
+            Write-Output "$pos_str SrvsvcSessionInfo registry key is configured (Net Session Enumeration is restricted)." | Tee-Object -FilePath $out_file -Append
+        } else {
+            Write-Output "$neg_str SrvsvcSessionInfo registry key is not configured (Net Session Enumeration may be unrestricted)." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing Net Session Enumeration configuration failed." | Tee-Object -FilePath $out_file -Append
+    }
+
+    # Check RestrictRemoteSAM for SAM enumeration restrictions (related hardening)
+    Try{
+        $ressam = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' -ErrorAction SilentlyContinue).RestrictRemoteSAM
+        if ($ressam -ne $null){
+            Write-Output "$pos_str RestrictRemoteSAM registry key is configured: $ressam" | Tee-Object -FilePath $out_file -Append
+        } else {
+            Write-Output "$neg_str RestrictRemoteSAM registry key is not configured." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing RestrictRemoteSAM configuration failed." | Tee-Object -FilePath $out_file -Append
+    }
 }
 
 function Get-AppLocker {
@@ -476,8 +560,7 @@ function Get-CredDeviceGuard {
     # How to Verify if Device Guard is Enabled or Disabled in Windows 10: https://www.tenforums.com/tutorials/68926-verify-if-device-guard-enabled-disabled-windows-10-a.html
     # Security Focus: Check Credential Guard Status with PowerShell: https://blogs.technet.microsoft.com/poshchap/2016/09/23/security-focus-check-credential-guard-status-with-powershell/
     
-    # TODO: Add Win 11
-    if ([System.Environment]::OSVersion.Version.Major -eq 10){
+    if ([System.Environment]::OSVersion.Version.Major -ge 10){
         Try{
             $secServConfig = (Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesConfigured
             $secServRunning = (Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesRunning
@@ -498,12 +581,69 @@ function Get-CredDeviceGuard {
         }
 
     } else {
-        Write-Output "$inf_str Windows Version is not 10. Cannot test for Credential or Device Guard." | Tee-Object -FilePath $out_file -Append
+        Write-Output "$inf_str Windows Version is older than 10. Cannot test for Credential or Device Guard." | Tee-Object -FilePath $out_file -Append
     }
 } 
 
-function Get-MSOffice { 
-    # Not configured, yet
+function Get-MSOffice {
+    # Check Microsoft Office macro security settings
+    # Ref: https://learn.microsoft.com/en-us/deployoffice/security/internet-macros-blocked
+    # VBAWarnings: 1=Enable all, 2=Disable with notification, 3=Disable except digitally signed, 4=Disable all
+    # BlockContentExecutionFromInternet: 1=Block macros from internet files
+
+    $office_apps = @('Word', 'Excel', 'PowerPoint', 'Access', 'Outlook')
+    # Common Office version registry paths (16.0=2016/2019/365, 15.0=2013, 14.0=2010)
+    $office_versions = @('16.0', '15.0', '14.0')
+    $office_found = $false
+
+    foreach ($ver in $office_versions){
+        foreach ($app in $office_apps){
+            Try{
+                $regpath = "HKCU:\Software\Microsoft\Office\$ver\$app\Security"
+                $props = Get-ItemProperty -path $regpath -ErrorAction SilentlyContinue
+                if ($props -ne $null){
+                    $office_found = $true
+                    $vba = $props.VBAWarnings
+                    if ($vba -ne $null){
+                        if ([int]$vba -ge 3){
+                            Write-Output "$pos_str Office $ver $app VBAWarnings is set to restrict macros: $vba" | Tee-Object -FilePath $out_file -Append
+                        } else {
+                            Write-Output "$neg_str Office $ver $app VBAWarnings is not set to restrict macros: $vba" | Tee-Object -FilePath $out_file -Append
+                        }
+                    } else {
+                        Write-Output "$neg_str Office $ver $app VBAWarnings is not configured." | Tee-Object -FilePath $out_file -Append
+                    }
+
+                    $blockinet = $props.BlockContentExecutionFromInternet
+                    if ($blockinet -ne $null){
+                        if ([int]$blockinet -eq 1){
+                            Write-Output "$pos_str Office $ver $app blocks macros from internet files." | Tee-Object -FilePath $out_file -Append
+                        } else {
+                            Write-Output "$neg_str Office $ver $app does not block macros from internet files: $blockinet" | Tee-Object -FilePath $out_file -Append
+                        }
+                    }
+                }
+            }
+            Catch{
+                # Registry path doesn't exist for this version/app, skip
+            }
+        }
+
+        # Check policy-level macro settings (GPO-deployed)
+        Try{
+            $polpath = "HKCU:\Software\Policies\Microsoft\Office\$ver"
+            if (Test-Path $polpath){
+                Write-Output "$inf_str Office $ver group policy settings detected at: $polpath" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            # Policy path doesn't exist, skip
+        }
+    }
+
+    if (-not $office_found){
+        Write-Output "$inf_str No Microsoft Office installations detected in registry." | Tee-Object -FilePath $out_file -Append
+    }
 }
 
 # Security Checks
@@ -514,7 +654,6 @@ function Get-SMBv1 {
     # Detecting and remediating SMBv1: https://blogs.technet.microsoft.com/leesteve/2017/05/11/detecting-and-remediating-smbv1/
     # https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3?tabs=server
 
-    # TODO: SMBv3, Encryption, Signing
     Try{
         $smbConfig = Get-SmbServerConfiguration
 
@@ -522,28 +661,45 @@ function Get-SMBv1 {
             Write-Output "$neg_str SMBv1 is Enabled" | Tee-Object -FilePath $out_file -Append
         } else {
             Write-Output "$pos_str SMBv1 is Disabled" | Tee-Object -FilePath $out_file -Append
-        } 
-        
+        }
+
         if ($smbConfig.AuditSmb1Access) {
             Write-Output "$pos_str SMBv1 Auditing is Enabled"  | Tee-Object -FilePath $out_file -Append
-        } else { 
+        } else {
             Write-Output "$neg_str SMBv1 Auditing is Disabled"  | Tee-Object -FilePath $out_file -Append
         }
 
         if ($smbConfig.EnableSMB2Protocol) {
-            Write-Output "$pos_str SMBv2 is Enabled" | Tee-Object -FilePath $out_file -Append
+            Write-Output "$pos_str SMBv2/SMBv3 is Enabled" | Tee-Object -FilePath $out_file -Append
         } else {
-            Write-Output "$neg_str SMBv2 is Disabled" | Tee-Object -FilePath $out_file -Append
-        } 
+            Write-Output "$neg_str SMBv2/SMBv3 is Disabled" | Tee-Object -FilePath $out_file -Append
+        }
 
         if ($smbConfig.RequireSecuritySignature) {
-            Write-Output "$pos_str Require Security Signature is Enabled" | Tee-Object -FilePath $out_file -Append
+            Write-Output "$pos_str SMB Server Require Security Signature is Enabled" | Tee-Object -FilePath $out_file -Append
         } else {
-            Write-Output "$neg_str Require Security Signature is Disabled" | Tee-Object -FilePath $out_file -Append
-        } 
+            Write-Output "$neg_str SMB Server Require Security Signature is Disabled" | Tee-Object -FilePath $out_file -Append
+        }
+
+        # SMBv3 Encryption check (available on Server 2012+ / Win8+)
+        if ($smbConfig.EncryptData -ne $null) {
+            if ($smbConfig.EncryptData) {
+                Write-Output "$pos_str SMB Server Encryption (EncryptData) is Enabled" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str SMB Server Encryption (EncryptData) is Disabled" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+
+        if ($smbConfig.RejectUnencryptedAccess -ne $null) {
+            if ($smbConfig.RejectUnencryptedAccess) {
+                Write-Output "$pos_str SMB Server RejectUnencryptedAccess is Enabled" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$neg_str SMB Server RejectUnencryptedAccess is Disabled" | Tee-Object -FilePath $out_file -Append
+            }
+        }
     }
     Catch {
-        Write-Output "$err_str Testing for SMBv1 failed." | Tee-Object -FilePath $out_file -Append   
+        Write-Output "$err_str Testing for SMB configuration failed." | Tee-Object -FilePath $out_file -Append
     }
 }
 
@@ -586,13 +742,13 @@ function Get-AnonEnum {
 function Get-UntrustedFonts {
     # Block untrusted fonts in an enterprise: https://docs.microsoft.com/en-us/windows/security/threat-protection/block-untrusted-fonts-in-enterprise
     # How to Verify if Device Guard is Enabled or Disabled in Windows 10: https://www.tenforums.com/tutorials/68926-verify-if-device-guard-enabled-disabled-windows-10-a.html
-    if ([System.Environment]::OSVersion.Version.Major -eq 10){
+    if ([System.Environment]::OSVersion.Version.Major -ge 10){
         Try{
             $resuf = (Get-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel\').MitigationOptions
             if ($resuf -eq $null){
                 Write-Output "$neg_str Kernel MitigationOptions key does not exist." | Tee-Object -FilePath $out_file -Append
             } else {
-                if ($ressh -ge 2000000000000){
+                if ($resuf -ge 2000000000000){
                     Write-Output "$neg_str Kernel MitigationOptions key is configured not to block: $resuf" | Tee-Object -FilePath $out_file -Append
                 } else {
                     Write-Output "$pos_str Kernel MitigationOptions key is set to block: $resuf" | Tee-Object -FilePath $out_file -Append
@@ -603,7 +759,7 @@ function Get-UntrustedFonts {
             Write-Output "$err_str Testing for Untrusted Fonts configuration failed." | Tee-Object -FilePath $out_file -Append
         }
     } else {
-        Write-Output "$inf_str Windows Version is not 10. Cannot test for Untrusted Fonts." | Tee-Object -FilePath $out_file -Append
+        Write-Output "$inf_str Windows Version is older than 10. Cannot test for Untrusted Fonts." | Tee-Object -FilePath $out_file -Append
     }
 }
 
@@ -655,7 +811,7 @@ function Get-LocalAdmin {
         }
     } else {
         # No PS Cmdlet, use net command
-        Catch [System.InvalidOperationException]{
+        Try{
             $netout = (net localgroup Administrators)
             foreach ($item in $netout){
                 if ($item -match '----') {
@@ -664,11 +820,17 @@ function Get-LocalAdmin {
             }
 
             $numadmin = $netout[($index + 1)..($netout.Length - 3)]
-            if ($content.length -gt 1){
-                Write-Output "$neg_str More than one account is in local Administrators group: $numadmin.length" | Tee-Object -FilePath $out_file -Append
+            if ($numadmin.length -gt 1){
+                Write-Output "$neg_str More than one account is in local Administrators group: $($numadmin.length)" | Tee-Object -FilePath $out_file -Append
             } else {
                 Write-Output "$pos_str One account in local Administrators group." | Tee-Object -FilePath $out_file -Append
             }
+            foreach ($n in $numadmin) {
+                Write-Output "$inf_str Account in local Administrator group: $n" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing local Administrator Accounts failed." | Tee-Object -FilePath $out_file -Append
         }
     }
 }
@@ -889,7 +1051,7 @@ function Get-WPAD {
     # Microsoft Security Bulletin MS16-063 - Critical: https://docs.microsoft.com/en-us/security-updates/SecurityBulletins/2016/ms16-063
     Try{
         $reswpad = Select-String -path $env:systemdrive\Windows\System32\Drivers\etc\hosts -pattern wpad
-        if ($resllmnr -ne $null){
+        if ($reswpad -ne $null){
             Write-Output "$pos_str WPAD entry detected: $reswpad" | Tee-Object -FilePath $out_file -Append
         } else {
             Write-Output "$neg_str No WPAD entry detected. Should contain: wpad 255.255.255.255" | Tee-Object -FilePath $out_file -Append
@@ -900,7 +1062,7 @@ function Get-WPAD {
     }
 
     Try{
-        $reswpad2 = (Get-ItemProperty -path 'HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad' -ErrorAction SilentlyContinue).WpadOverride
+        $reswpad2 = (Get-ItemProperty -path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad' -ErrorAction SilentlyContinue).WpadOverride
         if ($reswpad2 -ne $null){
             if ($reswpad2){
                 Write-Output "$pos_str WpadOverride registry key is configured to disable WPAD: $reswpad2" | Tee-Object -FilePath $out_file -Append
@@ -1004,7 +1166,7 @@ function Get-CompBrowser {
 function Get-NetBIOS {
     # Getting TCP/IP Netbios information: https://powershell.org/forums/topic/getting-tcpip-netbios-information/
     Try{
-        $resnetb = (Get-WmiObject -Class Win32_NetWorkAdapterConfiguration -Filter "IPEnabled=$true").TcpipNetbiosOptions
+        $resnetb = (Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled=$true").TcpipNetbiosOptions
         if ($resnetb -eq $null){
             Write-Output "$neg_str NetBios TcpipNetbiosOptions key does not exist." | Tee-Object -FilePath $out_file -Append
         } else {
@@ -1046,21 +1208,32 @@ function Get-PSVersions {
     }
 
     Try{
-        # NOTE: Workstation test. Servers would need to test "Get-WindowsFeature PowerShell-V2"
-        $psver2 = (Get-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2).state
-        if ($psver2 -ne $null){
-            if ($psver2 -eq 'Enabled') { 
-                Write-Output "$neg_str PowerShell Version 2 should be disabled: $psver2" | Tee-Object -FilePath $out_file -Append
-            } else { 
-                Write-Output "$pos_str PowerShell Version 2 is: $psver2" | Tee-Object -FilePath $out_file -Append
+        # Workstation: Get-WindowsOptionalFeature, Server: Get-WindowsFeature
+        if (Test-CommandExists Get-WindowsOptionalFeature){
+            $psver2 = (Get-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2 -ErrorAction Stop).State
+            if ($psver2 -ne $null){
+                if ($psver2 -eq 'Enabled') {
+                    Write-Output "$neg_str PowerShell Version 2 should be disabled: $psver2" | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$pos_str PowerShell Version 2 is: $psver2" | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$inf_str PowerShell Version 2 feature state could not be determined." | Tee-Object -FilePath $out_file -Append
             }
-        }else{
-            Write-Output "$inf_str Get-WindowsOptionalFeature is not available to test if PowerShell Version 2 is permitted." | Tee-Object -FilePath $out_file -Append
+        } elseif (Test-CommandExists Get-WindowsFeature){
+            $psver2srv = (Get-WindowsFeature PowerShell-V2 -ErrorAction Stop).InstallState
+            if ($psver2srv -eq 'Installed') {
+                Write-Output "$neg_str PowerShell Version 2 should be disabled (Server): $psver2srv" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$pos_str PowerShell Version 2 is (Server): $psver2srv" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$inf_str Neither Get-WindowsOptionalFeature nor Get-WindowsFeature available to test PowerShell Version 2 status." | Tee-Object -FilePath $out_file -Append
         }
     }
     Catch{
-        if (-NOT $global:admin_user){ 
-            Write-Output "$err_str Testing for PowerShell Version 2 requires Admin privileges." | Tee-Object -FilePath $out_file -Append 
+        if (-NOT $global:admin_user){
+            Write-Output "$err_str Testing for PowerShell Version 2 requires Admin privileges." | Tee-Object -FilePath $out_file -Append
         } else {
             Write-Output "$err_str Testing for PowerShell Version 2 failed." | Tee-Object -FilePath $out_file -Append
         }
@@ -1097,7 +1270,6 @@ function Get-PSLanguage {
 }
 
 function Get-PSModule {
-    # TODO: Add check for which modules, should be '*'
     Try{
         if ([bool](Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging' -ErrorAction SilentlyContinue).EnableModuleLogging){
             Write-Output "$pos_str EnableModuleLogging Is Set" | Tee-Object -FilePath $out_file -Append
@@ -1114,8 +1286,26 @@ function Get-PSModule {
             }
         }
         Catch{
-            Write-Output "$err_str Testing PowerShell Moduling failed" | Tee-Object -FilePath $out_file -Append
+            Write-Output "$err_str Testing PowerShell Module Logging failed" | Tee-Object -FilePath $out_file -Append
         }
+    }
+
+    # Check which modules are being logged (should be '*' for all modules)
+    Try{
+        $modnames = Get-ItemProperty -path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames' -ErrorAction SilentlyContinue
+        if ($modnames -ne $null){
+            if ($modnames.'*' -ne $null){
+                Write-Output "$pos_str Module Logging is configured to log all modules (*)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                $logged = ($modnames.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' }).Name -join ', '
+                Write-Output "$neg_str Module Logging is not configured to log all modules. Logged modules: $logged" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$inf_str No specific modules configured for Module Logging." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        # Module names key doesn't exist, skip
     }
 }
 
@@ -1162,7 +1352,17 @@ function Get-PSScript {
 }
 
 function Get-PSTranscript {
-    # TODO: Add check to find Transcript log location
+    # Check transcript log output directory
+    Try{
+        $transcriptDir = (Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).OutputDirectory
+        if ($transcriptDir -ne $null -and $transcriptDir -ne ''){
+            Write-Output "$inf_str PowerShell Transcript log location: $transcriptDir" | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        # Key doesn't exist, skip
+    }
+
     Try{
         if ([bool](Get-ItemProperty -path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -ErrorAction SilentlyContinue).EnableTranscripting){
             Write-Output "$pos_str EnableTranscripting Is Set" | Tee-Object -FilePath $out_file -Append
@@ -1247,22 +1447,38 @@ function Get-WinRM {
             }
         }
         Catch{
-            Write-Output "$err_str Testing if WimRM Service is running failed." | Tee-Object -FilePath $out_file -Append
+            Write-Output "$err_str Testing if WinRM Service is running failed." | Tee-Object -FilePath $out_file -Append
         }
     }
 
-    Try{
-        $resfw = Get-NetFirewallRule -DisplayName 'Windows Remote Management (HTTP-In)'
-        foreach ($r in $resfw){
-            if ($r.Enabled -eq 'False'){
-                Write-Output "$pos_str WinRM Firewall Rule $(($r).Name) is disabled." | Tee-Object -FilePath $out_file -Append
-            } else {
-                Write-Output "$neg_str WinRM Firewall Rule $(($r).Name) is enabled." | Tee-Object -FilePath $out_file -Append
+    if (Test-CommandExists Get-NetFirewallRule){
+        Try{
+            $resfw = Get-NetFirewallRule -DisplayName 'Windows Remote Management (HTTP-In)' -ErrorAction Stop
+            foreach ($r in $resfw){
+                if ($r.Enabled -eq 'False'){
+                    Write-Output "$pos_str WinRM Firewall Rule $(($r).Name) is disabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str WinRM Firewall Rule $(($r).Name) is enabled." | Tee-Object -FilePath $out_file -Append
+                }
             }
         }
-    }
-    Catch{
-        Write-Output "$err_str Testing if Windows Network Firewall rules failed." | Tee-Object -FilePath $out_file -Append
+        Catch{
+            Write-Output "$err_str Testing WinRM firewall rules failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        Try{
+            $fwout = netsh advfirewall firewall show rule name="Windows Remote Management (HTTP-In)" 2>&1
+            if ($fwout -match 'Enabled:\s+Yes'){
+                Write-Output "$neg_str WinRM Firewall Rule is enabled (netsh)." | Tee-Object -FilePath $out_file -Append
+            } elseif ($fwout -match 'Enabled:\s+No') {
+                Write-Output "$pos_str WinRM Firewall Rule is disabled (netsh)." | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$inf_str WinRM Firewall Rule not found (netsh)." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing WinRM firewall rules failed (netsh fallback)." | Tee-Object -FilePath $out_file -Append
+        }
     }
 }
 
