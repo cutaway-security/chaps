@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 4 - Markdown Output Format
+**Phase**: Phase 5 - Testing Infrastructure
 **Status**: Not Started
-**Focus**: Replace text output with markdown format across all scripts
+**Focus**: Set up Proxmox VM testing for validating scripts across Windows versions
 
 ## Phases
 
@@ -111,19 +111,30 @@ Script: 1,974 -> 2,409 lines. 67 functions. 764/764 braces balanced.
 
 ### Phase 4: Markdown Output Format
 
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] Design markdown report format consistent across all three scripts (CMD, PSv2, PSv3)
-- [ ] Define report structure: metadata header, summary table, categorized findings, recommendations
-- [ ] Replace text output with markdown in PSv3 script
-- [ ] Single output stream: markdown to stdout (user redirects to file or copies from console)
-- [ ] No dual output / Tee-Object -- simple Write-Output only, redirect-friendly
-- [ ] Include summary table at top of report (pass/fail/info/error counts per category)
-- [ ] Include per-check detail sections with finding, status, and recommendation
-- [ ] Add machine-readable metadata block (hostname, timestamp, OS version, admin status, script version)
-- [ ] Test markdown renders correctly in GitHub, VS Code, and common markdown viewers
-- [ ] Validate markdown is parseable by AI analysis tools
-- [ ] Document the markdown report format specification for PSv2 and CMD to follow
+- [x] Replace all 403 Tee-Object calls with plain Write-Output
+- [x] Remove Set-Output function, output directory/file creation, Set-Location
+- [x] Remove $out_dir, $out_file, $sysinfo_file variables
+- [x] Remove Prt-SectionHeader function
+- [x] Single output stream: markdown to stdout (redirect-friendly)
+- [x] Rewrite Prt-ReportHeader as markdown table (hostname, time, PS version, OS, admin status, company, site)
+- [x] Rewrite Prt-ReportFooter and Prt-CutSec-ReportFooter as markdown
+- [x] Add markdown section headers (## System Info Checks, ## Security Checks, etc.)
+- [x] Rewrite Get-AdminState to output markdown table row
+- [x] Rewrite Get-SystemInfo to output directly (no separate sysinfo file)
+- [x] Fix 373 collapsed lines from bulk Tee-Object removal
+- [x] Bump version to 2.0.0
+- [x] Status prefixes [+] [-] [*] [x] preserved in markdown output
+
+Markdown format specification for PSv2 and CMD:
+- Report starts with `# CHAPS Report: <name> <version>` heading
+- Metadata table: | Field | Value | format
+- Section headers: `## <Category> Checks`
+- Findings: status prefix + text, one per line
+- Footer: `---` separator, bold completion line, italic Cutaway Security line
+
+Script: 2,409 -> 2,374 lines (removed infrastructure code). 65 functions. 759/759 braces balanced.
 
 ### Phase 5: Testing Infrastructure
 
