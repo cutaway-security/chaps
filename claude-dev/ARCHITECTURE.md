@@ -12,8 +12,7 @@ CHAPS is a multi-script security assessment toolkit that evaluates Windows syste
 | chaps_PSv2.ps1 | Assessment script for legacy PowerShell environments | PowerShell 2.0 |
 | chaps.bat | Fallback assessment script for minimal environments | Windows CMD batch |
 | Output directory | Per-run timestamped results directory | %TEMP%\{Hostname}_{timestamp} |
-| chaps report | Main assessment findings | Markdown file with status prefixes |
-| sysinfo report | Raw systeminfo output | Text file |
+| chaps report | Main assessment findings | Markdown to stdout (redirect to .md file) |
 
 ## Data Flow
 
@@ -24,7 +23,7 @@ CHAPS is a multi-script security assessment toolkit that evaluates Windows syste
    - System Info -> Security -> Authentication -> Network -> PowerShell -> Logging
 5. **Check Logic** - Each check follows: modern cmdlet -> WMI fallback -> registry -> native command
 6. **Result Output** - Each check writes findings with status prefix ([+], [-], [*], [x])
-7. **Dual Output** - Console output for real-time visibility + markdown file for reporting
+7. **Output** - Markdown to stdout; user redirects to file (`> report.md`) or copies from console
 8. **Report Generation** - Markdown with metadata header, summary table, categorized findings, recommendations
 
 ## Testing Infrastructure

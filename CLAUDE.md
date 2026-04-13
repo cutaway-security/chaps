@@ -73,7 +73,7 @@ Before moving to the next phase:
 | Operations | Read-only system assessment |
 | Dependencies | None (built-in cmdlets only) |
 | Execution | `Set-ExecutionPolicy Bypass -scope Process` |
-| Output | Dual output: console + text file via Tee-Object |
+| Output | Markdown to stdout (user redirects to file or copies from console) |
 
 ### chaps_PSv2.ps1 (PowerShell v2)
 
@@ -84,7 +84,7 @@ Before moving to the next phase:
 | Operations | Read-only system assessment |
 | Dependencies | None (built-in cmdlets only, no CIM) |
 | Execution | `Set-ExecutionPolicy Bypass -scope Process` |
-| Output | Dual output: console + text file |
+| Output | Markdown to stdout (user redirects to file or copies from console) |
 
 ### chaps.bat (CMD Batch)
 
@@ -94,7 +94,7 @@ Before moving to the next phase:
 | Target OS | Windows XP and later (worst-case fallback) |
 | Operations | Read-only system assessment |
 | Dependencies | None (built-in commands: reg query, wmic, netsh, systeminfo) |
-| Output | Dual output: console + text file |
+| Output | Markdown to stdout (user redirects to file or copies from console) |
 
 ---
 
@@ -121,8 +121,8 @@ Follow the standard code quality rules for this project's languages:
 
 - Security configuration assessment for standalone Windows systems
 - CMD, PowerShell v2, and PowerShell v3+ script implementations
-- Markdown report output (replaces text output) for reports and AI analysis
-- Console output for real-time visibility during execution
+- Markdown output to stdout -- users redirect to file or copy from console
+- Single output stream: same content whether viewed in console or redirected to file
 - Checks aligned with current hardening recommendations (references cite CIS, STIG, Microsoft baselines for understanding)
 - USB/PnP device enumeration, antivirus detection, software inventory, network connections (Issue #2)
 - Testing against Windows VMs on Proxmox (adapted from ICSWatchDog methodology)

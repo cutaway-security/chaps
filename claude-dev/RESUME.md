@@ -4,64 +4,64 @@
 
 **Last Session**: 2026-04-13
 **Branch**: claude-dev
-**Status**: Clean
+**Status**: Clean -- Phase 1 complete, 16 commits ahead of origin/claude-dev
 
 ## What Was Accomplished
 
-- Completed full project review: all scripts, branches, issues, and PRs
-- Set up development planning infrastructure (CLAUDE.md, PLAN.md, RESUME.md, ARCHITECTURE.md, GIT_RELEASE_STEPS.md)
-- Copied coding standards (powershell.md, batch.md) into claude-dev/code-standards/
-- Identified two unmerged branches with usable work:
-  - cmd-bat-refactor: Full 2,344-line CMD batch implementation (13 commits ahead of master)
-  - report_format_update: PSv2 implementation (1,483 lines) and PSv3 reporting updates (1 commit ahead)
-- Decided to ignore Intern-Dev branch (too divergent from current architecture)
-- Identified open issues/PRs requiring attention:
-  - Issue #2: Feature requests (USB, antivirus, software inventory, netstat) -- open since 2021
-  - PR #5: Implements Issue #2 features -- open since 2024
-  - PR #14: cmd-bat-refactor -- open since 2025
-- Audited PSv3 script and found confirmed bugs:
-  - Wrong variable `$ressh` instead of `$resuf` in Get-UntrustedFonts (line 595)
-  - Date format reversed: `yyyyddMM` should be `yyyyMMdd` (line 107)
-  - Invalid registry path format in Get-WPAD (line 903)
-  - WMI class name typo in Get-NetBIOS (line 1007)
-  - Error message typo "WimRM" in Get-WinRM (line 1250)
-  - Windows version checks exclude Win11+ (lines 480, 589)
-  - Two empty stub functions: Get-NetSessionEnum, Get-MSOffice
-  - Four in-code TODOs for incomplete checks
-  - Outdated EMET and legacy LAPS checks
-- Reviewed ICSWatchDog Proxmox VM testing infrastructure for adaptation
-- Created 8-phase development plan incorporating all findings
+### Phase 1: Branch Consolidation (Complete)
+
+- Merged cmd-bat-refactor branch: 2,343-line CMD/chaps.bat implementation (13 commits, clean merge)
+- Extracted PSv2 baseline from report_format_update branch: 1,483-line PowerShellv2/chaps_PSv2.ps1
+  - Intentionally skipped the PSv3 portion (284 lines superseded by master's 1,426-line version)
+- Reviewed PR #5 (Issue #2 features): code targets old chaps.ps1, not mergeable directly
+  - Cmdlet references (Get-PnpDevice, Get-CimInstance AntiVirusProduct, Get-WmiObject Win32_Product, netstat) noted for Phase 3 rewrite
+- Ignored Intern-Dev branch per decision (too divergent from current architecture)
+- Identified 8 stale remote branches ready for deletion (all already merged to master or superseded)
+- Set up planning infrastructure: CLAUDE.md, ARCHITECTURE.md, PLAN.md, RESUME.md, GIT_RELEASE_STEPS.md, coding standards
+
+### PSv3 Audit Findings (for Phase 2)
+
+Confirmed bugs:
+- Line 595 Get-UntrustedFonts(): wrong variable `$ressh` instead of `$resuf`
+- Line 107: date format `yyyyddMM` (day/month reversed)
+- Line 903 Get-WPAD(): invalid registry path format `HKEY_CURRENT_USER\`
+- Line 1007 Get-NetBIOS(): WMI class typo `Win32_NetWorkAdapterConfiguration`
+- Line 1250 Get-WinRM(): error message typo "WimRM"
+- Lines 480, 589: Windows version checks `-eq 10` exclude Win11+
+
+Empty stubs: Get-NetSessionEnum (line 445), Get-MSOffice (line 505)
+TODOs: CredDeviceGuard Win11 (479), SMBv3 (517), PSModule wildcard (1100), PSTranscript location (1165)
+Outdated: EMET deprecated (395), legacy LAPS path (413)
 
 ## In Progress
 
-- Phase 1: Branch Consolidation and Baseline (not yet started)
+- Nothing active -- awaiting confirmation to start Phase 2
 
 ## Blockers
 
-- None currently
+- None
 
 ## Next Steps
 
-1. Begin Phase 1: Merge cmd-bat-refactor branch into claude-dev
-2. Review and merge report_format_update PSv2 implementation
-3. Review PR #5 for Issue #2 feature integration
-4. Clean up stale branches
-5. Proceed to Phase 2: Fix all confirmed PSv3 bugs
+1. Phase 2: Fix all confirmed PSv3 bugs (6 bugs, 2 stubs, 4 TODOs, 3 outdated checks)
+2. Phase 3: Add new checks (USB, antivirus, software inventory, netstat, SYSMON, firewall, ASR)
+3. Phase 4: Replace text output with markdown format
 
 ## Open Questions
 
-- Should the markdown report be a separate file or should we also keep a plain text version of the console output?
-- Can we reuse the same Proxmox VM fleet from ICSWatchDog, or do we need separate VMs?
-- For the CMD batch script markdown output: batch has limited string manipulation -- should we generate markdown directly or use a post-processing approach?
+- For CMD batch markdown: echo with markdown syntax should work, but pipe characters in markdown tables may need escaping -- will investigate in Phase 7
+- Should stale remote branches be deleted now or after release?
 
 ## Files Modified This Session
 
 | File | Change |
 |------|--------|
-| CLAUDE.md | Created -- project rules and guidelines |
-| claude-dev/ARCHITECTURE.md | Created -- system architecture documentation |
-| claude-dev/PLAN.md | Created and updated -- 8-phase development plan |
-| claude-dev/RESUME.md | Created -- this file, session tracking |
-| claude-dev/GIT_RELEASE_STEPS.md | Created -- release process documentation |
-| claude-dev/code-standards/powershell.md | Copied from templates -- PowerShell coding standards |
-| claude-dev/code-standards/batch.md | Copied from templates -- batch script coding standards |
+| CMD/chaps.bat | Merged from cmd-bat-refactor (2,343 lines replacing stub) |
+| PowerShellv2/chaps_PSv2.ps1 | Extracted from report_format_update (1,483 lines replacing stub) |
+| CLAUDE.md | Created -- project rules, updated for single stdout output |
+| claude-dev/ARCHITECTURE.md | Created -- system architecture, updated for single stdout |
+| claude-dev/PLAN.md | Created -- 8-phase plan, Phase 1 marked complete |
+| claude-dev/RESUME.md | Created -- this file |
+| claude-dev/GIT_RELEASE_STEPS.md | Created -- release process |
+| claude-dev/code-standards/powershell.md | Copied from templates |
+| claude-dev/code-standards/batch.md | Copied from templates |

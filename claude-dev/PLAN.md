@@ -6,24 +6,34 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 1 - Branch Consolidation and Baseline
+**Phase**: Phase 2 - PSv3 Bug Fixes and Check Audit
 **Status**: Not Started
-**Focus**: Merge unmerged branch work into claude-dev and establish baseline
+**Focus**: Fix confirmed bugs, complete stubs, update outdated checks in PSv3
 
 ## Phases
 
 ### Phase 1: Branch Consolidation and Baseline
 
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] Review and merge cmd-bat-refactor branch (2,344-line CMD/chaps.bat implementation, 13 commits ahead)
-- [ ] Review report_format_update branch (PSv2 implementation with 1,483 lines, 1 commit ahead)
-- [ ] Review and integrate PR #5 changes (Issue #2 feature requests: USB devices, antivirus, software inventory, netstat)
-- [ ] Resolve any conflicts between branch changes and current master
-- [ ] Verify all merged code follows project coding standards
-- [ ] Close Intern-Dev branch (intern refactor, too divergent from current architecture, ignoring)
-- [ ] Close or update other stale branches already merged to master
-- [ ] Update PR #14 status (cmd-bat-refactor)
+- [x] Review and merge cmd-bat-refactor branch (2,344-line CMD/chaps.bat -- merged cleanly, 13 commits)
+- [x] Review report_format_update branch (extracted PSv2 1,483-line baseline; PSv3 portion superseded by master)
+- [x] Review PR #5 (Issue #2 features) -- code targets old chaps.ps1 architecture, cmdlet references noted for Phase 3 rewrite
+- [x] Resolve conflicts -- no conflicts; cmd-bat-refactor was clean merge, PSv2 extracted via checkout
+- [x] Verify merged code follows project coding standards -- PSv2 and CMD are baselines, will be reworked in Phases 6-7
+- [x] Intern-Dev branch -- ignored per decision (too divergent, targets old architecture)
+- [x] Stale branches identified: ai-test, port-to-PSv2, smbv1-check, typos-and-grammar, update-output-directory (all already in master)
+- [x] PR #14 (cmd-bat-refactor) -- content merged into claude-dev
+
+Branches to delete remotely (pending user confirmation):
+- origin/Intern-Dev (ignored)
+- origin/ai-test (identical to master)
+- origin/port-to-PSv2 (merged)
+- origin/smbv1-check-returns-a-false-positive-error (merged via PR #9)
+- origin/typos-and-grammar (merged via PR #13)
+- origin/update-output-directory (merged via PR #12)
+- origin/cmd-bat-refactor (merged into claude-dev)
+- origin/report_format_update (PSv2 extracted, PSv3 superseded)
 
 ### Phase 2: PSv3 Bug Fixes and Check Audit
 
@@ -155,8 +165,9 @@ Adapt Proxmox VM testing from ICSWatchDog project:
 | 2026-04-13 | PSv3 is the reference implementation; PSv2 and CMD are ports | PSv3 has the most complete codebase (1,426 lines vs stubs) |
 | 2026-04-13 | Ignore Intern-Dev branch | Intern refactor targets old chaps.ps1 architecture, too divergent to cherry-pick |
 | 2026-04-13 | Single markdown output to stdout | Users redirect to file or copy from console; no dual output or Tee-Object; keeps all scripts simple and consistent |
-| 2026-04-13 | Reuse ICSWatchDog Proxmox VM fleet | Same VMs, same SSH infrastructure; no need for separate test fleet |
-| 2026-04-13 | CMD markdown: most effective method, keep simple | Batch echo with markdown syntax is sufficient; no complex templating |
+| 2026-04-13 | Reuse ICSWatchDog Proxmox VM fleet | Same VMs (Win7/10/11, Server 2016/2019/2022), same SSH infrastructure |
+| 2026-04-13 | CMD markdown: most effective method, keep simple | Use whatever works best in batch; no over-engineering |
+| 2026-04-13 | PR #5 code not merged directly | Targets old chaps.ps1 architecture; cmdlet references used for Phase 3 rewrite as proper functions |
 | 2026-04-13 | No Windows version targeting per script | Admins pick the script matching their system; each script handles its own compatibility |
 | 2026-04-13 | References are for understanding, not specific benchmark targeting | Check recommendations cite sources but don't target specific CIS/STIG versions |
 | 2026-04-13 | Phase work sequentially: consolidate -> fix bugs -> new checks -> markdown -> test -> port | Changes flow from reference PSv3 outward; testing validates before porting |
