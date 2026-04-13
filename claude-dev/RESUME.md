@@ -4,44 +4,34 @@
 
 **Last Session**: 2026-04-13
 **Branch**: claude-dev
-**Status**: Clean -- Phase 3 complete, 21 commits ahead of origin/claude-dev
+**Status**: Clean -- Phase 3a complete, 23 commits ahead of origin/claude-dev
 
 ## What Was Accomplished
 
-### Phase 1: Branch Consolidation (Complete)
+### Phases 1-3: Complete (see previous sessions)
 
-- Merged cmd-bat-refactor: 2,343-line CMD/chaps.bat
-- Extracted PSv2 baseline: 1,483-line PowerShellv2/chaps_PSv2.ps1
-- Reviewed PR #5: cmdlet references noted for Phase 3
-- Ignored Intern-Dev, identified stale branches
+### Phase 3a: Additional Hardening Checks and Check Parity Planning (Complete)
 
-### Phase 2: PSv3 Bug Fixes and Check Audit (Complete)
+Added 10 new hardening check functions to PSv3 for CIS/STIG alignment:
+- Get-UACConfig: EnableLUA, ConsentPromptBehaviorAdmin, PromptOnSecureDesktop, FilterAdministratorToken
+- Get-AccountPolicy: password policy (net accounts), lockout threshold, guest account, admin rename
+- Get-SecureBoot: Confirm-SecureBootUEFI with registry fallback
+- Get-LSAProtection: RunAsPPL credential theft prevention
+- Get-ServiceHardening: Print Spooler, RemoteRegistry, SNMP, Telnet, RemoteAccess, NetTcpPortSharing, SharedAccess
+- Get-SMBClientConfig: client-side signing (RequireSecuritySignature, EnableSecuritySignature)
+- Get-TLSConfig: SCHANNEL protocols (SSL 2.0/3.0 flagged, TLS 1.2/1.3 positive)
+- Get-AuditPolicy: auditpol for Logon, Security Group Mgmt, User Account Mgmt, Process Creation, etc.
+- Get-RDPNLAConfig: NLA requirement and minimum encryption level
+- Get-TCPIPHardening: source routing, ICMP redirect, router discovery
 
-- Fixed 9 bugs (3 found during full read beyond initial audit)
-- Completed 2 stubs (Get-NetSessionEnum, Get-MSOffice), enabled both checks
-- Resolved 4 TODOs, updated 2 outdated checks, added 2 fallbacks
-- Script: 1,426 -> 1,641 lines
+Check parity planning:
+- Full 3-script comparison completed (PSv3: 59 checks, PSv2: 33 matching, CMD: 16 matching)
+- Created CANONICAL_CHECKS.md with all 59 checks in order, CMD feasibility noted
+- Added parity requirements to Phases 6 (PSv2) and 7 (CMD)
+- 2 checks truly N/A for CMD (PSVersions, PSLanguage), 5 info-only (require PS cmdlets)
+- Decision: parity enforced during port phases, not as separate retrofit
 
-### Phase 3: PSv3 New Checks (Complete)
-
-Added 7 new check functions (all with fallbacks for environments where primary cmdlets unavailable):
-
-System Info (4):
-- Get-Sysmon: detects service (Sysmon*) and driver (SysmonDrv, Sysmon*Drv*)
-- Get-USBDevices: Get-PnpDevice -Class USB with Win32_USBControllerDevice WMI fallback
-- Get-AntiVirus: SecurityCenter2 AntiVirusProduct on workstations (checks enabled state, definitions); Get-MpComputerStatus fallback on servers (Defender AV enabled, real-time protection, signature age)
-- Get-SoftwareInventory: registry Uninstall keys (HKLM 64-bit + WOW6432Node), deduplicated, avoids Win32_Product
-
-Security (1):
-- Get-ASRRules: Get-MpPreference for ASR rule IDs and actions (Block/Audit/Warn/Disabled)
-
-Network (2):
-- Get-NetConnections: Get-NetTCPConnection for listening + established with process names; netstat -ano fallback
-- Get-FirewallProfile: Get-NetFirewallProfile for Domain/Private/Public status and default actions; netsh fallback
-
-Event log recommendations reviewed -- current 1-4 GB thresholds align with guidance, no changes needed.
-
-Script: 1,641 -> 1,974 lines. 60 functions. 622/622 braces balanced. Zero TODOs.
+Script: 1,974 -> 2,409 lines. 67 functions. 764/764 braces balanced. Zero TODOs.
 
 ## In Progress
 
@@ -53,9 +43,10 @@ Script: 1,641 -> 1,974 lines. 60 functions. 622/622 braces balanced. Zero TODOs.
 
 ## Next Steps
 
-1. Phase 4: Replace text output with markdown format
+1. Phase 4: Replace text output with markdown format in PSv3
 2. Phase 5: Testing infrastructure (Proxmox VMs)
-3. Phase 6: PSv2 script implementation
+3. Phase 6: PSv2 implementation with check parity
+4. Phase 7: CMD implementation with check parity
 
 ## Open Questions
 
@@ -65,13 +56,14 @@ Script: 1,641 -> 1,974 lines. 60 functions. 622/622 braces balanced. Zero TODOs.
 
 | File | Change |
 |------|--------|
+| PowerShellv3/chaps_PSv3.ps1 | All phases: bug fixes + stubs + new checks + hardening checks (+983 lines total) |
 | CMD/chaps.bat | Merged from cmd-bat-refactor (2,343 lines) |
 | PowerShellv2/chaps_PSv2.ps1 | Extracted from report_format_update (1,483 lines) |
-| PowerShellv3/chaps_PSv3.ps1 | Bug fixes + stubs + new checks (+548 lines total) |
 | CLAUDE.md | Created and updated |
 | claude-dev/ARCHITECTURE.md | Created and updated |
-| claude-dev/PLAN.md | Created, Phases 1-3 marked complete |
-| claude-dev/RESUME.md | Created -- this file |
+| claude-dev/PLAN.md | Created, Phases 1-3a marked complete |
+| claude-dev/RESUME.md | This file |
+| claude-dev/CANONICAL_CHECKS.md | Created -- canonical check order for all scripts |
 | claude-dev/GIT_RELEASE_STEPS.md | Created |
 | claude-dev/code-standards/powershell.md | Copied from templates |
 | claude-dev/code-standards/batch.md | Copied from templates |

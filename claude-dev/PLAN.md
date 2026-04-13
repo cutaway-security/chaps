@@ -84,6 +84,31 @@ Script grew from 1,426 to 1,641 lines. Zero TODOs remaining. All curly braces ba
 
 Script: 1,641 -> 1,974 lines. 60 functions (up from 53). 622/622 braces balanced.
 
+### Phase 3a: Additional Hardening Checks and Check Parity Planning
+
+**Status**: Complete
+
+New checks added to PSv3 (10 functions, CIS/STIG alignment):
+- [x] Get-UACConfig: UAC settings (EnableLUA, ConsentPromptBehaviorAdmin, PromptOnSecureDesktop, FilterAdministratorToken)
+- [x] Get-AccountPolicy: password policy, lockout threshold, guest account status, administrator rename check
+- [x] Get-SecureBoot: UEFI Secure Boot status
+- [x] Get-LSAProtection: RunAsPPL credential theft prevention
+- [x] Get-ServiceHardening: risky services (Print Spooler, RemoteRegistry, SNMP, Telnet, etc.)
+- [x] Get-SMBClientConfig: client-side signing (RequireSecuritySignature, EnableSecuritySignature)
+- [x] Get-TLSConfig: SCHANNEL protocol versions (SSL 2.0/3.0 bad, TLS 1.2/1.3 good)
+- [x] Get-AuditPolicy: audit policy via auditpol for critical subcategories
+- [x] Get-RDPNLAConfig: NLA requirement and RDP encryption level
+- [x] Get-TCPIPHardening: source routing, ICMP redirects, router discovery
+
+Check parity planning complete:
+- [x] Full comparison of PSv3 vs PSv2 vs CMD check coverage
+- [x] Canonical check order defined (see claude-dev/CANONICAL_CHECKS.md)
+- [x] Parity requirements added to Phases 6 and 7
+- [x] 2 checks identified as truly N/A for CMD (PSVersions, PSLanguage -- runtime-only)
+- [x] 4 PS checks identified as registry-based and implementable in CMD (PSModule, PSScript, PSTranscript, PSProtectedEvent)
+
+Script: 1,974 -> 2,409 lines. 67 functions. 764/764 braces balanced.
+
 ### Phase 4: Markdown Output Format
 
 **Status**: Not Started
@@ -129,26 +154,39 @@ Adapt Proxmox VM testing from ICSWatchDog project:
 
 **Status**: Not Started
 
+Check parity requirement: PSv2 must implement ALL PSv3 checks in the same order.
+Checks that cannot be performed must output `[*] <check name>: <reason not available>`.
+
 - [ ] Baseline from report_format_update branch PSv2 work (1,483 lines)
-- [ ] Port modernized PSv3 checks to PSv2-compatible syntax
+- [ ] Implement all 67 PSv3 check functions in PSv2-compatible syntax (same order per CANONICAL_CHECKS.md)
 - [ ] Replace CIM cmdlets with WMI equivalents
 - [ ] Replace PSv3+ features (ordered hashtables, etc.) with v2 alternatives
+- [ ] Replace Get-PnpDevice, Get-MpPreference, Get-MpComputerStatus with WMI/registry alternatives where possible
+- [ ] Checks that depend on PSv3+ cmdlets with no v2 fallback: output info message with reason
 - [ ] Implement markdown output format (matching PSv3 report structure)
 - [ ] Test on Win7 VM (PSv2 environment) via Proxmox
 - [ ] Test on modern VMs to verify backward-compatible behavior
-- [ ] Validate output parity with PSv3 script
+- [ ] Validate output parity with PSv3 script (same checks, same order, same output format)
 
 ### Phase 7: CMD Batch Script Implementation
 
 **Status**: Not Started
 
+Check parity requirement: CMD must implement ALL PSv3 checks in the same order.
+Checks that cannot be performed must output `[*] <check name>: <reason not available>`.
+
 - [ ] Baseline from cmd-bat-refactor branch work (2,344 lines)
-- [ ] Port remaining checks not yet in batch script
-- [ ] Implement markdown output using most effective method for batch (echo with markdown syntax, keep simple)
+- [ ] Implement all 67 PSv3 check functions as CMD equivalents (same order per CANONICAL_CHECKS.md)
+- [ ] Use reg query for all registry-based checks (most checks are registry-based)
+- [ ] Use wmic for WMI-based checks where available
+- [ ] Use netsh, net, auditpol, systeminfo for command-based checks
+- [ ] 4 PS logging checks (PSModule, PSScript, PSTranscript, PSProtectedEvent): implement via reg query
+- [ ] 2 truly N/A checks (PSVersions, PSLanguage): output info message "requires PowerShell runtime"
+- [ ] Implement markdown output using echo with markdown syntax, keep simple
 - [ ] Single output stream to stdout, same as PowerShell scripts -- redirect-friendly
 - [ ] Follow batch.md coding standards (delayed expansion, redirect safety, etc.)
 - [ ] Test on all target VMs via Proxmox
-- [ ] Validate output parity with PowerShell scripts
+- [ ] Validate output parity with PowerShell scripts (same checks, same order, same output format)
 
 ### Phase 8: Documentation and Release Prep
 
@@ -178,6 +216,9 @@ Adapt Proxmox VM testing from ICSWatchDog project:
 | 2026-04-13 | PR #5 code not merged directly | Targets old chaps.ps1 architecture; cmdlet references used for Phase 3 rewrite as proper functions |
 | 2026-04-13 | Software inventory via registry, not Win32_Product | Win32_Product triggers MSI reconfiguration and is slow; registry Uninstall keys are fast and reliable |
 | 2026-04-13 | Firewall check: profile status only, no rule enumeration | Keeps output focused; per-rule detail would be overwhelming and not actionable in assessment context |
+| 2026-04-13 | Check parity enforced during PSv2/CMD port phases, not as separate retrofit | PSv3 is the finished reference; porting phases build from it naturally; avoids rewriting in old format then again in markdown |
+| 2026-04-13 | Unavailable checks output info line with reason | All scripts produce same check list; N/A checks say why instead of being silently skipped |
+| 2026-04-13 | Add 10 hardening checks to PSv3 before output conversion | UAC, account policy, Secure Boot, LSA, risky services, SMB client signing, TLS, audit policy, RDP NLA, TCP/IP hardening -- standard CIS/STIG expectations |
 | 2026-04-13 | No Windows version targeting per script | Admins pick the script matching their system; each script handles its own compatibility |
 | 2026-04-13 | References are for understanding, not specific benchmark targeting | Check recommendations cite sources but don't target specific CIS/STIG versions |
 | 2026-04-13 | Phase work sequentially: consolidate -> fix bugs -> new checks -> markdown -> test -> port | Changes flow from reference PSv3 outward; testing validates before porting |
