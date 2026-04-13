@@ -49,11 +49,16 @@ $getGPOCheck                = $true
 $getNetSessionEnumCheck     = $true
 $getAppLockerCheck          = $true   
 $getCredDeviceGuardCheck    = $true
-$getMSOfficeCheck           = $true     
+$getMSOfficeCheck           = $true
+$getSysmonCheck             = $true
+$getUSBDevicesCheck         = $true
+$getAntiVirusCheck          = $true
+$getSoftwareInventoryCheck  = $true
 ## Security Checks
 $getSMBv1Check              = $true        
 $getAnonEnumCheck           = $true   
 $getUntrustedFontsCheck     = $true
+$getASRCheck                = $true
 ## Authentication Checks
 $getRDPDenyCheck            = $true     
 $getLocalAdminCheck         = $true  
@@ -70,7 +75,9 @@ $getWPADCheck               = $true
 $getWINSConfigCheck         = $true
 $getLLMNRConfigCheck        = $true
 $getCompBrowserCheck        = $true  
-$getNetBIOSCheck            = $true 
+$getNetBIOSCheck            = $true
+$getNetConnectionsCheck     = $true
+$getFirewallProfileCheck    = $true
 ## PowerShell Checks
 $getPSVersionCheck          = $true
 $getPSLanguageCheck         = $true
@@ -197,11 +204,16 @@ function Show-Config{
     Write-Output "    Get Net Session Enum: $getNetSessionEnumCheck"
     Write-Output "    Get AppLocker Config: $getAppLockerCheck"   
     Write-Output "    Get Cred and Device Guard: $getCredDeviceGuardCheck"
-    Write-Output "    Get MS Office Config: $getMSOfficeCheck"     
+    Write-Output "    Get MS Office Config: $getMSOfficeCheck"
+    Write-Output "    Get Sysmon Config: $getSysmonCheck"
+    Write-Output "    Get USB Devices: $getUSBDevicesCheck"
+    Write-Output "    Get AntiVirus Config: $getAntiVirusCheck"
+    Write-Output "    Get Software Inventory: $getSoftwareInventoryCheck"
     ## Security Checks
     Write-Output "    Get SMBv1 Check: $getSMBv1Check"        
     Write-Output "    Get Anonmyous Enumeration: $getAnonEnumCheck"   
     Write-Output "    Get Untrusted Fonts: $getUntrustedFontsCheck"
+    Write-Output "    Get ASR Rules: $getASRCheck"
     ## Authentication Checks
     Write-Output "    Get RDP Deny Config: $getRDPDenyCheck"     
     Write-Output "    Get Local Administrator: $getLocalAdminCheck"  
@@ -218,7 +230,9 @@ function Show-Config{
     Write-Output "    Get WINS Config: $getWINSConfigCheck"
     Write-Output "    Get LLMNR Config: $getLLMNRConfigCheck"
     Write-Output "    Get Computer Browser: $getCompBrowserCheck"  
-    Write-Output "    Get NetBIOS Config: $getNetBIOSCheck" 
+    Write-Output "    Get NetBIOS Config: $getNetBIOSCheck"
+    Write-Output "    Get Network Connections: $getNetConnectionsCheck"
+    Write-Output "    Get Firewall Profile: $getFirewallProfileCheck"
     ## PowerShell Checks
     Write-Output "    Get PS Version: $getPSVersionCheck"
     Write-Output "    Get PS Language: $getPSLanguageCheck"
@@ -646,6 +660,186 @@ function Get-MSOffice {
     }
 }
 
+function Get-Sysmon {
+    # Check if Sysmon is installed and running
+    # Ref: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+    Try{
+        $sysmonSvc = Get-Service -Name Sysmon* -ErrorAction SilentlyContinue
+        if ($sysmonSvc -ne $null){
+            foreach ($svc in $sysmonSvc){
+                if ($svc.Status -eq 'Running'){
+                    Write-Output "$pos_str Sysmon service is running: $($svc.Name) ($($svc.DisplayName))" | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Sysmon service found but not running: $($svc.Name) Status: $($svc.Status)" | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        } else {
+            Write-Output "$neg_str Sysmon service not found." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing for Sysmon service failed." | Tee-Object -FilePath $out_file -Append
+    }
+
+    # Check for Sysmon driver
+    Try{
+        $sysmonDrv = Get-Service -Name SysmonDrv -ErrorAction SilentlyContinue
+        if ($sysmonDrv -ne $null){
+            Write-Output "$pos_str Sysmon driver (SysmonDrv) is present: Status: $($sysmonDrv.Status)" | Tee-Object -FilePath $out_file -Append
+        } else {
+            # Also check for 64-bit variant
+            $sysmonDrv64 = Get-Service -Name Sysmon*Drv* -ErrorAction SilentlyContinue
+            if ($sysmonDrv64 -ne $null){
+                foreach ($drv in $sysmonDrv64){
+                    Write-Output "$pos_str Sysmon driver found: $($drv.Name) Status: $($drv.Status)" | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$neg_str Sysmon driver not found." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+    }
+    Catch{
+        Write-Output "$err_str Testing for Sysmon driver failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-USBDevices {
+    # Enumerate USB Plug and Play devices
+    # Ref: Issue #2 feature request
+    if (Test-CommandExists Get-PnpDevice){
+        Try{
+            $usbDevices = Get-PnpDevice -Class 'USB' -ErrorAction Stop
+            if ($usbDevices -ne $null){
+                Write-Output "$inf_str USB Plug and Play devices detected: $($usbDevices.Count)" | Tee-Object -FilePath $out_file -Append
+                foreach ($dev in $usbDevices){
+                    $status = $dev.Status
+                    $name = $dev.FriendlyName
+                    $id = $dev.InstanceId
+                    if ($status -eq 'OK'){
+                        Write-Output "$inf_str USB Device: $name (Status: $status, ID: $id)" | Tee-Object -FilePath $out_file -Append
+                    } else {
+                        Write-Output "$inf_str USB Device: $name (Status: $status, ID: $id)" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+            } else {
+                Write-Output "$inf_str No USB Plug and Play devices detected." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Enumerating USB Plug and Play devices failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        # Fallback to WMI
+        Try{
+            $usbWmi = Get-WmiObject -Class Win32_USBControllerDevice -ErrorAction Stop
+            if ($usbWmi -ne $null){
+                Write-Output "$inf_str USB devices detected via WMI: $($usbWmi.Count)" | Tee-Object -FilePath $out_file -Append
+            } else {
+                Write-Output "$inf_str No USB devices detected via WMI." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Enumerating USB devices failed (WMI fallback)." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+}
+
+function Get-AntiVirus {
+    # Detect installed antivirus/EDR software
+    # Ref: Issue #2 feature request
+    # SecurityCenter2 namespace is available on workstation editions, not Server
+    Try{
+        $avProducts = Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct -ErrorAction Stop
+        if ($avProducts -ne $null){
+            foreach ($av in $avProducts){
+                Write-Output "$inf_str Antivirus detected: $($av.displayName)" | Tee-Object -FilePath $out_file -Append
+                # productState is a bitmask: bits 12-8 = provider, bits 7-4 = scanner enabled, bits 3-0 = definitions up to date
+                $state = $av.productState
+                $enabled = ($state -band 0x1000) -ne 0
+                $uptodate = ($state -band 0x10) -eq 0
+                if ($enabled){
+                    Write-Output "$pos_str $($av.displayName) is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str $($av.displayName) is not enabled." | Tee-Object -FilePath $out_file -Append
+                }
+                if ($uptodate){
+                    Write-Output "$pos_str $($av.displayName) definitions appear up to date." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str $($av.displayName) definitions may be out of date." | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        } else {
+            Write-Output "$neg_str No antivirus products detected via SecurityCenter2." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        # SecurityCenter2 not available (likely Server edition)
+        Write-Output "$inf_str SecurityCenter2 not available (expected on Server editions)." | Tee-Object -FilePath $out_file -Append
+        # Try checking Windows Defender via Get-MpComputerStatus
+        Try{
+            if (Test-CommandExists Get-MpComputerStatus){
+                $mpStatus = Get-MpComputerStatus -ErrorAction Stop
+                if ($mpStatus.AntivirusEnabled){
+                    Write-Output "$pos_str Windows Defender Antivirus is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Windows Defender Antivirus is not enabled." | Tee-Object -FilePath $out_file -Append
+                }
+                if ($mpStatus.RealTimeProtectionEnabled){
+                    Write-Output "$pos_str Windows Defender Real-Time Protection is enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Windows Defender Real-Time Protection is not enabled." | Tee-Object -FilePath $out_file -Append
+                }
+                if ($mpStatus.AntivirusSignatureAge -le 7){
+                    Write-Output "$pos_str Windows Defender signatures are $($mpStatus.AntivirusSignatureAge) day(s) old." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Windows Defender signatures are $($mpStatus.AntivirusSignatureAge) day(s) old." | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$inf_str Cannot determine antivirus status (no SecurityCenter2 or Get-MpComputerStatus)." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing for antivirus software failed." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+}
+
+function Get-SoftwareInventory {
+    # List installed software via registry (avoiding slow Win32_Product which triggers MSI reconfiguration)
+    # Ref: Issue #2 feature request
+    $regPaths = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+
+    Try{
+        $software = @()
+        foreach ($path in $regPaths){
+            $items = Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
+            if ($items -ne $null){
+                $software += $items
+            }
+        }
+
+        if ($software.Count -gt 0){
+            # Deduplicate by DisplayName
+            $unique = $software | Sort-Object DisplayName -Unique
+            Write-Output "$inf_str Installed software count: $($unique.Count)" | Tee-Object -FilePath $out_file -Append
+            foreach ($s in $unique){
+                $name = $s.DisplayName
+                $ver = $s.DisplayVersion
+                $pub = $s.Publisher
+                Write-Output "$inf_str Software: $name (Version: $ver, Publisher: $pub)" | Tee-Object -FilePath $out_file -Append
+            }
+        } else {
+            Write-Output "$inf_str No installed software found in registry." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+    Catch{
+        Write-Output "$err_str Enumerating installed software failed." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
 # Security Checks
 #############################
 function Get-SMBv1 {
@@ -760,6 +954,38 @@ function Get-UntrustedFonts {
         }
     } else {
         Write-Output "$inf_str Windows Version is older than 10. Cannot test for Untrusted Fonts." | Tee-Object -FilePath $out_file -Append
+    }
+}
+
+function Get-ASRRules {
+    # Check Attack Surface Reduction (ASR) rules status
+    # Ref: https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/attack-surface-reduction-rules-reference
+    # ASR is available on Windows 10 1709+ and Windows Server 2016+
+    if (Test-CommandExists Get-MpPreference){
+        Try{
+            $mpPref = Get-MpPreference -ErrorAction Stop
+            $asrIds = $mpPref.AttackSurfaceReductionRules_Ids
+            $asrActions = $mpPref.AttackSurfaceReductionRules_Actions
+
+            if ($asrIds -ne $null -and $asrIds.Count -gt 0){
+                # Action values: 0=Disabled, 1=Block, 2=Audit, 6=Warn
+                $actionNames = @{0='Disabled'; 1='Block'; 2='Audit'; 6='Warn'}
+                Write-Output "$pos_str Attack Surface Reduction rules configured: $($asrIds.Count) rule(s)" | Tee-Object -FilePath $out_file -Append
+                for ($i = 0; $i -lt $asrIds.Count; $i++){
+                    $action = if ($asrActions -ne $null -and $i -lt $asrActions.Count) { $asrActions[$i] } else { 'Unknown' }
+                    $actionName = if ($actionNames.ContainsKey([int]$action)) { $actionNames[[int]$action] } else { "Unknown ($action)" }
+                    $prefix = if ([int]$action -eq 1) { $pos_str } elseif ([int]$action -eq 0) { $neg_str } else { $inf_str }
+                    Write-Output "$prefix ASR Rule $($asrIds[$i]): $actionName" | Tee-Object -FilePath $out_file -Append
+                }
+            } else {
+                Write-Output "$neg_str No Attack Surface Reduction rules configured." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing for ASR rules failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        Write-Output "$inf_str Get-MpPreference not available. Cannot check ASR rules." | Tee-Object -FilePath $out_file -Append
     }
 }
 
@@ -1182,6 +1408,106 @@ function Get-NetBIOS {
     }
 }
 
+function Get-NetConnections {
+    # List active network connections
+    # Ref: Issue #2 feature request
+    if (Test-CommandExists Get-NetTCPConnection){
+        Try{
+            $conns = Get-NetTCPConnection -State Listen,Established -ErrorAction Stop | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess
+            if ($conns -ne $null){
+                # Listening ports
+                $listening = $conns | Where-Object { $_.State -eq 'Listen' } | Sort-Object LocalPort -Unique
+                if ($listening -ne $null){
+                    Write-Output "$inf_str Listening TCP ports:" | Tee-Object -FilePath $out_file -Append
+                    foreach ($l in $listening){
+                        Try{
+                            $procName = (Get-Process -Id $l.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+                        }
+                        Catch{ $procName = 'Unknown' }
+                        Write-Output "$inf_str   $($l.LocalAddress):$($l.LocalPort) (PID: $($l.OwningProcess), Process: $procName)" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+                # Established connections
+                $established = $conns | Where-Object { $_.State -eq 'Established' }
+                if ($established -ne $null){
+                    Write-Output "$inf_str Established TCP connections:" | Tee-Object -FilePath $out_file -Append
+                    foreach ($e in $established){
+                        Try{
+                            $procName = (Get-Process -Id $e.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+                        }
+                        Catch{ $procName = 'Unknown' }
+                        Write-Output "$inf_str   $($e.LocalAddress):$($e.LocalPort) -> $($e.RemoteAddress):$($e.RemotePort) (PID: $($e.OwningProcess), Process: $procName)" | Tee-Object -FilePath $out_file -Append
+                    }
+                }
+            } else {
+                Write-Output "$inf_str No active TCP connections found." | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Enumerating network connections via Get-NetTCPConnection failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        # Fallback to netstat
+        Try{
+            $netstatOut = netstat -ano 2>&1
+            if ($netstatOut -ne $null){
+                Write-Output "$inf_str Network connections (netstat -ano):" | Tee-Object -FilePath $out_file -Append
+                foreach ($line in $netstatOut){
+                    Write-Output "$inf_str   $line" | Tee-Object -FilePath $out_file -Append
+                }
+            }
+        }
+        Catch{
+            Write-Output "$err_str Enumerating network connections failed (netstat fallback)." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+}
+
+function Get-FirewallProfile {
+    # Check Windows Firewall profile status (enabled/disabled per network profile)
+    # No individual rule enumeration per project decision
+    if (Test-CommandExists Get-NetFirewallProfile){
+        Try{
+            $profiles = Get-NetFirewallProfile -ErrorAction Stop
+            foreach ($p in $profiles){
+                if ($p.Enabled){
+                    Write-Output "$pos_str Windows Firewall $($p.Name) profile is Enabled." | Tee-Object -FilePath $out_file -Append
+                } else {
+                    Write-Output "$neg_str Windows Firewall $($p.Name) profile is Disabled." | Tee-Object -FilePath $out_file -Append
+                }
+                Write-Output "$inf_str   $($p.Name) DefaultInboundAction: $($p.DefaultInboundAction)" | Tee-Object -FilePath $out_file -Append
+                Write-Output "$inf_str   $($p.Name) DefaultOutboundAction: $($p.DefaultOutboundAction)" | Tee-Object -FilePath $out_file -Append
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing Windows Firewall profiles failed." | Tee-Object -FilePath $out_file -Append
+        }
+    } else {
+        # Fallback to netsh
+        Try{
+            $fwState = netsh advfirewall show allprofiles state 2>&1
+            if ($fwState -ne $null){
+                Write-Output "$inf_str Windows Firewall profile status (netsh):" | Tee-Object -FilePath $out_file -Append
+                foreach ($line in $fwState){
+                    $trimmed = "$line".Trim()
+                    if ($trimmed -ne ''){
+                        if ($trimmed -match 'ON'){
+                            Write-Output "$pos_str $trimmed" | Tee-Object -FilePath $out_file -Append
+                        } elseif ($trimmed -match 'OFF') {
+                            Write-Output "$neg_str $trimmed" | Tee-Object -FilePath $out_file -Append
+                        } else {
+                            Write-Output "$inf_str $trimmed" | Tee-Object -FilePath $out_file -Append
+                        }
+                    }
+                }
+            }
+        }
+        Catch{
+            Write-Output "$err_str Testing Windows Firewall profiles failed (netsh fallback)." | Tee-Object -FilePath $out_file -Append
+        }
+    }
+}
+
 # PowerShell Checks
 ############################
 <#
@@ -1601,10 +1927,15 @@ if ($getNetSessionEnumCheck)    { Get-NetSessionEnum }
 if ($getAppLockerCheck)         { Get-AppLocker }
 if ($getCredDeviceGuardCheck)   { Get-CredDeviceGuard }
 if ($getMSOfficeCheck)          { Get-MSOffice }
+if ($getSysmonCheck)            { Get-Sysmon }
+if ($getUSBDevicesCheck)        { Get-USBDevices }
+if ($getAntiVirusCheck)         { Get-AntiVirus }
+if ($getSoftwareInventoryCheck) { Get-SoftwareInventory }
 ## Security Checks
 if ($getSMBv1Check)             { Get-SMBv1 }
 if ($getAnonEnumCheck)          { Get-AnonEnum }
 if ($getUntrustedFontsCheck)    { Get-UntrustedFonts }
+if ($getASRCheck)               { Get-ASRRules }
 ## Authentication Checks
 if ($getRDPDenyCheck)           { Get-RDPDeny }
 if ($getLocalAdminCheck)        { Get-LocalAdmin }
@@ -1622,6 +1953,8 @@ if ($getWINSConfigCheck)        { Get-WINSConfig }
 if ($getLLMNRConfigCheck)       { Get-LLMNRConfig }
 if ($getCompBrowserCheck)       { Get-CompBrowser }
 if ($getNetBIOSCheck)           { Get-NetBIOS }
+if ($getNetConnectionsCheck)    { Get-NetConnections }
+if ($getFirewallProfileCheck)   { Get-FirewallProfile }
 ## PowerShell Checks
 if ($getPSVersionCheck)         { Get-PSVersions }
 if ($getPSLanguageCheck)        { Get-PSLanguage }
