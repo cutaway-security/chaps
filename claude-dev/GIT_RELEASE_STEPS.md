@@ -153,3 +153,7 @@ The following files exist only on the `claude-dev` branch and are stripped befor
 | `claude-dev/GIT_RELEASE_STEPS.md` | This file |
 | `claude-dev/code-standards/powershell.md` | PowerShell coding standards |
 | `claude-dev/code-standards/batch.md` | Batch script coding standards |
+| `claude-dev/REMOTE_TESTING.md` | Proxmox VM testing procedures |
+| `claude-dev/TESTING_STANDARD.md` | Test matrix and pass criteria |
+| `claude-dev/CANONICAL_CHECKS.md` | Canonical check order reference |
+| `claude-dev/remote-testing.example.conf` | VM connection template |

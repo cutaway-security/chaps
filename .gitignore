@@ -10,3 +10,9 @@
 *.json
 PowerSploit
 .DS_Store
+
+# Testing - local config with real VM credentials
+claude-dev/remote-testing.local.conf
+
+# Testing - output results from test runs
+results/

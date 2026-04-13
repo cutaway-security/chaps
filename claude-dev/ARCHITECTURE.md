@@ -50,8 +50,9 @@ chaps/
         PLAN.md                     # Development roadmap and tracking
         RESUME.md                   # Session context and status
         GIT_RELEASE_STEPS.md        # Release process
-        REMOTE_TESTING.md           # Proxmox VM testing procedures
-        TESTING_STANDARD.md         # Test matrix and pass criteria
+        REMOTE_TESTING.md           # Proxmox VM testing setup and procedures
+        TESTING_STANDARD.md         # Test matrix, pass criteria, parity testing
+        CANONICAL_CHECKS.md         # Canonical check order for all three scripts
         remote-testing.example.conf # VM connection template (local copy gitignored)
         code-standards/
             powershell.md           # PowerShell coding standards
