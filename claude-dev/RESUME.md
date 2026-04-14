@@ -4,41 +4,62 @@
 
 **Last Session**: 2026-04-13
 **Branch**: claude-dev
-**Status**: Clean -- testing framework reset to ICSWatchDog standard
+**Status**: Clean -- full VM test run complete, all scripts pass on all 6 VMs
 
 ## What Was Accomplished
 
 ### Phases 1-7: Complete (see previous sessions)
 
-- Phase 1: Branch consolidation
-- Phase 2: PSv3 bug fixes
-- Phase 3: New checks (Sysmon, USB, AV, software, ASR, netstat, firewall)
-- Phase 3a: Hardening checks + canonical check parity planning
-- Phase 4: Markdown output conversion (PSv3)
-- Phase 5: Testing infrastructure (initial draft)
-- Phase 6: PSv2 implementation
-- Phase 7: CMD implementation
+### Phase 5 Reset: Testing Infrastructure Aligned with ICSWatchDog Standard (Complete)
 
-All three scripts complete with 59 checks in canonical order, markdown output to stdout.
+See earlier RESUME.md entries.
 
-### Testing Framework Reset (post-Phase 7)
+### Full VM Test Run 2026-04-13
 
-Aligned CHAPS testing infrastructure with the ICSWatchDog project standard:
+Ran all three CHAPS scripts against all 6 built VMs in the lab:
 
-- Rewrote `claude-dev/REMOTE_TESTING.md` to use `~/.ssh/config` as single source of truth (host alias, IP, user, key path, VMID via structured comment). Removed Sysmon-specific content. No local conf file required.
-- Rewrote `claude-dev/TESTING_STANDARD.md` with Available Systems table (SSH Alias, VMID, Proxmox, OS, PS Version, Scripts Supported, Notes) populated for 6 VMs plus 2 not-yet-built entries.
-- Deleted `claude-dev/remote-testing.example.conf` (redundant per new standard).
-- Replaced specific `.gitignore` entry with defensive `claude-dev/*.local.*` catch-all.
-- Added `claude-dev/vm-lookup` bash helper: parses `# VMID=<id> PROXMOX=<alias>` comment from `~/.ssh/config` for a given host alias. Supports `vmid`, `proxmox`, and `comment` subcommands.
-- Updated `ARCHITECTURE.md` file tree and `GIT_RELEASE_STEPS.md` files-removed table.
+**PSv3 (skip Win7 -- expected PS version error):**
+- Win10Pro-Dev, Win11Pro-Dev, WinServer2016-Dev, WinServer2019-Dev, WinServer2022-Dev: rc=0, 6 sections, 0 stderr
+- Win7Pro-Dev: clean version error exit (expected, PASS)
 
-### Connection Testing
+**PSv2 (all 6 VMs):**
+- Win7Pro-Dev, Win10Pro-Dev, Win11Pro-Dev, WinServer2016-Dev, WinServer2019-Dev, WinServer2022-Dev: rc=0, 6 sections, 0 stderr
 
-Verified SSH connectivity to all 6 built VMs and proxmox0 using aliases from `~/.ssh/config`. Results recorded in TESTING_STANDARD.md Section 2.1 (PS Version column for Server VMs).
+**CMD (all 6 VMs):**
+- All 6 VMs: rc=0, 7 sections (6 + footer), 59 checks, 0 stderr
+
+Results stored in `claude-dev/results/` (gitignored).
+
+### Bugs Surfaced and Fixed
+
+1. **Get-SystemInfo** -- `Get-ComputerInfo` fails under non-interactive SSH with "Access is denied" on console buffer. Added three-tier fallback chain: `Get-ComputerInfo` -> `Get-WmiObject Win32_OperatingSystem` -> `systeminfo` command parsing. All tiers wrapped in try/catch.
+
+2. **CMD/chaps.bat line endings** -- File had LF instead of CRLF. Windows CMD parser silently skipped Checks 11-33 on all VMs. Fixed by converting to CRLF. All 59 checks now emit correctly.
+
+3. **Get-BitLocker manage-bde fallback** -- On Server editions where BitLocker feature isn't installed, neither `Get-BitLockerVolume` nor `manage-bde.exe` exists. The fallback threw noisy CommandNotFound to stderr. Added `Get-Command manage-bde.exe` probe; emits `[*]` info line when neither is available. Fixed in both PSv3 and PSv2.
+
+4. **PSv2 Get-CimInstance -> Get-WmiObject migration** -- Two functions (Get-CredDeviceGuard, Get-AntiVirus) retained the Cim-only `-ClassName` parameter after the migration. `Get-WmiObject` expects `-Class`. Also fixed Unicode en-dash characters inherited from earlier branch history in both PSv3 and PSv2.
+
+### Parity Matrix (Win10Pro-Dev, 2026-04-13)
+
+| Measure | PSv3 | PSv2 | CMD |
+|---|---|---|---|
+| Output lines | 182 | 192 | 554 |
+| Section headers | 6 | 6 | 7 (6 + footer) |
+| `[+]` positive | 36 | 34 | 22 |
+| `[-]` negative | 53 | 63 | 16 |
+| `[*]` informational | 54 | 56 | 299 |
+| `[x]` error | 1 | 1 | 0 |
+
+All three scripts attempt every canonical check. CMD's higher `[*]` count reflects raw-output checks (`netstat`, `net accounts`, software inventory) which emit one line per data row.
+
+The only remaining `[x]` errors are environmental (isolated lab has no internet, so the WinPatch check can't reach Microsoft Update) and a few Win7-specific event log names that don't exist on that OS -- both expected.
 
 ## In Progress
 
-- Nothing active -- awaiting decision on next step (full script testing on live VMs, or proceed to Phase 8 documentation).
+- Phase 8: Documentation and Release Prep
+  - VM testing: COMPLETE
+  - Remaining: README update, close Issue #2 / PR #5, final release prep
 
 ## Blockers
 
@@ -46,9 +67,22 @@ Verified SSH connectivity to all 6 built VMs and proxmox0 using aliases from `~/
 
 ## Next Steps
 
-1. Full test run of all three CHAPS scripts across the 6-VM fleet, populating the test matrices in TESTING_STANDARD.md Sections 3.2-3.4.
-2. Parity test run on Win10Pro-Dev (PSv3 + PSv2 + CMD), populating TESTING_STANDARD.md Section 5.3.
-3. Phase 8: Documentation and release prep (README.md update, close Issue #2 and PR #5, pre-release checklist).
+1. Update README.md to reflect:
+   - New version 2.0.0
+   - Markdown output to stdout (users redirect to file)
+   - Three scripts: PSv3, PSv2, CMD -- same canonical checks
+   - Removed setup steps related to output directory
+   - Usage examples for all three scripts
+   - Updated check list (59 checks) with brief descriptions
+   - Note testing status (tested on Win7, 10, 11, Server 2016/19/22)
+
+2. Close Issue #2 (feature requests: USB, antivirus, software inventory, netstat) -- all implemented in Phase 3.
+
+3. Close PR #5 -- features integrated via rewrite, not direct merge.
+
+4. Pre-release checklist per GIT_RELEASE_STEPS.md.
+
+5. Optional: non-admin test pass to complete the "Non-admin graceful" row in test matrices.
 
 ## Open Questions
 
@@ -58,12 +92,9 @@ Verified SSH connectivity to all 6 built VMs and proxmox0 using aliases from `~/
 
 | File | Change |
 |------|--------|
-| claude-dev/REMOTE_TESTING.md | Rewrote to ICSWatchDog standard (~/.ssh/config SoT, VMID comments, no local conf) |
-| claude-dev/TESTING_STANDARD.md | Rewrote with Available Systems table, test matrices per script, parity matrix, per-OS quirks |
-| claude-dev/remote-testing.example.conf | Deleted (redundant with ~/.ssh/config) |
-| claude-dev/vm-lookup | New -- bash helper parsing VMID/Proxmox from ~/.ssh/config |
-| claude-dev/ARCHITECTURE.md | Updated file tree (added vm-lookup, removed example.conf) |
-| claude-dev/GIT_RELEASE_STEPS.md | Updated files-removed table |
-| claude-dev/PLAN.md | Phase 5 marked as reset, new checklist |
+| PowerShellv3/chaps_PSv3.ps1 | Get-SystemInfo fallback chain, Get-BitLocker manage-bde probe, fixed en-dash in Get-CredDeviceGuard |
+| PowerShellv2/chaps_PSv2.ps1 | Same fixes + Get-CimInstance -> Get-WmiObject with -Class param fix |
+| CMD/chaps.bat | Converted LF -> CRLF line endings |
+| claude-dev/TESTING_STANDARD.md | Populated test matrices with 2026-04-13 results, parity matrix, bug summary |
 | claude-dev/RESUME.md | This file |
-| .gitignore | Replaced specific local.conf entry with `claude-dev/*.local.*` catch-all |
+| claude-dev/PLAN.md | Phase 8 marked in progress |

@@ -80,27 +80,34 @@ How each CHAPS script is invoked on each VM:
 
 | Result | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 | Win7 (expect version error) |
 |---|---|---|---|---|---|---|
-| Script completes | | | | | | |
-| Admin checks run | | | | | | |
-| Non-admin graceful | | | | | | |
+| Script completes | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 (clean version error) |
+| Admin checks run | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | N/A |
+| Non-admin graceful | Not yet tested | Not yet tested | Not yet tested | Not yet tested | Not yet tested | N/A |
 
 ### 3.3 Test matrix -- PSv2
 
 | Result | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
 |---|---|---|---|---|---|---|
-| Script completes | | | | | | |
-| Admin checks run | | | | | | |
-| Non-admin graceful | | | | | | |
+| Script completes | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 |
+| Admin checks run | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 |
+| Non-admin graceful | Not yet tested | Not yet tested | Not yet tested | Not yet tested | Not yet tested | Not yet tested |
 
 ### 3.4 Test matrix -- CMD
 
 | Result | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
 |---|---|---|---|---|---|---|
-| Script completes | | | | | | |
-| Admin checks run | | | | | | |
-| Non-admin graceful | | | | | | |
+| Script completes | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 |
+| Admin checks run | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 | PASS 2026-04-13 |
+| Non-admin graceful | Not yet tested | Not yet tested | Not yet tested | Not yet tested | Not yet tested | Not yet tested |
 
 Result format: `PASS YYYY-MM-DD` or `FAIL YYYY-MM-DD: <reason>`.
+
+### 3.4.1 Bugs surfaced and fixed during 2026-04-13 test run
+
+- **CMD/chaps.bat had LF line endings** -- Windows CMD parser silently skipped Checks 11-33 on all VMs. Fixed by converting to CRLF. All 59 checks now emit.
+- **Get-BitLocker manage-bde fallback threw CommandNotFound** on Server editions where BitLocker feature isn't installed. Fixed with a `Get-Command manage-bde.exe` probe before calling; emits an `[*]` info line when neither path is available.
+- **PSv2 Get-CredDeviceGuard and Get-AntiVirus used `-ClassName`** (Cim parameter) with `Get-WmiObject` (which uses `-Class`). Also had Unicode en-dash characters inherited from earlier branch history. Fixed both.
+- **Get-SystemInfo** already wrapped in try/catch chain with Get-ComputerInfo -> WMI -> systeminfo fallback from prior fix; behaved correctly on all VMs.
 
 ### 3.5 Procedure
 
@@ -208,17 +215,19 @@ Before any release. Run all three scripts on the same VM (Win10Pro-Dev is the pr
 
 ### 5.3 Parity matrix
 
-Record results of a parity run:
+Parity run on Win10Pro-Dev, 2026-04-13:
 
-| Check Category | PSv3 Count | PSv2 Count | CMD Count | Notes |
-|---|---|---|---|---|
-| System Info | | | | |
-| Security | | | | |
-| Authentication | | | | |
-| Network | | | | |
-| PowerShell | | | | CMD: 2 N/A (PSVersions, PSLanguage) + 4 registry-based |
-| Logging | | | | |
-| **Total** | | | | |
+| Measure | PSv3 | PSv2 | CMD |
+|---|---|---|---|
+| Output lines | 182 | 192 | 554 |
+| `## ` section headers | 6 | 6 | 7 (6 + footer) |
+| `### Check N:` subheaders | (not used) | (not used) | 59 |
+| `[+]` positive | 36 | 34 | 22 |
+| `[-]` negative | 53 | 63 | 16 |
+| `[*]` informational | 54 | 56 | 299 |
+| `[x]` error | 1 (no internet) | 1 (no internet) | 0 |
+
+The CMD script's higher `[*]` count is expected -- it prefixes each line of `net accounts`, `netstat -ano`, installed-software enumeration, and similar raw-output checks with `[*]`. PowerShell scripts summarize the same information more compactly. Check coverage is equivalent across all three scripts; every canonical check is attempted.
 
 ---
 
