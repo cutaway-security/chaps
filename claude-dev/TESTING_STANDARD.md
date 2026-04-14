@@ -1,118 +1,144 @@
 # TESTING_STANDARD.md
 
-Standard for testing CHAPS scripts across the development VM fleet.
+How to test the CHAPS scripts (`chaps_PSv3.ps1`, `chaps_PSv2.ps1`, `chaps.bat`) across the development VM fleet. This standard governs what is tested, how tests are run, and how results are recorded.
+
+For VM setup, connectivity, and lifecycle details see `claude-dev/REMOTE_TESTING.md`.
+
+---
 
 ## 1. Scope
 
-Three categories of testing:
+This standard covers three categories of testing, performed in this order:
 
-| Category | What | When |
-|---|---|---|
-| Script Testing | Each CHAPS script runs to completion on target OS | Every script change |
-| Output Validation | Markdown output renders correctly and contains expected sections | Every output format change |
-| Parity Testing | All three scripts produce equivalent checks on the same VM | Before release |
+1. **Script testing** -- does the script run to completion on the target OS without crashing?
+2. **Output validation** -- is the output valid markdown with all expected sections, correct status prefixes, and no unhandled errors?
+3. **Parity testing** -- do all three scripts produce equivalent check coverage on the same VM?
+
+Each category has its own procedures and pass/fail criteria defined below. Do not proceed to a later category until the earlier one passes.
+
+---
 
 ## 2. Test Environment
 
-### 2.1 VM Fleet
+### 2.1 Available systems
 
-| VM Alias | OS | PS Version | Scripts to Test |
-|---|---|---|---|
-| Win7Pro-Dev | Windows 7 Pro | 2.0 | PSv2, CMD |
-| Win10Pro-Dev | Windows 10 Pro | 5.1 | PSv3, PSv2, CMD |
-| Win11Pro-Dev | Windows 11 Pro | 5.1 | PSv3, PSv2, CMD |
-| WinServer2016-Dev | Windows Server 2016 | 5.1 | PSv3, PSv2, CMD |
-| WinServer2019-Dev | Windows Server 2019 | 5.1 | PSv3, PSv2, CMD |
-| WinServer2022-Dev | Windows Server 2022 | 5.1 | PSv3, PSv2, CMD |
+| SSH Alias | VMID | Proxmox | OS | PS Version | Scripts Supported | Notes |
+|---|---|---|---|---|---|---|
+| Win7Pro-Dev | 107 | proxmox0 | Windows 7 Pro | 2.0 | PSv2, CMD | PSv3 will exit with version error (expected). Limited cmdlet availability. |
+| Win10Pro-Dev | 108 | proxmox0 | Windows 10 Pro | 5.1 | PSv3, PSv2, CMD | Primary parity test target. |
+| Win11Pro-Dev | 102 | proxmox0 | Windows 11 Pro | 5.1 | PSv3, PSv2, CMD | `[System.Environment]::OSVersion.Version.Major` still reports 10. |
+| WinServer2016-Dev | 110 | proxmox0 | Windows Server 2016 | TBD | PSv3, PSv2, CMD | No SecurityCenter2 namespace. Start and verify before first test. |
+| WinServer2019-Dev | 109 | proxmox0 | Windows Server 2019 | TBD | PSv3, PSv2, CMD | No SecurityCenter2 namespace. `Get-MpComputerStatus` fallback used. |
+| WinServer2022-Dev | 111 | proxmox0 | Windows Server 2022 | TBD | PSv3, PSv2, CMD | Windows LAPS may be built-in. |
 
-### 2.2 VM Lifecycle Rules
+Systems aliased but not yet built (VMID = N/A): WinServer2012-Dev, WinServer2025-Dev. Do not include in test runs until installed and added to this table.
 
-- Maximum 3 VMs running concurrently
-- Snapshot before test runs
-- Roll back wedged VMs, don't debug in place
-- Coordinate with ICSWatchDog project (shared fleet)
+### 2.2 VM lifecycle rules
 
-### 2.3 File Transfer
+- **Maximum 3 VMs running concurrently.** The Proxmox hosts are Intel NUCs with limited RAM.
+- **Start before testing, stop when done.** Do not leave VMs running overnight or between sessions.
+- Start/stop via SSH to the Proxmox host using the VMID (look up via `claude-dev/vm-lookup vmid <alias>` or read from the table above):
+  ```
+  ssh proxmox0 "qm start <VMID>"
+  ssh proxmox0 "qm stop <VMID>"
+  ssh proxmox0 "qm status <VMID>"
+  ```
+- **Single source of truth: `~/.ssh/config`.** The developer workstation's SSH config holds the host alias, IP, user, key, and VMID for every test VM. The VMID is stored as a structured comment on each host entry (format: `# VMID=<id> PROXMOX=<alias>`). Use SSH aliases (e.g., `Win10Pro-Dev`) for all test commands, not raw IPs.
 
-```bash
-# Deploy
-scp -i $SSH_KEY_PATH <script> $VM_<alias>:C:/Temp/
+### 2.3 File transfer pattern
 
-# Retrieve output
-ssh -i $SSH_KEY_PATH $VM_<alias> "powershell -ExecutionPolicy Bypass -File C:\Temp\<script>" > results/<alias>-<script>.md
+```
+# Copy a script to a VM
+scp <local-script> <SSH-Alias>:C:/Temp/<filename>
+
+# Run and capture markdown output locally
+ssh <SSH-Alias> "<shell-command-invoking-script>" > claude-dev/results/<alias>-<script>.md
 
 # Clean up
-ssh -i $SSH_KEY_PATH $VM_<alias> "del C:\Temp\<script>"
+ssh <SSH-Alias> "del C:\Temp\<filename>"
 ```
+
+The `C:\Temp` directory must exist on the VM. Create it with `ssh <alias> "mkdir C:\Temp"` if needed.
+
+Result files land in `claude-dev/results/` (gitignored).
+
+---
 
 ## 3. Script Testing
 
-### 3.1 Test Matrix -- PSv3
+### 3.1 Invocation matrix
 
-| Check | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
-|---|---|---|---|---|---|
-| Script completes | | | | | |
-| No error output | | | | | |
-| Markdown valid | | | | | |
-| Admin checks run | | | | | |
-| Non-admin graceful | | | | | |
+How each CHAPS script is invoked on each VM:
 
-Result format: `PASS YYYY-MM-DD` or `FAIL YYYY-MM-DD: <reason>`
+| Script | File | Invocation |
+|---|---|---|
+| PSv3 | `PowerShellv3/chaps_PSv3.ps1` | `powershell -ExecutionPolicy Bypass -File C:/Temp/chaps_PSv3.ps1` |
+| PSv2 | `PowerShellv2/chaps_PSv2.ps1` | `powershell -Version 2 -ExecutionPolicy Bypass -File C:/Temp/chaps_PSv2.ps1` |
+| CMD | `CMD/chaps.bat` | `cmd /c C:/Temp/chaps.bat` |
 
-### 3.2 Test Matrix -- PSv2
+### 3.2 Test matrix -- PSv3
 
-| Check | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
+| Result | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 | Win7 (expect version error) |
 |---|---|---|---|---|---|---|
 | Script completes | | | | | | |
-| No error output | | | | | | |
-| Markdown valid | | | | | | |
 | Admin checks run | | | | | | |
 | Non-admin graceful | | | | | | |
 
-### 3.3 Test Matrix -- CMD
+### 3.3 Test matrix -- PSv2
 
-| Check | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
+| Result | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
 |---|---|---|---|---|---|---|
 | Script completes | | | | | | |
-| No error output | | | | | | |
-| Markdown valid | | | | | | |
 | Admin checks run | | | | | | |
 | Non-admin graceful | | | | | | |
 
-### 3.4 Procedure
+### 3.4 Test matrix -- CMD
+
+| Result | Win7 | Win10 | Win11 | Srv 2016 | Srv 2019 | Srv 2022 |
+|---|---|---|---|---|---|---|
+| Script completes | | | | | | |
+| Admin checks run | | | | | | |
+| Non-admin graceful | | | | | | |
+
+Result format: `PASS YYYY-MM-DD` or `FAIL YYYY-MM-DD: <reason>`.
+
+### 3.5 Procedure
 
 For each script on each VM:
 
-1. Deploy script to `C:\Temp\` via scp
-2. Execute remotely, capture stdout to local file
-3. Check exit: no crash, no unhandled exceptions
-4. Validate output starts with `# CHAPS Report:`
-5. Validate all 6 section headers present (`## System Info Checks` through `## Logging Checks`)
-6. Count `[+]`, `[-]`, `[*]`, `[x]` prefixes -- zero `[x]` expected for checks that should work on that OS
-7. Record result in test matrix
+1. Deploy script to `C:\Temp\` via scp.
+2. Execute remotely using the invocation from Section 3.1, redirecting stdout to `claude-dev/results/<alias>-<script>.md`.
+3. Check exit status: no crash, no unhandled exceptions.
+4. Proceed to Section 4 (Output Validation) for the result file.
+5. Record the result in the appropriate matrix above.
+6. Clean up the script on the VM (`del`).
 
-### 3.5 Pass Criteria
+### 3.6 Pass criteria
 
-- Script exits cleanly (no crash, no hung process)
-- Output is valid markdown (renders in VS Code preview)
-- All section headers present
-- Expected checks produce output (not silently skipped)
-- Checks that cannot run on the OS output `[*]` info message with reason
-- No `[x]` errors for checks that should work on the target OS
-- Non-admin execution: admin-required checks report `[x]` or `[*]` gracefully, script continues
+A script **passes** on a given system if:
+- It runs to completion with exit code 0 (or the expected error code for negative tests like PSv3 on Win7).
+- Output matches the markdown structure in Section 4.1.
+- Non-admin execution: admin-required checks report `[x]` or `[*]` gracefully; the script continues and completes.
 
-### 3.6 Failure Handling
+A script **fails** if:
+- It crashes, hangs, or produces a PowerShell/batch error that leaks past the try/catch harness.
+- Expected section headers are missing from the output.
+- The script silently skips checks that should run on the target OS (no output at all for a check).
+
+### 3.7 Failure handling
 
 If a test fails:
-1. Record the failure with error details
-2. Create a snapshot of the VM state if needed for debugging
-3. Fix the script
-4. Re-test on the same VM
-5. Re-test on other VMs to verify no regression
+1. Record the failure with error details in the matrix.
+2. Snapshot the VM state if needed for debugging.
+3. Fix the script.
+4. Re-test on the same VM.
+5. Re-test on other VMs to verify no regression.
+
+---
 
 ## 4. Output Validation
 
-### 4.1 Markdown Structure Check
+### 4.1 Markdown structure check
 
 Every output file must contain:
 
@@ -140,39 +166,49 @@ Every output file must contain:
 **<name> completed** -- Stop Time: ...
 ```
 
-### 4.2 Validation Commands
+### 4.2 Validation commands
 
-```bash
+Run these from the developer workstation against the captured result file:
+
+```
 # Check report header exists
-head -1 results/win10-psv3.md | grep "# CHAPS Report:"
+head -1 claude-dev/results/Win10Pro-Dev-psv3.md | grep "# CHAPS Report:"
 
-# Count section headers
-grep -c "^## " results/win10-psv3.md
-# Expected: 6
+# Count section headers (expected: 6)
+grep -c "^## " claude-dev/results/Win10Pro-Dev-psv3.md
 
 # Count findings by type
-grep -c "^\[+\]" results/win10-psv3.md    # Positive
-grep -c "^\[-\]" results/win10-psv3.md    # Negative
-grep -c "^\[\*\]" results/win10-psv3.md   # Informational
-grep -c "^\[x\]" results/win10-psv3.md    # Errors
+grep -c "^\[+\]" claude-dev/results/Win10Pro-Dev-psv3.md    # Positive
+grep -c "^\[-\]" claude-dev/results/Win10Pro-Dev-psv3.md    # Negative
+grep -c "^\[\*\]" claude-dev/results/Win10Pro-Dev-psv3.md   # Informational
+grep -c "^\[x\]" claude-dev/results/Win10Pro-Dev-psv3.md    # Errors
 ```
+
+### 4.3 Pass criteria
+
+- First line of output is `# CHAPS Report: <script-name> <version>`.
+- Exactly 6 top-level `## ` section headers (System Info, Security, Authentication, Network, PowerShell, Logging).
+- No `[x]` errors for checks that should succeed on the target OS. `[x]` errors are expected for unreachable/unconfigured checks (e.g., antivirus on a server without SecurityCenter2) -- these should be followed by `[*]` info messages explaining why.
+- Closing footer line present.
+
+---
 
 ## 5. Parity Testing
 
 ### 5.1 When
 
-Before any release. Run all three scripts on the same VM (Win10 is the primary parity target).
+Before any release. Run all three scripts on the same VM (Win10Pro-Dev is the primary parity target because all three scripts are supported there).
 
 ### 5.2 Procedure
 
-1. Run PSv3, PSv2, and CMD on Win10Pro-Dev
-2. Capture output to three separate files
-3. Compare section headers: must be identical across all three
-4. Compare check names: each check present in all three scripts
-5. Findings may differ in detail (different methods) but check coverage must match
-6. Checks marked N/A in CMD (PSVersions, PSLanguage) must output info message
+1. Run PSv3, PSv2, and CMD on Win10Pro-Dev, capturing output to three separate files in `claude-dev/results/`.
+2. Compare section headers: must be identical across all three (same six `## ` headers, same order).
+3. Compare check coverage: each canonical check must appear in all three outputs. Findings may differ in detail (different methods produce different wording) but every check must be attempted.
+4. Verify N/A checks in CMD (AppLocker, ASR Rules, PowerShell Versions, PowerShell Language Mode) output `[*]` info messages referencing PowerShell-only cmdlets or runtime requirements.
 
-### 5.3 Parity Matrix
+### 5.3 Parity matrix
+
+Record results of a parity run:
 
 | Check Category | PSv3 Count | PSv2 Count | CMD Count | Notes |
 |---|---|---|---|---|
@@ -180,44 +216,74 @@ Before any release. Run all three scripts on the same VM (Win10 is the primary p
 | Security | | | | |
 | Authentication | | | | |
 | Network | | | | |
-| PowerShell | | | | CMD: 2 N/A, 4 via registry |
+| PowerShell | | | | CMD: 2 N/A (PSVersions, PSLanguage) + 4 registry-based |
 | Logging | | | | |
 | **Total** | | | | |
 
+---
+
 ## 6. Test Run Documentation
 
-### 6.1 During Test Run
+### 6.1 During a test run
 
-Record for each script/VM combination:
+Record the following for each test:
 - Date
-- VM alias
-- Script tested (PSv3/PSv2/CMD)
+- VM alias (e.g., Win10Pro-Dev)
+- Script tested (PSv3 / PSv2 / CMD)
 - Admin or non-admin execution
-- Result (PASS/FAIL)
+- Result (PASS / FAIL)
 - Error details if FAIL
 - Any new per-OS quirks discovered
 
-### 6.2 After Test Run
+### 6.2 After a test run
 
 Update:
-- Test matrices in this file (date-stamped results)
-- RESUME.md with test summary
-- Known quirks in REMOTE_TESTING.md Section 8
+- Test matrices in this file (date-stamped results, Sections 3.2-3.4)
+- Parity matrix if a parity run (Section 5.3)
+- `claude-dev/RESUME.md` with a test summary
+- Per-OS quirks in Section 7 below
 
-### 6.3 Re-Testing After Changes
+### 6.3 Re-testing after changes
 
 After any script change:
-- Re-test on Win10 (primary target) at minimum
-- Re-test on Win7 if PSv2 or CMD changed
-- Re-test on one Server edition if server-specific checks changed
-- Full fleet re-test before release
+- Re-test on Win10Pro-Dev (primary target) at minimum.
+- Re-test on Win7Pro-Dev if PSv2 or CMD was changed.
+- Re-test on one Server edition if server-specific checks were changed.
+- Full fleet re-test before any release tag.
 
-## 7. Adding a New Test System
+---
 
-1. Clone from Proxmox template (see ICSWatchDog REMOTE_TESTING.md for template setup)
-2. Configure OpenSSH server with key auth
-3. Add VM alias and connection to `remote-testing.example.conf` and local copy
-4. Add row to VM Fleet table (Section 2.1)
-5. Add column to all test matrices
-6. Run initial test of all scripts
-7. Document any quirks
+## 7. Version-Specific Notes
+
+Known per-OS behavior observed during development. Update this as real test runs surface additional quirks.
+
+### 7.1 Win7Pro-Dev (PS 2.0)
+
+- PSv3 exits with a version-check error. This is a PASS (the script handles version gracefully), not a FAIL.
+- PSv2 runs but several cmdlets are unavailable: `Get-PnpDevice`, `Get-MpPreference`, `Get-MpComputerStatus`, `Get-NetTCPConnection`, `Get-NetFirewallProfile`, `Get-ProcessMitigation`, `Confirm-SecureBootUEFI`, `Get-LocalUser`. The script falls back to WMI / registry / native commands behind `Test-CommandExists` gates.
+- CMD runs without issue; most checks work via `reg query`, `sc query`, `wmic`.
+- SecurityCenter2 namespace behavior on Win7 is inconsistent; the script catches and falls back.
+
+### 7.2 Win10Pro-Dev / Win11Pro-Dev (PS 5.1)
+
+- All three scripts are fully supported. Primary parity target.
+- Win11 reports `OSVersion.Version.Major = 10`. Checks using `-ge 10` work correctly; checks using `-eq 10` would incorrectly treat Win11 as Win10. All CHAPS PSv3 checks use `-ge 10` (fixed in Phase 2).
+
+### 7.3 Server VMs (2016, 2019, 2022)
+
+- Use `Administrator` (not `<lab-user>`) as the SSH user. Configured in `~/.ssh/config` wildcard block.
+- These VMs are stopped by default. Start them before testing and stop them when done.
+- No `SecurityCenter2` WMI namespace -- `Get-AntiVirus` falls back to `Get-MpComputerStatus` (Defender-only).
+- PS version on each should be verified on first test and recorded in the Section 2.1 table.
+
+---
+
+## 8. Adding a New Test System
+
+When a new VM is added to the fleet (e.g., Server 2012, Server 2025):
+
+1. Add a `Host <alias>` block to `~/.ssh/config` with `HostName` and a `# VMID=<id> PROXMOX=<alias>` comment line.
+2. Add a row to the "Available systems" table in Section 2.1 (SSH alias, VMID, Proxmox, OS, PS Version, Scripts Supported, Notes).
+3. Add a column to the test matrices in Sections 3.2-3.4.
+4. Run the full script test suite against the new system.
+5. Update Section 7 with any new per-OS quirks discovered.

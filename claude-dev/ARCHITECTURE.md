@@ -53,7 +53,7 @@ chaps/
         REMOTE_TESTING.md           # Proxmox VM testing setup and procedures
         TESTING_STANDARD.md         # Test matrix, pass criteria, parity testing
         CANONICAL_CHECKS.md         # Canonical check order for all three scripts
-        remote-testing.example.conf # VM connection template (local copy gitignored)
+        vm-lookup                   # Helper script: parse VMID/Proxmox from ~/.ssh/config
         code-standards/
             powershell.md           # PowerShell coding standards
             batch.md                # Batch script coding standards

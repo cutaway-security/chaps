@@ -11,8 +11,10 @@
 PowerSploit
 .DS_Store
 
-# Testing - local config with real VM credentials
-claude-dev/remote-testing.local.conf
+# Defensive catch-all: any local-only file under claude-dev/ with ".local."
+# in its name must never be committed. See claude-dev/REMOTE_TESTING.md.
+claude-dev/*.local.*
 
 # Testing - output results from test runs
+claude-dev/results/
 results/

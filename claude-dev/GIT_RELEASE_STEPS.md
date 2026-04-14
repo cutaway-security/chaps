@@ -156,4 +156,5 @@ The following files exist only on the `claude-dev` branch and are stripped befor
 | `claude-dev/REMOTE_TESTING.md` | Proxmox VM testing procedures |
 | `claude-dev/TESTING_STANDARD.md` | Test matrix and pass criteria |
 | `claude-dev/CANONICAL_CHECKS.md` | Canonical check order reference |
-| `claude-dev/remote-testing.example.conf` | VM connection template |
+| `claude-dev/vm-lookup` | VMID/Proxmox parser for ~/.ssh/config |
+| `claude-dev/results/` | Local test output (gitignored, but remove directory anyway) |

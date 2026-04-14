@@ -4,73 +4,66 @@
 
 **Last Session**: 2026-04-13
 **Branch**: claude-dev
-**Status**: Clean -- Phase 7 complete, 30 commits ahead of origin/claude-dev
+**Status**: Clean -- testing framework reset to ICSWatchDog standard
 
 ## What Was Accomplished
 
-### Phases 1-6: Complete (see previous sessions)
+### Phases 1-7: Complete (see previous sessions)
 
-### Phase 7: CMD Batch Script Implementation (Complete)
+- Phase 1: Branch consolidation
+- Phase 2: PSv3 bug fixes
+- Phase 3: New checks (Sysmon, USB, AV, software, ASR, netstat, firewall)
+- Phase 3a: Hardening checks + canonical check parity planning
+- Phase 4: Markdown output conversion (PSv3)
+- Phase 5: Testing infrastructure (initial draft)
+- Phase 6: PSv2 implementation
+- Phase 7: CMD implementation
 
-Complete rewrite of chaps.bat implementing all 59 canonical checks with markdown output to stdout.
+All three scripts complete with 59 checks in canonical order, markdown output to stdout.
 
-Script structure:
-- 4 helper functions: GetRegVal, GetRegValTokens3, CheckSvcState, PrintRegCheck
-- 59 checks in 6 sections matching canonical order
-- Markdown header with metadata table, ## section headers, ### check subheadings
-- WMIC availability checked at startup and gated throughout
+### Testing Framework Reset (post-Phase 7)
 
-CMD-specific methods:
-- reg query with for/f token parsing for all registry checks
-- sc query with findstr for service checks
-- ipconfig, netstat, netsh for network checks
-- wmic for WMI queries (Win32_DeviceGuard, SecurityCenter2, USBControllerDevice, etc.)
-- auditpol for audit policy, net accounts/localgroup for account/admin
-- wevtutil for event log sizes
+Aligned CHAPS testing infrastructure with the ICSWatchDog project standard:
 
-N/A checks (4): AppLocker (requires PS cmdlet), ASR (requires PS cmdlet), PS Versions (requires PS runtime), PS Language Mode (requires PS runtime)
+- Rewrote `claude-dev/REMOTE_TESTING.md` to use `~/.ssh/config` as single source of truth (host alias, IP, user, key path, VMID via structured comment). Removed Sysmon-specific content. No local conf file required.
+- Rewrote `claude-dev/TESTING_STANDARD.md` with Available Systems table (SSH Alias, VMID, Proxmox, OS, PS Version, Scripts Supported, Notes) populated for 6 VMs plus 2 not-yet-built entries.
+- Deleted `claude-dev/remote-testing.example.conf` (redundant per new standard).
+- Replaced specific `.gitignore` entry with defensive `claude-dev/*.local.*` catch-all.
+- Added `claude-dev/vm-lookup` bash helper: parses `# VMID=<id> PROXMOX=<alias>` comment from `~/.ssh/config` for a given host alias. Supports `vmid`, `proxmox`, and `comment` subcommands.
+- Updated `ARCHITECTURE.md` file tree and `GIT_RELEASE_STEPS.md` files-removed table.
 
-Script: 1,367 lines. 236 status echo lines. No file writing.
+### Connection Testing
 
-## Script Summary Across All Three
-
-| Script | Lines | Functions | Checks | Output |
-|--------|------:|----------:|-------:|--------|
-| chaps_PSv3.ps1 | 2,374 | 65 | 59 | Markdown stdout |
-| chaps_PSv2.ps1 | 2,384 | 65 | 59 | Markdown stdout |
-| chaps.bat | 1,367 | 4 helpers | 59 | Markdown stdout |
+Verified SSH connectivity to all 6 built VMs and proxmox0 using aliases from `~/.ssh/config`. Results recorded in TESTING_STANDARD.md Section 2.1 (PS Version column for Server VMs).
 
 ## In Progress
 
-- Nothing active -- awaiting confirmation to start Phase 8
+- Nothing active -- awaiting decision on next step (full script testing on live VMs, or proceed to Phase 8 documentation).
 
 ## Blockers
 
-- None
+- None.
 
 ## Next Steps
 
-1. Phase 8: Documentation and release prep
-   - Update README.md with all new checks and features
-   - Update usage instructions for all three scripts
-   - Document markdown output format
-   - Update references and links
-   - Close Issue #2 and PR #5
-   - Final cross-script validation on Proxmox VMs
-   - Pre-release checklist per GIT_RELEASE_STEPS.md
+1. Full test run of all three CHAPS scripts across the 6-VM fleet, populating the test matrices in TESTING_STANDARD.md Sections 3.2-3.4.
+2. Parity test run on Win10Pro-Dev (PSv3 + PSv2 + CMD), populating TESTING_STANDARD.md Section 5.3.
+3. Phase 8: Documentation and release prep (README.md update, close Issue #2 and PR #5, pre-release checklist).
 
 ## Open Questions
 
-- Should we push to origin/claude-dev before the release prep phase?
-- Should we do a VM test run before updating README, or update first and test after?
+- None currently.
 
 ## Files Modified This Session
 
 | File | Change |
 |------|--------|
-| PowerShellv3/chaps_PSv3.ps1 | Phases 2-4: bug fixes, new checks, hardening, markdown (1,426 -> 2,374 lines) |
-| PowerShellv2/chaps_PSv2.ps1 | Phase 6: full PSv2 port with parity and markdown (1,483 -> 2,384 lines) |
-| CMD/chaps.bat | Phase 7: complete rewrite with 59 checks and markdown (2,343 -> 1,367 lines) |
-| .gitignore | Updated for testing infrastructure |
-| CLAUDE.md | Created and updated |
-| claude-dev/*.md | Planning infrastructure created and maintained |
+| claude-dev/REMOTE_TESTING.md | Rewrote to ICSWatchDog standard (~/.ssh/config SoT, VMID comments, no local conf) |
+| claude-dev/TESTING_STANDARD.md | Rewrote with Available Systems table, test matrices per script, parity matrix, per-OS quirks |
+| claude-dev/remote-testing.example.conf | Deleted (redundant with ~/.ssh/config) |
+| claude-dev/vm-lookup | New -- bash helper parsing VMID/Proxmox from ~/.ssh/config |
+| claude-dev/ARCHITECTURE.md | Updated file tree (added vm-lookup, removed example.conf) |
+| claude-dev/GIT_RELEASE_STEPS.md | Updated files-removed table |
+| claude-dev/PLAN.md | Phase 5 marked as reset, new checklist |
+| claude-dev/RESUME.md | This file |
+| .gitignore | Replaced specific local.conf entry with `claude-dev/*.local.*` catch-all |

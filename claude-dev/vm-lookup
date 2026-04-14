@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# vm-lookup -- parse VMID and Proxmox alias from ~/.ssh/config for a given host alias.
+#
+# The SSH config convention used by this project is:
+#
+#   Host Win10Pro-Dev
+#       HostName <real-ip>
+#       # VMID=108 PROXMOX=proxmox0
+#
+# This script extracts the VMID or Proxmox alias for a given host, so test
+# commands can drive Proxmox lifecycle without hard-coding VMIDs:
+#
+#   ssh proxmox0 "qm start $(claude-dev/vm-lookup vmid Win10Pro-Dev)"
+#
+# See claude-dev/REMOTE_TESTING.md Section 7 for the full format spec.
+
+set -eu
+
+SSH_CONFIG="${SSH_CONFIG:-$HOME/.ssh/config}"
+
+usage() {
+    cat >&2 <<EOF
+usage: vm-lookup <field> <ssh-alias>
+
+  field        vmid | proxmox | comment
+  ssh-alias    the Host alias from ~/.ssh/config (e.g., Win10Pro-Dev)
+
+Examples:
+  vm-lookup vmid Win10Pro-Dev         # prints: 108
+  vm-lookup proxmox Win10Pro-Dev      # prints: proxmox0
+  vm-lookup comment Win10Pro-Dev      # prints: # VMID=108 PROXMOX=proxmox0
+
+Exits non-zero if the alias is not found or has no VMID comment.
+EOF
+    exit 2
+}
+
+[ $# -eq 2 ] || usage
+
+field="$1"
+alias="$2"
+
+if [ ! -r "$SSH_CONFIG" ]; then
+    echo "vm-lookup: cannot read $SSH_CONFIG" >&2
+    exit 1
+fi
+
+# Extract the comment line that follows the Host block matching $alias.
+comment=$(awk -v target="$alias" '
+    /^[[:space:]]*Host[[:space:]]/ {
+        in_block = 0
+        for (i = 2; i <= NF; i++) {
+            if ($i == target) { in_block = 1; break }
+        }
+        next
+    }
+    in_block && /^[[:space:]]*#[[:space:]]*VMID=/ {
+        # Strip leading whitespace and print the comment as-is
+        sub(/^[[:space:]]*/, "")
+        print
+        exit
+    }
+' "$SSH_CONFIG")
+
+if [ -z "$comment" ]; then
+    echo "vm-lookup: no VMID comment found for alias '$alias' in $SSH_CONFIG" >&2
+    exit 1
+fi
+
+# comment is now: "# VMID=<id> PROXMOX=<alias>"
+
+case "$field" in
+    comment)
+        printf '%s\n' "$comment"
+        ;;
+    vmid)
+        # Extract the value between "VMID=" and the next space
+        vmid=$(printf '%s\n' "$comment" | sed -n 's/.*VMID=\([^ ]*\).*/\1/p')
+        if [ -z "$vmid" ]; then
+            echo "vm-lookup: could not parse VMID from: $comment" >&2
+            exit 1
+        fi
+        printf '%s\n' "$vmid"
+        ;;
+    proxmox)
+        proxmox=$(printf '%s\n' "$comment" | sed -n 's/.*PROXMOX=\([^ ]*\).*/\1/p')
+        if [ -z "$proxmox" ]; then
+            echo "vm-lookup: could not parse PROXMOX from: $comment" >&2
+            exit 1
+        fi
+        printf '%s\n' "$proxmox"
+        ;;
+    *)
+        usage
+        ;;
+esac

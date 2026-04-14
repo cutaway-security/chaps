@@ -138,19 +138,21 @@ Script: 2,409 -> 2,374 lines (removed infrastructure code). 65 functions. 759/75
 
 ### Phase 5: Testing Infrastructure
 
-**Status**: Complete
+**Status**: Complete (reset to ICSWatchDog standard)
 
-- [x] Create REMOTE_TESTING.md (topology, SSH access, deploy/execute/retrieve pattern, snapshots, known quirks)
-- [x] Create TESTING_STANDARD.md (test matrices for PSv3/PSv2/CMD x 6 OS versions, pass criteria, output validation commands, parity testing procedure)
-- [x] Create remote-testing.example.conf (VM connection template, local copy gitignored)
-- [x] Document shared Proxmox VM fleet: Win7, Win10, Win11, Server 2016/2019/2022
-- [x] Document SSH-based test pattern: scp deploy -> ssh execute -> capture stdout -> validate markdown
-- [x] Define pass criteria: clean exit, valid markdown, all sections present, no unexpected [x] errors, graceful non-admin handling
-- [x] Document known per-OS quirks (Win7 PSv2 limitations, Server no SecurityCenter2, Server 2016 32-bit)
-- [x] Update .gitignore for local config and results directory
-- [x] Update ARCHITECTURE.md and GIT_RELEASE_STEPS.md with new files
+Initial setup (superseded):
+- [x] Create REMOTE_TESTING.md, TESTING_STANDARD.md, remote-testing.example.conf (first draft, later reset)
 
-Actual VM testing deferred to after PSv2/CMD implementation (Phases 6-7) so all three scripts can be tested together. PSv3 can be tested on VMs independently at any time using the documented procedure.
+Reset to ICSWatchDog testing standard:
+- [x] Rewrite REMOTE_TESTING.md to follow ICSWatchDog Proxmox VE + SSH + VMID-comment standard (strips Sysmon content, uses ~/.ssh/config as single source of truth, no local conf file)
+- [x] Rewrite TESTING_STANDARD.md with Available Systems table (SSH Alias, VMID, Proxmox, OS, PS Version, Scripts Supported, Notes), test matrices, parity testing, per-OS quirks
+- [x] Delete remote-testing.example.conf (redundant with ~/.ssh/config per new standard)
+- [x] Replace specific .gitignore entry with defensive `claude-dev/*.local.*` catch-all
+- [x] Add claude-dev/vm-lookup bash helper (parses VMID/Proxmox alias from ~/.ssh/config structured comments)
+- [x] Update ARCHITECTURE.md and GIT_RELEASE_STEPS.md to reflect the reset
+- [x] Connection-test each VM and the Proxmox host
+
+Actual script testing deferred to Phase 8 (Documentation and Release Prep) so all three scripts can be tested together against live VMs.
 
 ### Phase 6: PSv2 Script Implementation
 
