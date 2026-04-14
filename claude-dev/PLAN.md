@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Released
-**Status**: v2 shipped 2026-04-14
-**Focus**: CHAPS v2 released to master. Tags `dev-v2` and `v2` pushed. GitHub release published at https://github.com/cutaway-security/chaps/releases/tag/v2. Working tree clean on claude-dev. Next session: post-release feedback / hardening backlog.
+**Phase**: Released (post-release branding update landed)
+**Status**: v2 shipped 2026-04-14; acronym + logo update cherry-picked to master same day
+**Focus**: CHAPS v2 released to master. Tags `dev-v2` and `v2` pushed. GitHub release published at https://github.com/cutaway-security/chaps/releases/tag/v2. Follow-on: CHAPS acronym expansion corrected ("Configuration Hardening Assessment PowerShell Scripts") and project logo added to README; cherry-picked to master as commit `8cd1715`. v2 tag immutable at `1bb098d` (verified).
 
 ## Phases
 
@@ -335,6 +335,34 @@ Out of scope for Phase 12:
 - No `deploy-site.sh` (no website)
 - No GitHub Actions / CI -- not requested
 - No signed releases / Sigstore -- not requested
+
+### Phase 13: Post-Release Branding and Copy Fix
+
+**Status**: Complete (2026-04-14)
+
+After v2 shipped, a documentation audit surfaced several places where the CHAPS acronym was expanded without the "PowerShell" word or with the wrong plural. User also added project logo images under `images/` for the README and GitHub social preview.
+
+Approach: split into two commits on claude-dev so that cherry-picking to master could include only the user-facing subset. No re-tagging of v2; master HEAD advanced past the release commit, which is expected behavior (master is the live default branch, not a fixed snapshot).
+
+Shipped to master via cherry-pick (commit `8cd1715`):
+
+- [x] `README.md`: title now reads "CHAPS: Configuration Hardening Assessment PowerShell Scripts"; added `<img align="left">` block placing `images/chaps_logo_small-letters.png` in the header
+- [x] `NOTICE` line 73: Attribution project name now expands correctly with "PowerShell"
+- [x] `images/chaps_logo_full.png` -- full-resolution master
+- [x] `images/chaps_logo_small-letters.png` -- README header variant (bigger shield, small letters)
+- [x] `images/chaps_logo_big-letters.png` -- alt variant (words under shield, more whitespace)
+- [x] `images/chaps_logo_shield_only.png` -- shield only; used as GitHub social preview
+
+Dev-only on claude-dev (commit `1d4987f`, never shipped to master):
+
+- [x] `CLAUDE.md` line 5: "Script" -> "Scripts"
+- [x] `claude-dev/RELEASE_NOTES_v2.md` line 3: added "PowerShell" to the acronym expansion
+
+Branch hygiene:
+
+- v2 tag: `1bb098d` (unchanged; users downloading v2 tarball still get the 15-file release exactly as shipped)
+- master HEAD: `8cd1715` (v2 + acronym fix + 4 logo images = 19 files)
+- claude-dev HEAD: `1d4987f` (master + planning docs + dev files)
 
 ### Phase 8 (resumed): Release Tagging
 

@@ -4,43 +4,48 @@
 
 **Last Session**: 2026-04-14
 **Branch**: claude-dev (clean, in sync with origin)
-**Status**: CHAPS v2 RELEASED. All planned phases (1-12) complete.
+**Status**: CHAPS v2 RELEASED. Post-release branding update landed same day. All planned phases (1-13) complete.
 
 ## Release Summary
 
-CHAPS v2 shipped to master on 2026-04-14.
+CHAPS v2 shipped to master on 2026-04-14 and received a same-day branding follow-up (acronym + logos).
+
+### Release artifacts
 
 - **GitHub release**: https://github.com/cutaway-security/chaps/releases/tag/v2
-- **Tags**: `dev-v2` (on claude-dev, commit `7c3983d`), `v2` (on master, commit `1bb098d`)
-- **Release notes**: `claude-dev/RELEASE_NOTES_v2.md` (preserved on claude-dev; stripped from master)
+- **Tags**: `dev-v2` (on claude-dev, commit `7c3983d`), `v2` (on master, commit `1bb098d` -- immutable)
+- **Release notes**: `claude-dev/RELEASE_NOTES_v2.md` (preserved on claude-dev; not shipped to master)
+- **Social preview**: `images/chaps_logo_shield_only.png` uploaded via GitHub Settings -> General -> Social preview
 
-### What v2 contains
+### What shipped at v2 tag (1bb098d, 15 files)
 
-Three scripts with check parity (63 checks each) producing Markdown to stdout:
-- `PowerShellv3/chaps_PSv3.ps1`
-- `PowerShellv2/chaps_PSv2.ps1`
-- `CMD/chaps.bat`
+- `README.md`, `LICENSE`, `NOTICE`, `.gitattributes`, `.gitignore`
+- `PowerShellv3/chaps_PSv3.ps1`, `PowerShellv2/chaps_PSv2.ps1`, `CMD/chaps.bat`
+- `docs/USAGE.md`, `docs/CHECKS.md`, `docs/INTERPRETING_REPORTS.md`, `docs/REMEDIATION.md`, `docs/ANALYSIS.md`
+- `tools/chaps-analyze.ps1`, `tools/knowledge/findings.json`
 
-Plus:
-- `tools/chaps-analyze.ps1` -- post-processing analyzer
-- `tools/knowledge/findings.json` -- 59-entry analyzer knowledge base
-- Public docs in `docs/`: USAGE, CHECKS, INTERPRETING_REPORTS, REMEDIATION, ANALYSIS
-- `LICENSE` (GPL v3), `NOTICE` (dual-license terms)
-- `.gitattributes` (defensive `export-ignore` + `*.bat text eol=crlf`)
+### Master HEAD (8cd1715, 19 files)
 
-### Release commits
+v2 tag contents plus:
 
-- `35df259` Renormalize CMD/chaps.bat line endings per .gitattributes (post-release housekeeping on claude-dev only)
-- `7c3983d` Updated release process (Phase 12)
+- Updated `README.md` title + logo block
+- Updated `NOTICE` attribution line
+- `images/chaps_logo_full.png`, `chaps_logo_small-letters.png`, `chaps_logo_big-letters.png`, `chaps_logo_shield_only.png`
+
+## Recent commits
+
+- `1d4987f` Fix CHAPS acronym expansion in dev-only files (claude-dev)
+- `8cd1715` Fix CHAPS acronym expansion; add project logo to README (master, cherry-picked)
+- `b310ca3` same change on claude-dev (cherry source)
+- `4752ef3` Mark v2 release complete in PLAN.md and RESUME.md
+- `35df259` Renormalize CMD/chaps.bat line endings per .gitattributes
+- `1bb098d` **v2 TAG** -- Remove dev files for release v2 (on master only)
+- `7c3983d` **dev-v2 TAG** -- Updated release process (Phase 12)
 - `6ffc027` License Updated (Phase 11)
-- `2267fca` Phase 8 items 1-4: close issue/PRs, delete stale branches
-- `ac432f7` Expand analysis knowledge base to 59 entries (Phase 10 second batch)
-
-Master `v2` tag points at `1bb098d` "Remove dev files for release v2".
 
 ## Up Next
 
-No active phase. Backlog items, in no particular order, that could be picked up next session:
+No active phase. Backlog items from earlier phases remain:
 
 ### Backlog (deferred from earlier phases)
 
@@ -49,11 +54,20 @@ No active phase. Backlog items, in no particular order, that could be picked up 
 - **Phase 12 deferred**: `claude-dev/test-fleet.sh` -- single command to run all three scripts against all VMs and collect output
 - **Knowledge-base expansion**: cover edge cases surfaced during real-world v2 use; add entries as users report unmatched findings
 
-### Post-v2 monitoring
+### Immediate next steps (user-facing)
 
-- Watch GitHub for new issues / PRs against v2
-- Track which negative findings the analyzer fails to match in real reports; feed misses back into `tools/knowledge/findings.json`
-- If a v2.0.1 patch release becomes necessary: use `./claude-dev/release.sh 2.0.1` (interactive) or follow the documented manual procedure in `claude-dev/GIT_RELEASE_STEPS.md`
+- **Verify the GitHub social preview render.** Upload happened via web UI; to test how LinkedIn / Slack / Twitter will render it:
+  - Paste the repo URL into LinkedIn's post composer (don't publish) -- the preview card shows exactly what followers will see
+  - Same check on Twitter/X and Slack DM to yourself
+  - Or use https://www.opengraph.xyz/ with `https://github.com/cutaway-security/chaps` -- pulls the current social preview without needing to paste into a real platform
+  - If the image looks cropped: GitHub renders social previews at 1280x640 (2:1). A square 500x500 will be letterboxed with GitHub's background; that's normal. If it looks too tight, a future variant with horizontal padding would render better.
+- **Post the LinkedIn announcement.** Draft is in the conversation (not committed to the repo).
+- **Watch for issues / PRs** against v2.
+
+### If a v2.0.1 / v2.1 release is warranted later
+
+- All acronym and logo fixes are already on master, so the next release via `release.sh` will carry them forward automatically.
+- Use `./claude-dev/release.sh 2.0.1` or `./claude-dev/release.sh 2.1`.
 
 ## Blockers
 
@@ -61,10 +75,10 @@ None.
 
 ## Notes for Next Session
 
-- `release.sh` was written but the v2 release was driven manually (the script is interactive and reserved for human-driven runs). The script is now proven to match the manual procedure step-for-step and is ready for the next release.
-- The `.gitattributes` `*.bat text eol=crlf` rule caused a one-time renormalization of `CMD/chaps.bat` in claude-dev after the release. Future fresh clones on Linux will check out `chaps.bat` as CRLF automatically -- the previously-recurring CMD-LF bug should be permanently prevented.
-- Master and claude-dev have diverged (intentional, by design). Master is for releases only; never commit to it directly. To compare what shipped vs. what's in dev:
+- **Branch divergence is intentional.** Master now has 1 commit (`8cd1715`) that is NOT on claude-dev as a distinct commit -- it was cherry-picked. The *content* matches claude-dev's commit `b310ca3`. Fine. For reference:
   ```bash
   git fetch origin
   git diff origin/master..origin/claude-dev --stat
   ```
+- **`.gitattributes` line-ending fight.** Switching between master and claude-dev with the BAT file's normalized state currently triggers a smudge-filter modification warning. Workaround: `git checkout -f <branch>`. Long-term fix: apply the same renormalization commit (`35df259`) to master, either by cherry-pick or in the next release. Low priority.
+- **`release.sh` has been proven against a real release procedure** (v2 was executed manually, but step-for-step matches). Ready for the next release.
