@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 12 - Release Tooling and Deployment Process
-**Status**: Complete in working tree, awaiting commit
-**Focus**: `.gitattributes` and `release.sh` added; `GIT_RELEASE_STEPS.md` updated. Phase 11 (licensing) committed in 6ffc027 ("License Updated"). Phase 8 release tagging unblocks once Phase 12 is committed.
+**Phase**: Released
+**Status**: v2 shipped 2026-04-14
+**Focus**: CHAPS v2 released to master. Tags `dev-v2` and `v2` pushed. GitHub release published at https://github.com/cutaway-security/chaps/releases/tag/v2. Working tree clean on claude-dev. Next session: post-release feedback / hardening backlog.
 
 ## Phases
 
@@ -216,10 +216,12 @@ Release prep (items 1-4 complete 2026-04-14; items 5-8 BLOCKED on Phase 11 + 12)
 - [x] Close PR #14 (prerequisite for deleting cmd-bat-refactor branch) -- thank-you comment to @workentin; content merged into claude-dev
 - [x] Clean up claude-dev/review.local/ -- 21 local analysis files removed
 - [x] Delete 8 stale remote branches: ai-test, port-to-PSv2, smbv1-check-returns-a-false-positive-error, typos-and-grammar, update-output-directory, cmd-bat-refactor, report_format_update, Intern-Dev
-- [ ] **BLOCKED on Phase 11 (licensing) and Phase 12 (release tooling). Resume after both complete.**
-- [ ] Tag dev-v2 on claude-dev, push
-- [ ] Create release-v2 branch, strip claude-dev/ and CLAUDE.md
-- [ ] Force-push to main, tag v2, create GitHub release
+- [x] Tagged `dev-v2` on claude-dev, pushed (2026-04-14)
+- [x] Created `release-v2` branch, stripped `claude-dev/` and `CLAUDE.md`, committed `1bb098d` "Remove dev files for release v2"
+- [x] Force-pushed `release-v2` to `master`, tagged `v2` on master, pushed tag
+- [x] Created GitHub release `v2` from `claude-dev/RELEASE_NOTES_v2.md` -- https://github.com/cutaway-security/chaps/releases/tag/v2
+- [x] Deleted local `release-v2` branch
+- [x] Post-release: renormalized `CMD/chaps.bat` line endings per `.gitattributes` (commit `35df259`); pushed
 
 ### Phase 9: Additional Privilege Escalation and Exposure Checks
 
@@ -336,7 +338,18 @@ Out of scope for Phase 12:
 
 ### Phase 8 (resumed): Release Tagging
 
-After Phase 11 and 12 complete, the original Phase 8 tagging items execute against a repo that has LICENSE, NOTICE, standardized headers, `.gitattributes`, and `release.sh` in place.
+**Status**: Complete (2026-04-14)
+
+CHAPS v2 shipped. Release executed manually following GIT_RELEASE_STEPS.md (the `release.sh` script is interactive and reserved for human-driven runs). All steps verified:
+
+- `dev-v2` tag on claude-dev (commit 7c3983d)
+- `v2` tag on master (commit 1bb098d)
+- master tree contains only ship-list files (15 paths total)
+- No `claude-dev/`, `CLAUDE.md`, or other dev paths in the master tree
+- GitHub release published with full v2 release notes
+- Local `release-v2` branch cleaned up
+
+Post-release housekeeping: `CMD/chaps.bat` was renormalized in claude-dev to match the new `.gitattributes` `*.bat text eol=crlf` rule. Pure line-ending change, no content drift. Master is unaffected.
 
 ## Decision Log
 

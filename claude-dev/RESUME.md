@@ -3,99 +3,68 @@
 ## Current State
 
 **Last Session**: 2026-04-14
-**Branch**: claude-dev (uncommitted Phase 12 changes in working tree; Phase 11 already pushed)
-**Status**: Phase 12 complete in working tree, awaiting user review and commit. Phase 8 release tagging unblocks immediately after.
+**Branch**: claude-dev (clean, in sync with origin)
+**Status**: CHAPS v2 RELEASED. All planned phases (1-12) complete.
 
-## What Was Just Done -- Phase 12 (Release Tooling and Deployment Process)
+## Release Summary
 
-Goal: bring CHAPS release process up to ICSWatchDog standard. Repeatable preflight automation, manual force-push, defensive safety net for `git archive` consumers.
+CHAPS v2 shipped to master on 2026-04-14.
 
-### Files added
+- **GitHub release**: https://github.com/cutaway-security/chaps/releases/tag/v2
+- **Tags**: `dev-v2` (on claude-dev, commit `7c3983d`), `v2` (on master, commit `1bb098d`)
+- **Release notes**: `claude-dev/RELEASE_NOTES_v2.md` (preserved on claude-dev; stripped from master)
 
-- **`.gitattributes`** (repo root) -- `export-ignore` entries for `claude-dev/` and `CLAUDE.md`; also enforces `*.bat text eol=crlf` so the CRLF-on-CMD bug (Windows silently skipping LF-terminated batch lines) cannot re-emerge from a fresh checkout on Linux.
-- **`claude-dev/release.sh`** (executable, syntax-checked) -- adapted from `/home/cutaway/Projects/ICSWatchDog/claude-dev/release.sh`. Automates Steps 1-5 of GIT_RELEASE_STEPS.md and prints the manual Step 6-9 commands.
+### What v2 contains
 
-### Files modified
+Three scripts with check parity (63 checks each) producing Markdown to stdout:
+- `PowerShellv3/chaps_PSv3.ps1`
+- `PowerShellv2/chaps_PSv2.ps1`
+- `CMD/chaps.bat`
 
-- **`claude-dev/GIT_RELEASE_STEPS.md`**:
-  - Added "Automated vs. Manual" preamble pointing at `release.sh`
-  - Pre-release checklist now includes LICENSE, NOTICE, README license section, and analyzer smoke test
-  - "DO ship" list now includes LICENSE, NOTICE, `.gitattributes`
-  - New "Defensive Safety Net" section explains `.gitattributes` behavior
-- **`claude-dev/PLAN.md`** -- Phase 12 marked complete in working tree
-- **`claude-dev/RESUME.md`** -- this file
+Plus:
+- `tools/chaps-analyze.ps1` -- post-processing analyzer
+- `tools/knowledge/findings.json` -- 59-entry analyzer knowledge base
+- Public docs in `docs/`: USAGE, CHECKS, INTERPRETING_REPORTS, REMEDIATION, ANALYSIS
+- `LICENSE` (GPL v3), `NOTICE` (dual-license terms)
+- `.gitattributes` (defensive `export-ignore` + `*.bat text eol=crlf`)
 
-### What `release.sh` does
+### Release commits
 
-1. **Preflight**: confirms repo root, branch=claude-dev, clean tree, dev-tag/rel-tag/rel-branch don't already exist, in sync with origin
-2. **Manual checklist confirmation**: prompts user to confirm PLAN/RESUME/README/LICENSE/NOTICE current; no sensitive data; scripts/analyzer working
-3. **Automated content checks**: every script has the `Cutaway Security, LLC` copyright header; no `[TBD]` markers in shipping files
-4. **Tag claude-dev** as `dev-v#`, push to origin
-5. **Create release branch** `release-v#`
-6. **Strip dev files**: `git rm -rq claude-dev/` and `git rm -q CLAUDE.md`, commit
-7. **Verify release branch**: required files present (README, LICENSE, NOTICE, three scripts, docs/, tools/, knowledge base); forbidden paths absent
-8. **Print manual commands** for force-push to main, tag v#, GitHub release
+- `35df259` Renormalize CMD/chaps.bat line endings per .gitattributes (post-release housekeeping on claude-dev only)
+- `7c3983d` Updated release process (Phase 12)
+- `6ffc027` License Updated (Phase 11)
+- `2267fca` Phase 8 items 1-4: close issue/PRs, delete stale branches
+- `ac432f7` Expand analysis knowledge base to 59 entries (Phase 10 second batch)
 
-Force-push to `main` is **never** automated. The script always stops at the manual command print.
+Master `v2` tag points at `1bb098d` "Remove dev files for release v2".
 
-### Working tree
+## Up Next
 
-```
-new file:   .gitattributes
-new file:   claude-dev/release.sh
-modified:   claude-dev/GIT_RELEASE_STEPS.md
-modified:   claude-dev/PLAN.md
-modified:   claude-dev/RESUME.md
-```
+No active phase. Backlog items, in no particular order, that could be picked up next session:
 
-Nothing committed yet -- user review point.
+### Backlog (deferred from earlier phases)
 
-## Up Next -- Steps to Review Before Proceeding
+- **Phase 10 third batch**: role-aware severity adjustments (DC vs. workstation vs. HMI) in the analyzer
+- **Phase 10 third batch**: optional batch mode (directory of reports -> rollup analysis)
+- **Phase 12 deferred**: `claude-dev/test-fleet.sh` -- single command to run all three scripts against all VMs and collect output
+- **Knowledge-base expansion**: cover edge cases surfaced during real-world v2 use; add entries as users report unmatched findings
 
-### Immediate review (before commit)
+### Post-v2 monitoring
 
-Read these files to confirm the deployment process matches your intent:
-
-1. **`.gitattributes`** -- 3 entries: `claude-dev/ export-ignore`, `CLAUDE.md export-ignore`, `*.bat text eol=crlf`. Confirm the BAT line-ending rule is wanted (it is defensive against a known-recurring bug; says "BAT files always CRLF on checkout").
-2. **`claude-dev/release.sh`** -- preflight + Steps 1-5 + printed manual commands. Spot-check:
-   - Manual checklist items (lines ~95-105) match what you actually want to confirm before each release
-   - Required-file list (lines ~150-160) is the right set for verification
-   - Printed Step 6-9 commands at the bottom match how you want to ship
-3. **`claude-dev/GIT_RELEASE_STEPS.md`** -- the "Automated vs. Manual" preamble, the updated pre-release checklist, the LICENSE/NOTICE/`.gitattributes` ship list, the new "Defensive Safety Net" section.
-
-### Optional dry-run before commit
-
-The release script can be tested without side effects up to the tag-creation step. To smoke-test the preflight + manual checklist + automated checks only, run with a fake version and abort at the first prompt:
-
-```bash
-./claude-dev/release.sh 99    # answer "n" at the manual checklist prompt to abort cleanly
-```
-
-This exercises every check up to the tag step without touching git state.
-
-### Commit step
-
-When approved, commit Phase 12 in one logical commit (suggested message: "Add release.sh and .gitattributes for repeatable releases") and push to `origin/claude-dev`.
-
-### Then -- Phase 8 (resumed): Release Tagging
-
-With Phase 11 + 12 committed and pushed, ship v2:
-
-1. `./claude-dev/release.sh 2`
-2. Answer prompts; provide a short tag message (e.g. `"Markdown rewrite, parity across PSv3/PSv2/CMD, analyzer tool"`)
-3. Review `git log --stat release-v2 | head -40` and `git diff main..release-v2 --stat`
-4. Run the printed Step 6-9 commands manually:
-   - Force-push `release-v2` to `main`
-   - Tag `v2` on main, push tag
-   - Clean up `release-v2` local branch
-   - `gh release create v2 --title "v2" --notes-file <release-notes>` (release notes file to be written)
-5. Update PLAN.md and RESUME.md with the post-release state
+- Watch GitHub for new issues / PRs against v2
+- Track which negative findings the analyzer fails to match in real reports; feed misses back into `tools/knowledge/findings.json`
+- If a v2.0.1 patch release becomes necessary: use `./claude-dev/release.sh 2.0.1` (interactive) or follow the documented manual procedure in `claude-dev/GIT_RELEASE_STEPS.md`
 
 ## Blockers
 
-None. Awaiting user review of Phase 12 working-tree changes.
+None.
 
-## Recently Committed
+## Notes for Next Session
 
-- `6ffc027` License Updated -- Phase 11: dual-license posture, LICENSE + NOTICE files, standardized headers, README Project License section, copyright `2019-2026 Cutaway Security, LLC`
-- `2267fca` Phase 8 items 1-4: close issue/PRs, delete stale branches
+- `release.sh` was written but the v2 release was driven manually (the script is interactive and reserved for human-driven runs). The script is now proven to match the manual procedure step-for-step and is ready for the next release.
+- The `.gitattributes` `*.bat text eol=crlf` rule caused a one-time renormalization of `CMD/chaps.bat` in claude-dev after the release. Future fresh clones on Linux will check out `chaps.bat` as CRLF automatically -- the previously-recurring CMD-LF bug should be permanently prevented.
+- Master and claude-dev have diverged (intentional, by design). Master is for releases only; never commit to it directly. To compare what shipped vs. what's in dev:
+  ```bash
+  git fetch origin
+  git diff origin/master..origin/claude-dev --stat
+  ```
