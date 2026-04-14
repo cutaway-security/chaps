@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 11 - Licensing and Header Standardization
-**Status**: In Progress
-**Focus**: Adopt dual-license posture (GPL v3 + Commercial), add root LICENSE and NOTICE files, standardize per-file headers, update copyright. Required before Phase 8 release tagging can resume. Phase 12 (release tooling) follows.
+**Phase**: Phase 12 - Release Tooling and Deployment Process
+**Status**: Complete in working tree, awaiting commit
+**Focus**: `.gitattributes` and `release.sh` added; `GIT_RELEASE_STEPS.md` updated. Phase 11 (licensing) committed in 6ffc027 ("License Updated"). Phase 8 release tagging unblocks once Phase 12 is committed.
 
 ## Phases
 
@@ -315,17 +315,19 @@ Out of scope for Phase 11:
 
 ### Phase 12: Release Tooling and Deployment Process
 
-**Status**: Not Started (depends on Phase 11)
+**Status**: Complete (in working tree, awaiting commit and review)
 
 Goal: bring CHAPS release process up to ICSWatchDog standard so future releases are repeatable, low-risk, and partially automated. The current `claude-dev/GIT_RELEASE_STEPS.md` documents the manual procedure; this phase adds a defensive safety net and a preflight automation script.
 
 Tasks:
 
-- [ ] Add `.gitattributes` with `export-ignore` entries for `claude-dev/`, `CLAUDE.md`, `LICENSE` exempted, and any future test-fixture paths -- defensive safety net so `git archive` and GitHub auto-tarballs strip dev files even if the manual `git rm` step is missed
-- [ ] Add `claude-dev/release.sh` adapted from ICSWatchDog -- automates Steps 1-5 of GIT_RELEASE_STEPS.md (preflight, dev-tag, release-branch, dev-file strip, verify) and stops before any destructive action; force-push to main remains manual
-- [ ] Update `GIT_RELEASE_STEPS.md` to reference `release.sh` and to add the LICENSE/NOTICE/README license section to the pre-release checklist
-- [ ] Update GIT_RELEASE_STEPS.md "Files Removed During Release" table -- LICENSE and NOTICE must NOT be stripped
-- [ ] Optionally add `claude-dev/test-fleet.sh` (future) -- single command to run all three scripts on all test VMs and collect output for review
+- [x] Added `.gitattributes` with `export-ignore` for `claude-dev/` and `CLAUDE.md`. Also added `*.bat text eol=crlf` to enforce CRLF on the CMD script (Windows CMD silently skips lines on LF-terminated batch files -- previous bug recurrence prevention).
+- [x] Added `claude-dev/release.sh` adapted from ICSWatchDog -- automates Steps 1-5 of GIT_RELEASE_STEPS.md (preflight, manual-checklist confirmation, header/TBD checks, dev-tag, release-branch, dev-file strip, verify) and prints the manual Step 6-9 commands. Force-push to main is never automated. Bash syntax-checked.
+- [x] Updated `GIT_RELEASE_STEPS.md`: added "Automated vs. Manual" preamble pointing at `release.sh`, added LICENSE/NOTICE/README-license-section to the pre-release checklist, added `chaps-analyze.ps1` smoke-test item, added LICENSE/NOTICE/.gitattributes to the "DO ship" list, added "Defensive Safety Net" section explaining `.gitattributes`.
+- [x] "Files Removed During Release" table left untouched -- it never listed LICENSE/NOTICE; verified.
+- Deferred: `claude-dev/test-fleet.sh` -- nice-to-have, not blocking.
+
+Phase 12 commit pending -- await user review.
 
 Out of scope for Phase 12:
 - No `deploy-site.sh` (no website)

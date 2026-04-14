@@ -1,0 +1,24 @@
+# .gitattributes
+#
+# export-ignore entries are stripped by `git archive` and by GitHub's
+# auto-generated release tarball / zip downloads. They are NOT stripped
+# by `git clone` or by the manual force-push release process documented
+# in claude-dev/GIT_RELEASE_STEPS.md.
+#
+# This file is a defensive safety net: any future release path that uses
+# git archive (or relies on GitHub release tarballs) will automatically
+# exclude these dev-only paths even if the manual `git rm` step in the
+# release procedure is missed.
+#
+# LICENSE, NOTICE, README.md, the three scripts, docs/, and tools/ all
+# ship -- do NOT add them here.
+
+# Development workspace -- never ships to users
+claude-dev/   export-ignore
+
+# Claude Code project configuration -- dev-only
+CLAUDE.md     export-ignore
+
+# Line endings: CMD batch files MUST be CRLF; Windows CMD silently
+# skips lines on LF-terminated batch files.
+*.bat         text eol=crlf

@@ -20,17 +20,33 @@ List existing tags before creating a new one:
 git tag
 ```
 
+## Automated vs. Manual
+
+Steps 1-5 of this procedure are automated by `claude-dev/release.sh`. Steps 6-9 (force-push to main, tag the main release, clean up, create the GitHub release) are intentionally left manual -- destructive operations on `main` are never automated.
+
+Quick path:
+
+```bash
+./claude-dev/release.sh <version>   # e.g. 2
+# then run the printed Step 6-9 commands manually
+```
+
+The remainder of this document is the underlying manual procedure that `release.sh` automates and the reference for any step that needs to be performed by hand.
+
 ## Pre-Release Checklist
 
 - [ ] All changes committed and pushed on `claude-dev`
 - [ ] PLAN.md reflects current completion status
 - [ ] RESUME.md is up to date
 - [ ] README.md is accurate for the public release
+- [ ] LICENSE and NOTICE files are present and current
+- [ ] README "Project License" section matches NOTICE
 - [ ] No sensitive data, credentials, or internal references in code or docs
 - [ ] No `[TBD]` or placeholder markers visible to end users
 - [ ] All three scripts (CMD, PSv2, PSv3) produce expected output
 - [ ] Markdown report output renders correctly
 - [ ] Output status prefixes are consistent across all scripts
+- [ ] `tools/chaps-analyze.ps1` runs cleanly against a sample report
 
 ## Release Steps
 
@@ -162,8 +178,15 @@ The following files exist only on the `claude-dev` branch and are stripped befor
 
 The following DO ship with the release (public-facing):
 - `README.md`
+- `LICENSE` (full GPL v3 text)
+- `NOTICE` (dual-license statement, copyright, contact, attribution)
+- `.gitattributes` (defensive `export-ignore` safety net)
 - `PowerShellv3/chaps_PSv3.ps1`
 - `PowerShellv2/chaps_PSv2.ps1`
 - `CMD/chaps.bat`
 - `docs/` (USAGE, CHECKS, INTERPRETING_REPORTS, REMEDIATION, ANALYSIS)
 - `tools/chaps-analyze.ps1` and `tools/knowledge/findings.json`
+
+## Defensive Safety Net: .gitattributes
+
+The repo root ships a `.gitattributes` that marks `claude-dev/` and `CLAUDE.md` with `export-ignore`. This causes `git archive` and GitHub's auto-generated release tarball / zip downloads to strip those paths automatically, even if a future release path skips the manual `git rm` step. The `.gitattributes` file itself is harmless to ship and is part of the release.

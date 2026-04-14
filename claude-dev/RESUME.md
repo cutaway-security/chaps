@@ -3,99 +3,99 @@
 ## Current State
 
 **Last Session**: 2026-04-14
-**Branch**: claude-dev (uncommitted Phase 11 changes in working tree)
-**Status**: Phase 11 (Licensing) COMPLETE in working tree, awaiting user review and commit. Phase 12 (Release Tooling) ready to start. Phase 8 release tagging blocked on Phase 12.
+**Branch**: claude-dev (uncommitted Phase 12 changes in working tree; Phase 11 already pushed)
+**Status**: Phase 12 complete in working tree, awaiting user review and commit. Phase 8 release tagging unblocks immediately after.
 
-## What Was Just Done -- Phase 11 (Licensing and Header Standardization)
+## What Was Just Done -- Phase 12 (Release Tooling and Deployment Process)
 
-Decision: dual-license CHAPS as GPL v3 + Commercial. Allows consulting / internal-org / academic use freely; requires a paid license only for parties bundling CHAPS into proprietary products. Copyright standardized to `Copyright (c) 2019-2026 Cutaway Security, LLC`.
+Goal: bring CHAPS release process up to ICSWatchDog standard. Repeatable preflight automation, manual force-push, defensive safety net for `git archive` consumers.
 
-Files added:
+### Files added
 
-- `LICENSE` -- full GPL v3 text (FSF canonical, 674 lines)
-- `NOTICE` -- dual-license statement, copyright, commercial-license contact (info@cutawaysecurity.com), permitted-use clarifications, attribution requirements
+- **`.gitattributes`** (repo root) -- `export-ignore` entries for `claude-dev/` and `CLAUDE.md`; also enforces `*.bat text eol=crlf` so the CRLF-on-CMD bug (Windows silently skipping LF-terminated batch lines) cannot re-emerge from a fresh checkout on Linux.
+- **`claude-dev/release.sh`** (executable, syntax-checked) -- adapted from `/home/cutaway/Projects/ICSWatchDog/claude-dev/release.sh`. Automates Steps 1-5 of GIT_RELEASE_STEPS.md and prints the manual Step 6-9 commands.
 
-Files modified:
+### Files modified
 
-- `PowerShellv3/chaps_PSv3.ps1` -- header collapsed from ~26 lines of GPL boilerplate to short block citing LICENSE + NOTICE
-- `PowerShellv2/chaps_PSv2.ps1` -- same standardized header
-- `CMD/chaps.bat` -- same standardized header (CMD comment style)
-- `tools/chaps-analyze.ps1` -- inserted standardized header above SYNOPSIS
-- `README.md` -- replaced one-line License section with full Project License section
-- `claude-dev/PLAN.md` -- added Phases 11 + 12, marked Phase 8 blocked on them, added 4 Decision Log entries
-- `claude-dev/RESUME.md` -- this file
+- **`claude-dev/GIT_RELEASE_STEPS.md`**:
+  - Added "Automated vs. Manual" preamble pointing at `release.sh`
+  - Pre-release checklist now includes LICENSE, NOTICE, README license section, and analyzer smoke test
+  - "DO ship" list now includes LICENSE, NOTICE, `.gitattributes`
+  - New "Defensive Safety Net" section explains `.gitattributes` behavior
+- **`claude-dev/PLAN.md`** -- Phase 12 marked complete in working tree
+- **`claude-dev/RESUME.md`** -- this file
 
-Working tree:
+### What `release.sh` does
+
+1. **Preflight**: confirms repo root, branch=claude-dev, clean tree, dev-tag/rel-tag/rel-branch don't already exist, in sync with origin
+2. **Manual checklist confirmation**: prompts user to confirm PLAN/RESUME/README/LICENSE/NOTICE current; no sensitive data; scripts/analyzer working
+3. **Automated content checks**: every script has the `Cutaway Security, LLC` copyright header; no `[TBD]` markers in shipping files
+4. **Tag claude-dev** as `dev-v#`, push to origin
+5. **Create release branch** `release-v#`
+6. **Strip dev files**: `git rm -rq claude-dev/` and `git rm -q CLAUDE.md`, commit
+7. **Verify release branch**: required files present (README, LICENSE, NOTICE, three scripts, docs/, tools/, knowledge base); forbidden paths absent
+8. **Print manual commands** for force-push to main, tag v#, GitHub release
+
+Force-push to `main` is **never** automated. The script always stops at the manual command print.
+
+### Working tree
 
 ```
-modified:   CMD/chaps.bat
-modified:   PowerShellv2/chaps_PSv2.ps1
-modified:   PowerShellv3/chaps_PSv3.ps1
-modified:   README.md
+new file:   .gitattributes
+new file:   claude-dev/release.sh
+modified:   claude-dev/GIT_RELEASE_STEPS.md
 modified:   claude-dev/PLAN.md
 modified:   claude-dev/RESUME.md
-modified:   tools/chaps-analyze.ps1
-new file:   LICENSE
-new file:   NOTICE
 ```
 
 Nothing committed yet -- user review point.
 
-## Up Next -- Deployment Process Work
+## Up Next -- Steps to Review Before Proceeding
 
-### Immediate (before any further coding)
+### Immediate review (before commit)
 
-1. **User review** of Phase 11 changes. Read LICENSE/NOTICE/README license section and one script header to confirm wording matches intent.
-2. **Commit Phase 11** in one logical commit: `Adopt dual-license posture (GPL v3 + Commercial)`.
-3. **Push to origin/claude-dev**.
+Read these files to confirm the deployment process matches your intent:
 
-### Phase 12 -- Release Tooling and Deployment Process
+1. **`.gitattributes`** -- 3 entries: `claude-dev/ export-ignore`, `CLAUDE.md export-ignore`, `*.bat text eol=crlf`. Confirm the BAT line-ending rule is wanted (it is defensive against a known-recurring bug; says "BAT files always CRLF on checkout").
+2. **`claude-dev/release.sh`** -- preflight + Steps 1-5 + printed manual commands. Spot-check:
+   - Manual checklist items (lines ~95-105) match what you actually want to confirm before each release
+   - Required-file list (lines ~150-160) is the right set for verification
+   - Printed Step 6-9 commands at the bottom match how you want to ship
+3. **`claude-dev/GIT_RELEASE_STEPS.md`** -- the "Automated vs. Manual" preamble, the updated pre-release checklist, the LICENSE/NOTICE/`.gitattributes` ship list, the new "Defensive Safety Net" section.
 
-Tasks (in order):
+### Optional dry-run before commit
 
-1. Add `.gitattributes` at repo root with `export-ignore` entries:
-   - `claude-dev/   export-ignore`
-   - `CLAUDE.md     export-ignore`
-   - (LICENSE, NOTICE, README, scripts, docs, tools all ship -- no entry needed)
-   - Defensive safety net so `git archive` and GitHub auto-tarballs strip dev files even if the manual `git rm` step is missed.
-2. Add `claude-dev/release.sh` adapted from ICSWatchDog (`/home/cutaway/Projects/ICSWatchDog/claude-dev/release.sh`):
-   - Preflight: branch=claude-dev, clean tree, tags don't already exist, in sync with origin
-   - Manual pre-release checklist confirmation (PLAN/RESUME/README/NOTICE current; no sensitive data)
-   - Tag `dev-v#`, push tag
-   - Create `release-v#` branch
-   - `git rm -rq claude-dev/`, `git rm -q CLAUDE.md`
-   - Verify required files present (README, LICENSE, NOTICE, three scripts, docs/, tools/)
-   - Verify dev files absent
-   - Print copy-paste manual commands for force-push to main, tag v#, GitHub release
-   - Force-push to main is NEVER automated
-3. Update `claude-dev/GIT_RELEASE_STEPS.md`:
-   - Reference `release.sh` for Steps 1-5
-   - Add LICENSE, NOTICE, README license section to pre-release checklist
-   - Confirm "Files Removed During Release" table does NOT include LICENSE or NOTICE
-4. Update `claude-dev/GIT_RELEASE_STEPS.md` "ship" table to reflect: LICENSE and NOTICE both ship; .gitattributes ships.
+The release script can be tested without side effects up to the tag-creation step. To smoke-test the preflight + manual checklist + automated checks only, run with a fake version and abort at the first prompt:
 
-### Phase 8 (resumed) -- Release Tagging
+```bash
+./claude-dev/release.sh 99    # answer "n" at the manual checklist prompt to abort cleanly
+```
 
-Once Phase 12 lands and is committed:
+This exercises every check up to the tag step without touching git state.
 
-- Run `./claude-dev/release.sh 2`
-- Manually run the printed force-push, tag-v2, GitHub-release-create commands
-- Update PLAN.md and RESUME.md post-release
+### Commit step
+
+When approved, commit Phase 12 in one logical commit (suggested message: "Add release.sh and .gitattributes for repeatable releases") and push to `origin/claude-dev`.
+
+### Then -- Phase 8 (resumed): Release Tagging
+
+With Phase 11 + 12 committed and pushed, ship v2:
+
+1. `./claude-dev/release.sh 2`
+2. Answer prompts; provide a short tag message (e.g. `"Markdown rewrite, parity across PSv3/PSv2/CMD, analyzer tool"`)
+3. Review `git log --stat release-v2 | head -40` and `git diff main..release-v2 --stat`
+4. Run the printed Step 6-9 commands manually:
+   - Force-push `release-v2` to `main`
+   - Tag `v2` on main, push tag
+   - Clean up `release-v2` local branch
+   - `gh release create v2 --title "v2" --notes-file <release-notes>` (release notes file to be written)
+5. Update PLAN.md and RESUME.md with the post-release state
 
 ## Blockers
 
-None. Awaiting user review of Phase 11 working-tree changes.
+None. Awaiting user review of Phase 12 working-tree changes.
 
-## Files Modified This Session
+## Recently Committed
 
-| File | Change |
-|------|---|
-| LICENSE (new) | Full GPL v3 text |
-| NOTICE (new) | Dual-license statement, copyright, contact, permitted-use clarifications |
-| PowerShellv3/chaps_PSv3.ps1 | Standardized 12-line header replacing inline GPL boilerplate |
-| PowerShellv2/chaps_PSv2.ps1 | Same standardized header |
-| CMD/chaps.bat | Same standardized header (CMD comment style) |
-| tools/chaps-analyze.ps1 | Inserted standardized header above SYNOPSIS |
-| README.md | Project License section rewritten; mirrors NOTICE |
-| claude-dev/PLAN.md | Added Phases 11 + 12; Phase 8 blocked; 4 Decision Log entries |
-| claude-dev/RESUME.md | This file |
+- `6ffc027` License Updated -- Phase 11: dual-license posture, LICENSE + NOTICE files, standardized headers, README Project License section, copyright `2019-2026 Cutaway Security, LLC`
+- `2267fca` Phase 8 items 1-4: close issue/PRs, delete stale branches
