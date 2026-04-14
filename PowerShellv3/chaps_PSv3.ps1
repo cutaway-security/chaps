@@ -381,25 +381,44 @@ function Get-WinPatch {
 function Get-BitLocker {    
     if (-NOT $global:admin_user){ return }
     if (Test-CommandExists Get-BitLockerVolume){
-        $vs = Get-BitLockerVolume -ErrorAction Stop | Where-Object {$_.VolumeType -eq 'OperatingSystem'} | Select VolumeStatus -ErrorAction Stop
-        $resvs = $vs.VolumeStatus 
-        if ($resvs -eq 'FullyEncrypted'){
-            Write-Output "$pos_str BitLocker detected and Operating System Volume is: $resvs"
-} else {
-            Write-Output "$neg_str BitLocker not detected on Operating System Volume or encryption is not complete. Check for other encryption methods: $resvs"
-}
-    } else {
-        $vsm = manage-bde -status | Select-String -Pattern 'Conversion Status'
+        Try {
+            $vs = Get-BitLockerVolume -ErrorAction Stop | Where-Object {$_.VolumeType -eq 'OperatingSystem'} | Select VolumeStatus -ErrorAction Stop
+            $resvs = $vs.VolumeStatus
+            if ($resvs -eq 'FullyEncrypted'){
+                Write-Output "$pos_str BitLocker detected and Operating System Volume is: $resvs"
+            } else {
+                Write-Output "$neg_str BitLocker not detected on Operating System Volume or encryption is not complete. Check for other encryption methods: $resvs"
+            }
+        }
+        Catch {
+            Write-Output "$inf_str Get-BitLockerVolume available but failed: $($_.Exception.Message)"
+        }
+        return
+    }
+
+    # Fallback: manage-bde.exe (may not exist on Server editions without BitLocker feature installed)
+    Try {
+        $mbde = Get-Command manage-bde.exe -ErrorAction Stop
+    }
+    Catch {
+        Write-Output "$inf_str BitLocker check skipped: neither Get-BitLockerVolume nor manage-bde.exe available. BitLocker feature is likely not installed."
+        return
+    }
+
+    Try {
+        $vsm = manage-bde -status 2>$null | Select-String -Pattern 'Conversion Status'
         if ($vsm -ne $null){
-            $resvsm = Select-String -Pattern 'Fully Encrypted'
-            if ($resvsm -ne $null){
-                Write-Output "$pos_str Operating System Volume is Fully Encrypted (manage-bde): $resvsm"
-} else {
-                Write-Output "$pos_str BitLocker not detected or encryption is not complete. Please check for other encryption methods (manage-bde): $resvsm"
-}
+            if ($vsm -match 'Fully Encrypted'){
+                Write-Output "$pos_str Operating System Volume is Fully Encrypted (manage-bde): $vsm"
+            } else {
+                Write-Output "$neg_str BitLocker not detected or encryption is not complete (manage-bde): $vsm"
+            }
         } else {
-            Write-Output "$neg_str BitLocker not detected. Please check for other encryption methods."
-}
+            Write-Output "$neg_str BitLocker not detected (manage-bde returned no Conversion Status)."
+        }
+    }
+    Catch {
+        Write-Output "$err_str manage-bde fallback failed: $($_.Exception.Message)"
     }
 }
 
@@ -604,8 +623,8 @@ function Get-CredDeviceGuard {
     
     if ([System.Environment]::OSVersion.Version.Major -ge 10){
         Try{
-            $secServConfig = (Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesConfigured
-            $secServRunning = (Get-CimInstance –ClassName Win32_DeviceGuard –Namespace root\Microsoft\Windows\DeviceGuard).SecurityServicesRunning
+            $secServConfig = (Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction Stop).SecurityServicesConfigured
+            $secServRunning = (Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction Stop).SecurityServicesRunning
         }
         Catch{
             Write-Output "$err_str Testing for Credential and Device Guard failed."
