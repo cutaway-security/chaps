@@ -50,7 +50,7 @@
 
   "uac_disabled": {
     "title": "UAC disabled (EnableLUA=0)",
-    "matches": ["UAC is disabled (EnableLUA:"],
+    "matches": ["UAC is disabled (EnableLUA:", "UAC does not filter built-in Administrator token", "UAC is not filtering Administrator tokens", "EnableLUA is disabled", "EnableLUA: Disabled"],
     "check": "Check 19",
     "section": "System Info",
     "severity": "High",
@@ -99,7 +99,7 @@
 
   "smbv1_enabled": {
     "title": "SMBv1 server protocol enabled",
-    "matches": ["SMBv1 is Enabled", "SMB1 server protocol is ENABLED", "SMB1 server protocol is enabled"],
+    "matches": ["SMBv1 is Enabled", "SMB1 server protocol is ENABLED", "SMB1 server protocol is enabled", "SMBv1 registry key not set"],
     "check": "Check 27",
     "section": "Security",
     "severity": "High",
@@ -166,7 +166,7 @@
 
   "lmcompatibility_weak": {
     "title": "LAN Manager authentication level allows LM or NTLMv1",
-    "matches": ["LmCompatibilityLevel not configured", "LM Compatability Level is not configured to prevent LM and NTLM"],
+    "matches": ["LmCompatibilityLevel not configured", "LM Compatability Level is not configured to prevent LM and NTLM", "LM Compatability Level registry key is not configured"],
     "check": "Check 37",
     "section": "Authentication",
     "severity": "High",
@@ -215,7 +215,7 @@
 
   "weak_program_permissions": {
     "title": "Weak ACL on program directory",
-    "matches": ["Weak ACL:"],
+    "matches": ["Weak ACL:", "grants Modify", "grants Write", "grants FullControl"],
     "check": "Check 25",
     "section": "System Info",
     "severity": "Medium",
@@ -266,7 +266,7 @@
 
   "ps_scriptblock_logging_off": {
     "title": "PowerShell Script Block Logging not enabled",
-    "matches": ["EnableScriptBlockLogging Is Not Set", "Script Block Logging is not enabled"],
+    "matches": ["EnableScriptBlockLogging Is Not Set", "Script Block Logging is not enabled", "EnableScriptBlockInvocationLogging Is Not Set"],
     "check": "Check 57",
     "section": "PowerShell",
     "severity": "Low",
@@ -283,7 +283,7 @@
 
   "cmdline_auditing_off": {
     "title": "Command-line auditing not enabled",
-    "matches": ["ProcessCreationIncludeCmdLine_Enabled Is Not Set", "Command-line auditing is not enabled", "ProcessCreationIncludeCmdLine_Enabled: 0"],
+    "matches": ["ProcessCreationIncludeCmdLine_Enabled Is Not Set", "Command-line auditing is not enabled", "ProcessCreationIncludeCmdLine_Enabled: 0", "Command-line process auditing is not enabled"],
     "check": "Check 62",
     "section": "Logging",
     "severity": "Medium",
@@ -295,5 +295,677 @@
     ],
     "related_findings": ["ps_scriptblock_logging_off"],
     "references": ["CIS Benchmark 17.3.1"]
+  },
+
+  "missing_critical_patches": {
+    "title": "Missing critical or important Windows updates",
+    "matches": ["Missing Critical or Important Update KB:"],
+    "check": "Check 5",
+    "section": "System Info",
+    "severity": "High",
+    "technical_detail": "Windows Update has identified one or more updates classified as Critical or Important that are not installed on this system. These typically patch publicly-documented remote-code-execution or privilege-escalation vulnerabilities.",
+    "risk": "Unpatched vulnerabilities with known exploits provide direct initial-access paths. Attackers scan for unpatched systems; publicly-released proof-of-concept code lets commodity threat actors weaponize an un-applied patch within days of release.",
+    "recommendation": "Apply all missing Critical and Important updates. For OT systems under a maintenance window, schedule the cumulative update for the next approved window; for workstations, deploy immediately. Validate applied patches via `Get-HotFix` or Windows Update history after reboot.",
+    "mitre_attack": [
+      {"id": "T1190", "name": "Exploit Public-Facing Application"},
+      {"id": "T1210", "name": "Exploitation of Remote Services"}
+    ],
+    "related_findings": ["autoupdate_not_scheduled"],
+    "references": []
+  },
+
+  "autoupdate_not_scheduled": {
+    "title": "Windows Automatic Updates not set to scheduled install",
+    "matches": ["Windows AutoUpdate is not configured to automatically install updates", "AUOptions registry value not found", "AUOptions: 0", "AUOptions: 1", "AUOptions: 2", "AUOptions: 3"],
+    "check": "Check 4",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "AUOptions controls Windows Update behavior. Value 4 (Auto download and schedule install) is the hardened default. Values 0-3 leave patching to manual intervention or user prompts, which frequently delays security updates by weeks.",
+    "risk": "Systems without automatic patching remain vulnerable to publicly-documented exploits well after Microsoft ships fixes. Attackers scan for unpatched Windows versions and use N-day exploits against them.",
+    "recommendation": "Set AUOptions=4 (Auto download and schedule installation) and configure a scheduled install time that aligns with the system's maintenance window. For OT systems, WSUS or a managed patch process is preferable to auto-install -- but unmanaged systems should still be on auto-install rather than manual.",
+    "mitre_attack": [
+      {"id": "T1190", "name": "Exploit Public-Facing Application"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.9.102.2"]
+  },
+
+  "bitlocker_not_encrypted": {
+    "title": "BitLocker not enabled on operating system volume",
+    "matches": ["BitLocker not detected on Operating System Volume", "BitLocker not detected", "BitLocker service (BDESVC) is installed but stopped", "BitLocker check skipped: neither Get-BitLockerVolume nor manage-bde.exe available"],
+    "check": "Check 6",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "BitLocker full-disk encryption protects the operating system volume at rest. Without it, physical access to the drive (or an image of it) yields direct access to all data and to the offline SAM database for credential recovery.",
+    "risk": "A stolen laptop, decommissioned drive, or improperly wiped system leaks all data stored on the volume. Offline attacks against the SAM (dumping LM/NTLM hashes, tampering with boot files for bypass) become trivial without disk encryption.",
+    "recommendation": "Enable BitLocker on the OS volume using a TPM-backed key protector. Back up recovery keys to Active Directory or a secure escrow system before enabling. On Server editions, the BitLocker feature must first be installed.",
+    "mitre_attack": [
+      {"id": "T1552.004", "name": "Unsecured Credentials: Private Keys"},
+      {"id": "T1003.002", "name": "OS Credential Dumping: Security Account Manager"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.9.11", "Microsoft: BitLocker overview"]
+  },
+
+  "exploit_protection_off": {
+    "title": "Exploit Protection mitigations (DEP/ASLR/CFG) not enabled",
+    "matches": ["System-wide DEP (Data Execution Prevention) is not enabled", "System-wide mandatory ASLR is not enabled", "System-wide Control Flow Guard (CFG) is not enabled"],
+    "check": "Check 8",
+    "section": "System Info",
+    "severity": "High",
+    "technical_detail": "Data Execution Prevention, mandatory ASLR (Address Space Layout Randomization), and Control Flow Guard are foundational exploit mitigations built into modern Windows. Each makes memory-corruption exploits (buffer overflow, use-after-free, ROP chain construction) substantially harder.",
+    "risk": "Without these mitigations, memory-corruption vulnerabilities in any process running on the system become much more exploitable. Older malware families and commodity exploits specifically target systems with mitigations disabled.",
+    "recommendation": "Enable system-wide Exploit Protection: `Set-ProcessMitigation -System -Enable DEP,SEHOP,BottomUp,ForceRelocateImages,CFG`. The default Windows 10/11 configuration has these on -- a negative finding means a policy has explicitly disabled them.",
+    "mitre_attack": [
+      {"id": "T1055", "name": "Process Injection"}
+    ],
+    "related_findings": [],
+    "references": ["Microsoft: Exploit Protection reference", "CIS Benchmark 18.9.45"]
+  },
+
+  "laps_not_installed": {
+    "title": "LAPS (Local Administrator Password Solution) not installed",
+    "matches": ["Local Administrator Password Solution (LAPS) is not installed", "LAPS does not appear to be configured"],
+    "check": "Check 9",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "LAPS randomizes and rotates the local administrator password on each managed system and stores it in a securely-ACLed directory attribute (AD or Azure AD). Without LAPS, local administrator passwords tend to be identical across systems or rarely rotated.",
+    "risk": "Shared local administrator passwords enable lateral movement: a single compromised host discloses the password to every other system using the same local admin. This is one of the most common paths from initial access to domain-wide compromise.",
+    "recommendation": "Deploy Windows LAPS (built into Windows 10 21H2+ and Server 2019+) or legacy LAPS on all managed systems. Configure password complexity and rotation interval per organizational policy.",
+    "mitre_attack": [
+      {"id": "T1078.003", "name": "Valid Accounts: Local Accounts"},
+      {"id": "T1550.002", "name": "Use Alternate Authentication Material: Pass the Hash"}
+    ],
+    "related_findings": ["lmhash_not_configured"],
+    "references": ["Microsoft: Windows LAPS overview", "CIS Benchmark 18.2"]
+  },
+
+  "applocker_not_configured": {
+    "title": "AppLocker not configured",
+    "matches": ["AppLocker not configured"],
+    "check": "Check 12",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "AppLocker (or WDAC) is Windows' application allowlisting mechanism. When configured in enforce mode, only signed or explicitly-allowed binaries, scripts, and DLLs execute. Without an allowlist policy, any executable the user (or malware) can place on disk will run.",
+    "risk": "Unchecked execution of arbitrary binaries and scripts. Malware delivered via email, download, or lateral movement runs without any code-integrity check. This is the single most impactful missing control on most Windows endpoints.",
+    "recommendation": "Deploy AppLocker or WDAC in enforce mode. AppLocker is simpler to roll out; WDAC is stronger (kernel-enforced) and preferred for high-security environments. Start in audit mode to build a baseline of legitimate executables before switching to enforce.",
+    "mitre_attack": [
+      {"id": "T1218", "name": "System Binary Proxy Execution"},
+      {"id": "T1059", "name": "Command and Scripting Interpreter"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off"],
+    "references": ["CIS Benchmark 18.9.6", "Microsoft: AppLocker overview"]
+  },
+
+  "netsessionenum_open": {
+    "title": "Net Session Enumeration not restricted",
+    "matches": ["RestrictRemoteSAM registry key is not configured", "SrvsvcSessionInfo registry key is not configured", "RestrictRemoteSAM: ", "RestrictRemoteSAM is not configured"],
+    "check": "Check 11",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "SrvsvcSessionInfo and RestrictRemoteSAM registry keys control which principals can enumerate remote sessions and the SAM database. By default (unconfigured), any authenticated user can enumerate active logon sessions via NetSessionEnum and SAMR.",
+    "risk": "Attackers and AD enumeration tools (BloodHound, PowerView) use these interfaces to map user-to-host sessions and identify high-value targets (domain admins logged into specific workstations). Tightening these controls meaningfully slows AD enumeration.",
+    "recommendation": "Set RestrictRemoteSAM to a restrictive SDDL that only permits Administrators. Apply the Net Cease hardening for SrvsvcSessionInfo. Both changes have minimal impact on legitimate use.",
+    "mitre_attack": [
+      {"id": "T1087.002", "name": "Account Discovery: Domain Account"},
+      {"id": "T1018", "name": "Remote System Discovery"}
+    ],
+    "related_findings": [],
+    "references": ["Microsoft: Net Cease hardening", "CIS Benchmark 2.3.10.2"]
+  },
+
+  "device_guard_not_configured": {
+    "title": "Device Guard not configured",
+    "matches": ["Device Guard: no properties exist and therefore is not configured", "Device Guard WMI class not available"],
+    "check": "Check 13",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "Device Guard uses Virtualization-Based Security (VBS) to enforce code-integrity policies at the kernel level. Hypervisor-Protected Code Integrity (HVCI) prevents unsigned or policy-violating code from executing in kernel mode.",
+    "risk": "Without Device Guard, a kernel-mode exploit or signed-driver attack (bring-your-own-vulnerable-driver) can run arbitrary kernel code, disable security products, and persist below the operating system.",
+    "recommendation": "Enable Device Guard with HVCI. Requires UEFI, Secure Boot, TPM 2.0, and VBS-capable CPU. Test driver compatibility before rollout -- incompatible drivers will be blocked from loading.",
+    "mitre_attack": [
+      {"id": "T1068", "name": "Exploitation for Privilege Escalation"},
+      {"id": "T1014", "name": "Rootkit"}
+    ],
+    "related_findings": ["credential_guard_off", "secure_boot_off"],
+    "references": ["CIS Benchmark 18.9.11"]
+  },
+
+  "account_policy_weak": {
+    "title": "Account lockout or password policy not hardened",
+    "matches": ["Account lockout threshold is not configured", "Minimum password length is too short", "Built-in Administrator account has not been renamed", "Guest account is enabled"],
+    "check": "Check 20",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "Weak or missing account policies (no lockout threshold, short password minimum, Guest account enabled, default 'Administrator' name) create multiple low-friction paths for account compromise: password spray, default-credential guessing, and brute force.",
+    "risk": "Password-spray attacks against the built-in Administrator account are a primary initial-access technique. No lockout threshold turns this into unlimited attempts. Short password minimums accelerate offline cracking of any hash capture.",
+    "recommendation": "Configure: lockout threshold 5 with 15-minute duration; minimum password length 14; disable the Guest account; rename the built-in Administrator account from its default name. Policies should be set via GPO for consistency across the fleet.",
+    "mitre_attack": [
+      {"id": "T1110.001", "name": "Brute Force: Password Guessing"},
+      {"id": "T1110.003", "name": "Brute Force: Password Spraying"},
+      {"id": "T1078.003", "name": "Valid Accounts: Local Accounts"}
+    ],
+    "related_findings": ["laps_not_installed"],
+    "references": ["CIS Benchmark 1.1", "CIS Benchmark 2.3.1"]
+  },
+
+  "secure_boot_off": {
+    "title": "Secure Boot not enabled",
+    "matches": ["Secure Boot is not enabled", "Secure Boot status could not be determined", "UEFI Secure Boot is disabled"],
+    "check": "Check 21",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "UEFI Secure Boot verifies firmware and OS loader signatures before allowing boot. Without it, an attacker with persistence (bootkit, modified bootloader) can load unsigned or altered boot code that executes before the OS.",
+    "risk": "Enables bootkit persistence and pre-OS tampering. Once a bootkit is in place, it can disable Credential Guard, HVCI, kernel driver signing, and similar boot-time protections before they initialize.",
+    "recommendation": "Enable Secure Boot in UEFI firmware. Requires the disk to be GPT-partitioned and Windows installed in UEFI mode. On BIOS-mode systems, conversion with `mbr2gpt.exe` is required and should be tested.",
+    "mitre_attack": [
+      {"id": "T1542.003", "name": "Pre-OS Boot: Bootkit"}
+    ],
+    "related_findings": ["credential_guard_off", "device_guard_not_configured"],
+    "references": ["CIS Benchmark 18.9.11", "STIG V-63329"]
+  },
+
+  "risky_service_running": {
+    "title": "High-risk service running (Print Spooler, Remote Registry, SNMP, etc.)",
+    "matches": ["Print Spooler (PrintNightmare risk) service is running", "service is RUNNING. Evaluate whether this service is needed", "Spooler service is RUNNING", "RemoteRegistry service is RUNNING", "SNMP service is RUNNING", "TlntSvr service is RUNNING", "RemoteAccess service is RUNNING"],
+    "check": "Check 23",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "Services like Print Spooler (PrintNightmare CVE-2021-34527), Remote Registry, SNMP (community string enumeration), Telnet Server (unencrypted credentials), and Routing and Remote Access expose attack surface. Each has known exploitation paths and is rarely needed outside specific roles.",
+    "risk": "Print Spooler has produced multiple wormable RCE vulnerabilities in the past 5 years. SNMP enumeration discloses system inventory to the network. Telnet leaks credentials in cleartext. Each enabled service is an uncontested attack surface.",
+    "recommendation": "Disable services that the system's role does not require. A standard user workstation typically does not need Remote Registry, SNMP, Telnet, or Remote Access. Print Spooler should be disabled on systems that do not print (most servers, many specialized workstations).",
+    "mitre_attack": [
+      {"id": "T1210", "name": "Exploitation of Remote Services"},
+      {"id": "T1021", "name": "Remote Services"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 5"]
+  },
+
+  "smb_encryption_off": {
+    "title": "SMB encryption / unencrypted access not hardened",
+    "matches": ["SMB Server Encryption (EncryptData) is Disabled", "SMB Server RejectUnencryptedAccess is Disabled"],
+    "check": "Check 27",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "SMBv3 supports end-to-end encryption of the protocol. EncryptData and RejectUnencryptedAccess, when enabled, force clients to use encrypted SMB and reject legacy unencrypted sessions.",
+    "risk": "Unencrypted SMB is subject to passive interception on the local network. Combined with weak or absent signing, it is also subject to active manipulation (ntlmrelayx).",
+    "recommendation": "Enable SMB encryption on servers hosting sensitive file shares. Consider RejectUnencryptedAccess for high-security environments. Verify legacy client compatibility before enabling cluster-wide -- some older clients and appliances do not support SMBv3 encryption.",
+    "mitre_attack": [
+      {"id": "T1040", "name": "Network Sniffing"},
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["smb_server_signing_off", "smbv1_enabled"],
+    "references": ["CIS Benchmark 2.3.10"]
+  },
+
+  "smbv1_audit_off": {
+    "title": "SMBv1 auditing disabled",
+    "matches": ["SMBv1 Auditing is Disabled", "SMBv1 Auditing is not configured"],
+    "check": "Check 27",
+    "section": "Security",
+    "severity": "Low",
+    "technical_detail": "With SMBv1 auditing enabled, any SMBv1 session attempt is logged. This is how an administrator discovers legacy clients still depending on SMBv1 before disabling the protocol entirely.",
+    "risk": "Without auditing, disabling SMBv1 cleanly requires guesswork about which clients still need it. In practice, organizations either leave SMBv1 on (risk) or disable it without audit (break legacy applications unexpectedly).",
+    "recommendation": "Enable SMBv1 auditing on servers. Monitor the event log for 30-90 days to identify legacy clients. Then disable the protocol once all legitimate users have been migrated.",
+    "mitre_attack": [],
+    "related_findings": ["smbv1_enabled"],
+    "references": ["Microsoft: Detecting and remediating SMBv1"]
+  },
+
+  "anonymous_enumeration": {
+    "title": "Anonymous enumeration of SAM or shares not restricted",
+    "matches": ["RestrictAnonymous registry key is not configured", "RestrictAnonymoussam registry key is not configured", "RestrictAnonymous: 0"],
+    "check": "Check 28",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "RestrictAnonymous and RestrictAnonymousSAM control whether unauthenticated users can enumerate local accounts, groups, and shares via SAMR and LSARPC. With default (unconfigured) values, an anonymous network session can dump the full local user and group database.",
+    "risk": "Anonymous enumeration reveals user account names, group membership, and share names without authentication. This is reconnaissance data used for password spray target selection and lateral movement planning.",
+    "recommendation": "Set RestrictAnonymous=1 and RestrictAnonymousSAM=1 via GPO. Default for modern domain-joined systems is typically hardened; standalone systems may still have the legacy (open) behavior.",
+    "mitre_attack": [
+      {"id": "T1087.001", "name": "Account Discovery: Local Account"},
+      {"id": "T1135", "name": "Network Share Discovery"}
+    ],
+    "related_findings": ["netsessionenum_open"],
+    "references": ["CIS Benchmark 2.3.10.4", "STIG V-63733"]
+  },
+
+  "untrusted_fonts_off": {
+    "title": "Kernel untrusted-font blocking not configured",
+    "matches": ["Kernel MitigationOptions key does not exist", "Kernel MitigationOptions key is configured not to block"],
+    "check": "Check 29",
+    "section": "Security",
+    "severity": "Low",
+    "technical_detail": "On Windows 10+, a registry-configured MitigationOptions bitmask blocks kernel loading of untrusted fonts. Font parsers historically have been a kernel-mode attack surface (multiple CVEs).",
+    "risk": "Without untrusted-font blocking, a malicious font file processed by kernel-mode components can reach exploitable parser code. Combined with user-mode delivery (web page, document) this becomes a kernel exploit vector.",
+    "recommendation": "Configure MitigationOptions to block untrusted fonts kernel-wide. Less critical on modern Windows since font parsing moved to user mode in many components, but still a defensive layer.",
+    "mitre_attack": [
+      {"id": "T1068", "name": "Exploitation for Privilege Escalation"}
+    ],
+    "related_findings": [],
+    "references": ["Microsoft: Block untrusted fonts"]
+  },
+
+  "asr_not_configured": {
+    "title": "Attack Surface Reduction (ASR) rules not configured",
+    "matches": ["No Attack Surface Reduction rules configured"],
+    "check": "Check 30",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "ASR rules are Windows Defender Exploit Guard policies that block common attack techniques: Office macro child processes, credential theft from LSASS, obfuscated scripts, executable email attachments, and similar. Each rule is independently configurable.",
+    "risk": "ASR rules are among the highest-leverage Windows endpoint hardening controls available. A typical initial-access chain (phishing email -> Office macro -> LOLBin -> credential theft) is broken at multiple points by ASR rules. Leaving them unconfigured passes up a significant defense.",
+    "recommendation": "Enable key ASR rules in Block mode: `Block credential stealing from LSASS`, `Block Office applications from creating child processes`, `Block executable content from email client`, `Block Win32 API calls from Office macros`. Start in Audit mode, review exclusions, then move to Block.",
+    "mitre_attack": [
+      {"id": "T1003.001", "name": "OS Credential Dumping: LSASS Memory"},
+      {"id": "T1566.001", "name": "Phishing: Spearphishing Attachment"},
+      {"id": "T1204.002", "name": "User Execution: Malicious File"}
+    ],
+    "related_findings": ["credential_guard_off", "applocker_not_configured"],
+    "references": ["Microsoft: ASR rules reference", "CIS Benchmark 18.9.45"]
+  },
+
+  "smb_client_signing_off": {
+    "title": "SMB client signing not required",
+    "matches": ["SMB Client Require Security Signature is Disabled", "SMB Client RequireSecuritySignature not configured", "SMB client RequireSecuritySignature: 0"],
+    "check": "Check 31",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "SMB client signing prevents an on-path attacker from tampering with SMB sessions the client initiates. Without it, the client will accept unsigned responses, enabling relay attacks back to the client.",
+    "risk": "Enables SMB relay attacks against the client: an attacker that captures or coerces authentication can relay it to other targets the client connects to. Combined with unsigned server connections, this is a reliable lateral-movement path.",
+    "recommendation": "Set RequireSecuritySignature=1 on the LanmanWorkstation parameters. GPO: `Microsoft network client: Digitally sign communications (always)` -> Enabled.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["smb_server_signing_off", "llmnr_enabled", "netbios_enabled"],
+    "references": ["CIS Benchmark 2.3.8.2"]
+  },
+
+  "audit_policy_missing": {
+    "title": "Audit policy missing key subcategories",
+    "matches": ["Audit policy for Process creation events: No Auditing", "Audit policy for Security system changes: No Auditing", "Audit policy for Account Logon events: No Auditing", "Audit policy for Security group changes: No Auditing", "Audit policy for User account changes: No Auditing"],
+    "check": "Check 33",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "Advanced Audit Policy Configuration has dozens of subcategories. Only certain subcategories produce the events needed for meaningful detection and forensics: Process Creation, Logon/Logoff, Special Logon, User Account Management, Security Group Management, Security System Extension, Authentication Policy Change, and a handful of others.",
+    "risk": "Missing audit subcategories create blind spots. If Process Creation auditing is off, Event ID 4688 is not produced at all, making post-compromise reconstruction impossible regardless of command-line auditing (Check 62) state.",
+    "recommendation": "Configure via GPO under Computer Configuration -> Windows Settings -> Security Settings -> Advanced Audit Policy Configuration. Reference Microsoft's recommended baseline or CIS Benchmark 17.x for specific subcategory settings.",
+    "mitre_attack": [
+      {"id": "T1562.002", "name": "Impair Defenses: Disable Windows Event Logging"}
+    ],
+    "related_findings": ["cmdline_auditing_off", "event_log_size_small"],
+    "references": ["Microsoft: Audit policy recommendations", "CIS Benchmark 17"]
+  },
+
+  "localadmin_group_crowded": {
+    "title": "Local Administrators group has more than one member",
+    "matches": ["More than one account is in local Administrators group", "accounts in local Administrators group. Review membership"],
+    "check": "Check 35",
+    "section": "Authentication",
+    "severity": "Low",
+    "technical_detail": "The local Administrators group grants full administrative control of the system. Each additional member is another account-compromise path to full admin.",
+    "risk": "Extra accounts in the local Administrators group typically represent stale admin users, service accounts that no longer need admin, or shared-team accounts. Each is a lateral-movement opportunity.",
+    "recommendation": "Review membership. Remove stale accounts, service accounts that no longer need elevated rights, and shared-team accounts. Where domain admin access is required, use a dedicated admin account or Just-In-Time elevation.",
+    "mitre_attack": [
+      {"id": "T1078.003", "name": "Valid Accounts: Local Accounts"}
+    ],
+    "related_findings": ["laps_not_installed"],
+    "references": ["CIS Benchmark 2.2"]
+  },
+
+  "cached_logons_high": {
+    "title": "Cached logons count too high",
+    "matches": ["CachedLogonsCount Is Not Set to 0 or 1", "CachedLogonsCount: "],
+    "check": "Check 38",
+    "section": "Authentication",
+    "severity": "Low",
+    "technical_detail": "CachedLogonsCount controls how many domain logons are cached locally so users can authenticate when the domain controller is unreachable. Each cached logon stores a derived credential (mscache / mscash2) on disk.",
+    "risk": "Cached credentials are extractable with SYSTEM access and crackable offline. While mscache2 is slower to crack than NTLM hashes, the attacker only needs one cached credential to begin lateral movement.",
+    "recommendation": "Set CachedLogonsCount to 0 (no cache) on systems that do not require offline authentication, or 1-4 on systems that occasionally operate disconnected. Default value of 10 is excessive for most roles.",
+    "mitre_attack": [
+      {"id": "T1003.008", "name": "OS Credential Dumping: /etc/passwd and /etc/shadow"},
+      {"id": "T1110.002", "name": "Brute Force: Password Cracking"}
+    ],
+    "related_findings": ["runasppl_disabled"],
+    "references": ["CIS Benchmark 2.3.7.4"]
+  },
+
+  "wdigest_unset": {
+    "title": "WDigest UseLogonCredential not explicitly disabled",
+    "matches": ["WDigest UseLogonCredential key does not exist"],
+    "check": "Check 40",
+    "section": "Authentication",
+    "severity": "Low",
+    "technical_detail": "Windows 8.1+ / Server 2012 R2+ disable WDigest cleartext caching by default when the UseLogonCredential key is absent. However, leaving the key unset means a future policy change (intentional or otherwise) could re-enable cleartext caching without a corrective control in place.",
+    "risk": "Relies on OS default behavior for a critical credential-protection setting. Lower risk than an explicit Enabled value (see wdigest_enabled), but still worth hardening for defense in depth.",
+    "recommendation": "Explicitly set UseLogonCredential=0 to make the hardened state policy-driven rather than default-dependent.",
+    "mitre_attack": [
+      {"id": "T1003.001", "name": "OS Credential Dumping: LSASS Memory"}
+    ],
+    "related_findings": ["wdigest_enabled"],
+    "references": ["Microsoft KB 2871997"]
+  },
+
+  "restrictremoteclients_unset": {
+    "title": "RestrictRemoteClients RPC policy not configured",
+    "matches": ["RestrictRemoteClients registry key is not configured", "RestrictRemoteClients:  (not configured"],
+    "check": "Check 41",
+    "section": "Authentication",
+    "severity": "Low",
+    "technical_detail": "RestrictRemoteClients=1 requires authentication for all RPC calls to the endpoint mapper. Without it, unauthenticated clients can query the RPC endpoint mapper for available services.",
+    "risk": "Unauthenticated RPC enumeration is a reconnaissance vector. Combined with weaknesses in any exposed RPC interface, it can also enable relay or unauthenticated exploit attempts.",
+    "recommendation": "Set RestrictRemoteClients=1 via GPO: Computer Configuration -> Administrative Templates -> System -> Remote Procedure Call -> Restrict Unauthenticated RPC clients -> Enabled, Authenticated.",
+    "mitre_attack": [
+      {"id": "T1018", "name": "Remote System Discovery"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.6"]
+  },
+
+  "rdp_nla_not_required": {
+    "title": "RDP Network Level Authentication not required",
+    "matches": ["RDP Network Level Authentication (NLA) is not required", "UserAuthentication is not set to require NLA", "NLA is not required"],
+    "check": "Check 42",
+    "section": "Authentication",
+    "severity": "Medium",
+    "technical_detail": "Network Level Authentication (NLA) requires the client to authenticate before establishing an RDP session. Without NLA, the RDP server exposes more of the protocol to unauthenticated clients, including pre-auth code paths that have historically been exploitable (BlueKeep CVE-2019-0708).",
+    "risk": "Enables unauthenticated pre-auth exploitation of RDP vulnerabilities, including BlueKeep-class worms. Also increases exposure to resource-exhaustion denial-of-service against the RDP service.",
+    "recommendation": "Set UserAuthentication=1 in HKLM\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp. GPO: `Require user authentication for remote connections by using Network Level Authentication` -> Enabled.",
+    "mitre_attack": [
+      {"id": "T1021.001", "name": "Remote Services: Remote Desktop Protocol"},
+      {"id": "T1190", "name": "Exploit Public-Facing Application"}
+    ],
+    "related_findings": ["rdp_allowed_when_not_needed", "rdp_encryption_low"],
+    "references": ["CIS Benchmark 18.9.65.3.9.2", "STIG V-63597"]
+  },
+
+  "rdp_allowed_when_not_needed": {
+    "title": "RDP accepting remote connections",
+    "matches": ["AllowRemoteRPC should be disabled to deny RDP", "fDenyTSConnections should be set to not allow remote connections"],
+    "check": "Check 34",
+    "section": "Authentication",
+    "severity": "Medium",
+    "technical_detail": "AllowRemoteRPC=1 enables the RDP service endpoint. fDenyTSConnections=0 allows remote RDP connections to complete. Together they make the system reachable as an RDP target.",
+    "risk": "If RDP is not required for the system's role, its presence is unnecessary attack surface. RDP-exposed systems are primary targets for credential-guessing, BlueKeep-class exploits, and ransomware initial access.",
+    "recommendation": "If RDP is not needed, set fDenyTSConnections=1 and AllowRemoteRPC=0. If RDP is needed, ensure NLA is required (see Check 42), minimum encryption is High or FIPS, source IPs are restricted by firewall, and the exposed accounts follow strong password / account-lockout policy.",
+    "mitre_attack": [
+      {"id": "T1021.001", "name": "Remote Services: Remote Desktop Protocol"}
+    ],
+    "related_findings": ["rdp_encryption_low"],
+    "references": ["CIS Benchmark 18.9.65"]
+  },
+
+  "rdp_encryption_low": {
+    "title": "RDP minimum encryption level below High",
+    "matches": ["RDP minimum encryption level is below High", "RDP MinEncryptionLevel: 1", "RDP MinEncryptionLevel: 2"],
+    "check": "Check 42",
+    "section": "Authentication",
+    "severity": "Medium",
+    "technical_detail": "MinEncryptionLevel controls the minimum encryption strength accepted for RDP sessions. Value 1 is Low (56-bit), 2 is Client Compatible, 3 is High (128-bit), 4 is FIPS-compliant.",
+    "risk": "Weak RDP encryption permits session interception or downgrade attacks. Modern clients support 128-bit encryption; legacy clients that cannot are generally ones that shouldn't be used anyway.",
+    "recommendation": "Set MinEncryptionLevel=3 (High) or 4 (FIPS). Test legacy RDP clients (appliances, thin clients, older Windows) before deploying cluster-wide.",
+    "mitre_attack": [
+      {"id": "T1021.001", "name": "Remote Services: Remote Desktop Protocol"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.9.65"]
+  },
+
+  "llmnr_enabled": {
+    "title": "LLMNR enabled",
+    "matches": ["DNSClient.EnableMulticast does not exist or is enabled", "EnableMulticast not configured. LLMNR is likely enabled"],
+    "check": "Check 47",
+    "section": "Network",
+    "severity": "Medium",
+    "technical_detail": "Link-Local Multicast Name Resolution (LLMNR) is a fallback name-resolution protocol used when DNS fails. It is broadcast-based and unauthenticated: any host on the same broadcast domain can respond to LLMNR queries.",
+    "risk": "LLMNR spoofing (Responder, Inveigh) captures NTLM authentication when a client fails DNS resolution. Combined with SMB relay and SMB signing not required, this is a well-documented path to network-wide credential theft and lateral movement.",
+    "recommendation": "Disable LLMNR by setting EnableMulticast=0 via GPO: Computer Configuration -> Administrative Templates -> Network -> DNS Client -> Turn off multicast name resolution -> Enabled.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["netbios_enabled", "smb_server_signing_off", "smb_client_signing_off"],
+    "references": ["CIS Benchmark 18.5.4.2"]
+  },
+
+  "netbios_enabled": {
+    "title": "NetBIOS over TCP/IP enabled",
+    "matches": ["NetBios is Enabled:", "NetBIOS is Enabled"],
+    "check": "Check 49",
+    "section": "Network",
+    "severity": "Medium",
+    "technical_detail": "NetBIOS Name Service (NBT-NS) is a legacy broadcast-based name resolution protocol. Like LLMNR, it is unauthenticated and any host on the local subnet can respond to queries.",
+    "risk": "NBT-NS spoofing is functionally equivalent to LLMNR poisoning for credential capture and relay. Both are commonly exploited together by the same tooling. Disabling LLMNR without also disabling NBT-NS leaves one half of the attack surface open.",
+    "recommendation": "Set TcpipNetbiosOptions=2 (disable NetBIOS over TCP/IP) per network adapter via registry, DHCP scope option, or adapter GUI (TCP/IPv4 -> Advanced -> WINS -> Disable NetBIOS over TCP/IP).",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["llmnr_enabled", "smb_server_signing_off"],
+    "references": ["CIS Benchmark 18.5.4"]
+  },
+
+  "computer_browser_running": {
+    "title": "Computer Browser service running",
+    "matches": ["Computer Browser service is: Running", "Browser service is RUNNING"],
+    "check": "Check 48",
+    "section": "Network",
+    "severity": "Low",
+    "technical_detail": "The Computer Browser service maintains and distributes a list of resources on the local network using the legacy SMB Master Browser protocol. It is not needed on modern networks that use Active Directory or DNS for resource discovery.",
+    "risk": "Legacy protocol that discloses network resource inventory. Unnecessary attack surface on systems that do not require master-browser functionality (which is virtually all modern systems).",
+    "recommendation": "Stop and disable the Browser service. Set startup type to Disabled. Applies to nearly all Windows systems in a managed environment.",
+    "mitre_attack": [
+      {"id": "T1135", "name": "Network Share Discovery"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 5"]
+  },
+
+  "wpad_not_hardened": {
+    "title": "WPAD not hardened",
+    "matches": ["No WPAD entry detected", "WpadOverride registry key is configured to allow WPAD", "WinHttpAutoProxySvc service is: Running", "KB3165191 to harden WPAD is not installed"],
+    "check": "Check 45",
+    "section": "Network",
+    "severity": "Medium",
+    "technical_detail": "Web Proxy Auto-Discovery (WPAD) attempts to locate a proxy configuration via DHCP option or DNS. The lookup can be spoofed via LLMNR/NBT-NS poisoning, causing the client to fetch a malicious proxy configuration that intercepts all HTTP(S) traffic.",
+    "risk": "WPAD poisoning redirects all HTTP(S) traffic through an attacker-controlled proxy. Credentials (including NTLM challenges to attacker-controlled URLs), session tokens, and application traffic are all exposed.",
+    "recommendation": "Multi-step hardening: (1) add `255.255.255.255 wpad` entry to %SystemRoot%\\System32\\drivers\\etc\\hosts (or block wpad at DNS); (2) disable the WinHttpAutoProxySvc service; (3) apply KB3165191 or a superseding cumulative update; (4) set WpadOverride registry key to 1.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"},
+      {"id": "T1557", "name": "Adversary-in-the-Middle"}
+    ],
+    "related_findings": ["llmnr_enabled", "netbios_enabled"],
+    "references": ["Microsoft Security Bulletin MS16-063"]
+  },
+
+  "wins_lmhosts_enabled": {
+    "title": "WINS / LMHOSTS legacy name resolution enabled",
+    "matches": ["WINSEnableLMHostsLookup is enabled", "DNSEnabledForWINSResolution is enabled", "WINSEnableLMHostsLookup: TRUE"],
+    "check": "Check 46",
+    "section": "Network",
+    "severity": "Low",
+    "technical_detail": "WINS and LMHOSTS lookup are legacy NetBIOS name resolution mechanisms. Both are broadcast-based and unauthenticated in the same way as LLMNR and NBT-NS, making them additional spoofing targets.",
+    "risk": "Additional surface for name-resolution spoofing attacks. Each enabled legacy mechanism is another path for tools like Responder to coerce authentication.",
+    "recommendation": "Disable WINS resolution and LMHOSTS lookup per network adapter. In adapter properties: TCP/IPv4 -> Advanced -> WINS tab -> uncheck both options. Or set DHCP scope options accordingly.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["llmnr_enabled", "netbios_enabled"],
+    "references": ["CIS Benchmark 18.5.4"]
+  },
+
+  "ipv6_enabled_unused": {
+    "title": "IPv6 interface assigned",
+    "matches": ["Host IPv6 network interface assigned"],
+    "check": "Check 44",
+    "section": "Network",
+    "severity": "Low",
+    "technical_detail": "An IPv6 address has been assigned to a network interface. If IPv6 is not in operational use on the network, this creates a monitoring blind spot: IPv6 DHCP and router advertisement attacks can reach the host without being caught by IPv4-only monitoring.",
+    "risk": "Unused IPv6 on networks without IPv6 monitoring creates a parallel attack path (mitm6 tool class) for name-resolution poisoning and credential relay. Also enables inadvertent IPv6 egress if the network supports it.",
+    "recommendation": "If IPv6 is not used in the environment, disable the IPv6 binding on the adapter: `Disable-NetAdapterBinding -Name <adapter> -ComponentID ms_tcpip6`. If IPv6 is used, ensure monitoring and DHCP/RA controls cover IPv6 as well as IPv4.",
+    "mitre_attack": [
+      {"id": "T1557", "name": "Adversary-in-the-Middle"}
+    ],
+    "related_findings": [],
+    "references": []
+  },
+
+  "icmp_redirect_enabled": {
+    "title": "ICMP redirects accepted",
+    "matches": ["ICMP redirects are enabled", "EnableICMPRedirect not configured", "EnableICMPRedirect: 1", "EnableICMPRedirect: 0x1"],
+    "check": "Check 52",
+    "section": "Network",
+    "severity": "Low",
+    "technical_detail": "An ICMP Redirect message tells a host to use a different gateway for specific destinations. When accepted, they let a local-network attacker redirect traffic via an attacker-controlled gateway.",
+    "risk": "Local-network traffic redirection: an attacker on the same subnet can MITM specific routes by sending crafted ICMP redirects. Less common attack than LLMNR/NBT-NS poisoning but still occasionally used.",
+    "recommendation": "Set EnableICMPRedirect=0 in HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters. Also consider DisableIPSourceRouting=2 and PerformRouterDiscovery=0 while tightening the TCP/IP stack.",
+    "mitre_attack": [
+      {"id": "T1557", "name": "Adversary-in-the-Middle"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.4"]
+  },
+
+  "tcpip_source_routing_on": {
+    "title": "IP source routing not disabled",
+    "matches": ["IP source routing is not fully disabled", "DisableIPSourceRouting not configured", "DisableIPSourceRouting: 0", "DisableIPSourceRouting: 1"],
+    "check": "Check 52",
+    "section": "Network",
+    "severity": "Low",
+    "technical_detail": "IP source routing allows the sender to specify the route a packet takes through the network. This legacy feature is rarely needed and has been abused for bypassing firewalls and reflection attacks.",
+    "risk": "Enables firewall bypass and reflection-style attacks against hosts that accept source-routed packets. Low practical risk on modern networks but still worth closing as a hardening layer.",
+    "recommendation": "Set DisableIPSourceRouting=2 (highest protection: drop all source-routed packets) in HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters.",
+    "mitre_attack": [
+      {"id": "T1556", "name": "Modify Authentication Process"}
+    ],
+    "related_findings": ["icmp_redirect_enabled"],
+    "references": ["CIS Benchmark 18.4"]
+  },
+
+  "psv2_enabled": {
+    "title": "PowerShell v2 feature enabled",
+    "matches": ["PowerShell Version 2 should be disabled: Enabled", "PowerShell Version 2 should be disabled (Server):"],
+    "check": "Check 54",
+    "section": "PowerShell",
+    "severity": "Medium",
+    "technical_detail": "The Windows optional feature `MicrosoftWindowsPowerShellV2` is enabled on this system. PowerShell v2 predates script block logging, module logging, and AMSI integration. A PS v5.1+ session can be downgraded via `powershell -Version 2` to run without any of these logging controls.",
+    "risk": "PowerShell downgrade attack: any malicious script can invoke `powershell -Version 2 -Command ...` to execute with logging and AMSI disabled, defeating most PowerShell-based detection.",
+    "recommendation": "Disable the v2 engine: `Disable-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2,MicrosoftWindowsPowerShellV2Root`. Also consider uninstalling .NET Framework 2.0/3.5 if no applications require it.",
+    "mitre_attack": [
+      {"id": "T1562.010", "name": "Impair Defenses: Downgrade Attack"},
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off"],
+    "references": ["CIS Benchmark 18.9.100"]
+  },
+
+  "ps_language_not_constrained": {
+    "title": "PowerShell Language Mode is not ConstrainedLanguage",
+    "matches": ["Execution Langugage Mode Is Not ConstrainedLanguage", "Execution Language Mode Is Not ConstrainedLanguage"],
+    "check": "Check 55",
+    "section": "PowerShell",
+    "severity": "Low",
+    "technical_detail": "PowerShell's Language Mode controls what the script engine allows. FullLanguage permits arbitrary .NET API invocation, including direct Win32 calls used by most advanced offensive PowerShell tools. ConstrainedLanguage restricts scripts to a safe subset.",
+    "risk": "Full Language Mode is a prerequisite for most in-memory offensive PowerShell frameworks (PowerSploit, Empire, Nishang). Restricting to ConstrainedLanguage neutralizes a large fraction of attacker tooling.",
+    "recommendation": "Deploy AppLocker or WDAC in enforce mode. PowerShell automatically switches to ConstrainedLanguage when a script-control policy is active on the system. Manually setting `$ExecutionContext.SessionState.LanguageMode` is not a durable control.",
+    "mitre_attack": [
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": ["applocker_not_configured"],
+    "references": ["Microsoft: PowerShell Constrained Language Mode"]
+  },
+
+  "ps_transcription_off": {
+    "title": "PowerShell Transcription not enabled",
+    "matches": ["EnableTranscripting Is Not Set", "EnableInvocationHeader Is Not Set", "PowerShell Transcription is not enabled"],
+    "check": "Check 58",
+    "section": "PowerShell",
+    "severity": "Low",
+    "technical_detail": "PowerShell Transcription records every PowerShell session's input and output to a text file in a configured OutputDirectory. It captures what Script Block Logging does not: the full interactive session including command output.",
+    "risk": "Without transcription, an investigator has the commands that ran (via Script Block Logging, if enabled) but not the output -- making it harder to reconstruct what data was accessed, what was returned, and whether commands succeeded.",
+    "recommendation": "Enable Transcription via GPO (Turn on PowerShell Transcription -> Enabled). Set OutputDirectory to a write-only share or a tamper-resistant local path. Enable InvocationHeader for timestamped output.",
+    "mitre_attack": [
+      {"id": "T1562.002", "name": "Impair Defenses: Disable Windows Event Logging"},
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off", "ps_module_logging_off"],
+    "references": ["CIS Benchmark 18.9.100"]
+  },
+
+  "ps_protected_event_logging_off": {
+    "title": "PowerShell Protected Event Logging not enabled",
+    "matches": ["EnableProtectedEventLogging Is Not Set"],
+    "check": "Check 59",
+    "section": "PowerShell",
+    "severity": "Low",
+    "technical_detail": "Protected Event Logging encrypts event data locally using a public key, decryptable only by a controlled private key. When enabled, script block logs can contain sensitive content (parameters, secrets, intermediate variables) that would otherwise be recoverable by anyone with local admin.",
+    "risk": "Unprotected PowerShell event logs can contain credential material, API keys, and other sensitive strings encountered during normal operation. An attacker with local admin reads these in plaintext after compromise.",
+    "recommendation": "Deploy a Protected Event Logging certificate (see Microsoft's documentation) and enable the GPO: Computer Configuration -> Administrative Templates -> Windows Components -> Windows PowerShell -> Turn On Protected Event Logging.",
+    "mitre_attack": [
+      {"id": "T1552.004", "name": "Unsecured Credentials: Private Keys"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off"],
+    "references": ["Microsoft: Protected Event Logging"]
+  },
+
+  "winrm_running_without_hardening": {
+    "title": "WinRM service running",
+    "matches": ["WinRM Services is running and may be accepting connections", "WinRM Firewall Rule", "WinRM Firewall Rule is enabled"],
+    "check": "Check 60",
+    "section": "PowerShell",
+    "severity": "Medium",
+    "technical_detail": "Windows Remote Management (WinRM) enables remote PowerShell execution and management. When running with default configuration, it accepts connections on TCP 5985 (HTTP) or 5986 (HTTPS) from any host matching the TrustedHosts list.",
+    "risk": "WinRM is a primary lateral-movement vector (Invoke-Command, Enter-PSSession). Combined with pass-the-hash or credential reuse, a single compromised admin credential enables remote execution across the WinRM-reachable fleet.",
+    "recommendation": "If WinRM is not in active use, disable it: `Disable-PSRemoting -Force`; `Set-Service -Name WinRM -StartupType Disabled`; disable the `Windows Remote Management (HTTP-In)` firewall rule. If WinRM is needed, restrict TrustedHosts, require HTTPS with a real certificate, and restrict source IPs via firewall.",
+    "mitre_attack": [
+      {"id": "T1021.006", "name": "Remote Services: Windows Remote Management"},
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": [],
+    "references": ["CIS Benchmark 18.9.96"]
+  },
+
+  "event_log_size_small": {
+    "title": "Event log maximum size too small",
+    "matches": ["max log size is smaller than"],
+    "check": "Check 61",
+    "section": "Logging",
+    "severity": "Low",
+    "technical_detail": "Event log maximum size determines how many events can be retained before older events are overwritten. On active systems, small logs roll over within hours, destroying forensic evidence before it can be collected.",
+    "risk": "During incident response, relevant events may already have rolled out of the log. Attackers can also accelerate rollover by generating noise events to push forensic evidence out of the ring buffer.",
+    "recommendation": "Set Application, System, Security, and Windows PowerShell logs to 4 GB. Set operational logs (PowerShell/Operational, TerminalServices, TaskScheduler, SMBServer/Audit, Security-Netlogon, WinRM, WMI-Activity) to 1 GB each. Use `wevtutil sl <log> /ms:<bytes>` or GPO under Event Log Service. Also configure log forwarding so events survive local rollover.",
+    "mitre_attack": [
+      {"id": "T1070.001", "name": "Indicator Removal: Clear Windows Event Logs"}
+    ],
+    "related_findings": ["cmdline_auditing_off", "ps_scriptblock_logging_off"],
+    "references": ["Microsoft: Recommended event log sizes"]
+  },
+
+  "wsh_enabled": {
+    "title": "Windows Script Host enabled",
+    "matches": ["WSH Setting Enabled key is Enabled", "WSH Setting Enabled key does not exist", "WSH Setting Enabled key does not exist.", "Windows Script Host is enabled"],
+    "check": "Check 63",
+    "section": "Logging",
+    "severity": "Medium",
+    "technical_detail": "Windows Script Host (WSH) is the execution environment for VBScript, JScript, and legacy Windows scripting. It is a well-worn malware execution path (.vbs / .js email attachments, macros that drop WSH scripts) and rarely needed on modern systems.",
+    "risk": "WSH is a common initial-access execution vector. Malware delivered via email or macro frequently drops a .vbs or .js file and executes it via wscript.exe / cscript.exe, bypassing AppLocker rules that only cover .exe/.dll.",
+    "recommendation": "Disable WSH by setting HKLM\\Software\\Microsoft\\Windows Script Host\\Settings!Enabled=0 (DWORD). Verify no in-house scripts depend on WSH before deploying cluster-wide.",
+    "mitre_attack": [
+      {"id": "T1059.005", "name": "Command and Scripting Interpreter: Visual Basic"},
+      {"id": "T1059.007", "name": "Command and Scripting Interpreter: JavaScript"}
+    ],
+    "related_findings": ["applocker_not_configured"],
+    "references": ["CIS Benchmark 18.9.83"]
+  },
+
+  "kb_security_patch_missing": {
+    "title": "Legacy security hotfix (KB2871997 or KB3165191) not installed",
+    "matches": ["KB2871997 is not installed", "KB3165191 to harden WPAD is not installed"],
+    "check": "Check 63",
+    "section": "Logging",
+    "severity": "Low",
+    "technical_detail": "KB2871997 (2014) added credential-handling improvements that harden LSASS against WDigest-style caching. KB3165191 (2016) is the WPAD hardening hotfix. Both are old; on current Windows, their content is superseded by cumulative updates.",
+    "risk": "Missing either indicates the system is either very out-of-date or the cumulative update baseline has drifted. On current Windows, these specific KBs are superseded and the absence is typically benign -- but the finding is a signal of patch-management health.",
+    "recommendation": "Apply current Windows cumulative updates. The hotfix content is included in modern baselines. If a fully-patched modern system still flags these, it's a reporting artifact rather than a real gap.",
+    "mitre_attack": [],
+    "related_findings": ["autoupdate_not_scheduled"],
+    "references": ["Microsoft KB 2871997", "Microsoft KB 3165191"]
   }
 }

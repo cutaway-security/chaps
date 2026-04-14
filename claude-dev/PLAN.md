@@ -257,28 +257,34 @@ Post-processing tool that analyzes a CHAPS markdown report and emits a structure
 
 Decision: single PowerShell tool (not two separate defender/attacker tools). Rationale: in an AI-assisted environment, pre-opinionated output for a specific audience is less valuable than richly-structured neutral facts; AI tooling on either side reframes the output. Also cheaper to maintain one knowledge base.
 
-First batch:
+First batch (complete):
 
-- [ ] Create `tools/chaps-analyze.ps1` -- PowerShell 3.0+, no external dependencies
-- [ ] Create `tools/knowledge/findings.json` -- editable knowledge base, ~12-15 Phase 1 entries covering the most common negative findings
-- [ ] Support `-InputReport <path>` (required) and `-KnowledgeOverride <path>` (optional for user-supplied JSON that extends or overrides bundled entries)
-- [ ] Parse CHAPS metadata block, six category sections, and status prefixes
-- [ ] Match `[-]` findings against knowledge-base patterns; emit structured Markdown with Severity, Observation, Technical detail, Risk, Recommendation, MITRE ATT&CK, References, Related findings
-- [ ] Emit unmatched `[-]` findings succinctly so users know gaps exist
-- [ ] Emit incomplete-check ([x]) appendix and informational-evidence summary appendix
-- [ ] Include single OT/ICS advisory paragraph near the top (not per-check)
-- [ ] Severity scheme: Critical/High/Medium/Low/Info
-- [ ] Exit non-zero on invalid input (non-CHAPS file, missing knowledge base, etc.)
-- [ ] No logging, no telemetry, no external network calls
-- [ ] Create `docs/ANALYSIS.md` -- user-facing doc for the tool
-- [ ] Update `README.md` with a brief mention and link to `docs/ANALYSIS.md`
-- [ ] Update `docs/INTERPRETING_REPORTS.md` to cross-reference the analysis tool as optional automation
+- [x] Create `tools/chaps-analyze.ps1` -- PowerShell 3.0+, no external dependencies
+- [x] Create `tools/knowledge/findings.json` -- editable knowledge base, 18 Phase 1 entries
+- [x] Support `-InputReport <path>` (required) and `-KnowledgeOverride <path>` (optional)
+- [x] Parse CHAPS metadata block, six category sections, and status prefixes
+- [x] Match `[-]` findings against knowledge-base patterns; emit structured Markdown
+- [x] Emit unmatched `[-]` findings succinctly
+- [x] Emit incomplete-check ([x]) appendix and informational-evidence summary appendix
+- [x] Include single OT/ICS advisory paragraph near the top
+- [x] Severity scheme: Critical/High/Medium/Low/Info
+- [x] Exit non-zero on invalid input
+- [x] No logging, no telemetry, no external network calls
+- [x] Create `docs/ANALYSIS.md`
+- [x] Update `README.md` and `docs/INTERPRETING_REPORTS.md`
 
-Later batches:
+Second batch (complete):
 
-- [ ] Expand knowledge base to cover remaining common findings (SMB server signing, TLS, LLMNR, NetBIOS, WPAD, RDP NLA, WinRM, Sysmon absence, AV absence, autoupdate, BitLocker, etc.)
+- [x] Expanded knowledge base from 18 to 59 entries
+- [x] Added common findings: AutoUpdate, BitLocker, Exploit Protection, LAPS, AppLocker, NetSessionEnum, Device Guard, Secure Boot, account policy, risky services, SMB encryption/auditing, anonymous enum, untrusted fonts, ASR, SMB client signing, audit policy, local admins, cached logons, WDigest unset, RestrictRemoteClients, RDP encryption, RDP NLA, LLMNR, NetBIOS, Computer Browser, WPAD, WINS/LMHOSTS, IPv6, ICMP redirects, source routing, PS v2, ConstrainedLanguage, transcription, Protected Event Logging, WinRM, event log sizes, WSH, legacy KB hotfixes, missing patches
+- [x] Coverage on test reports: 94-100% (was ~15% after first batch)
+- [x] Retested three review reports, output reviewed
+
+Later batches (not yet scoped):
+
 - [ ] Role-aware severity adjustments (DC vs. workstation vs. HMI)
 - [ ] Optional: batch mode (directory of reports -> rollup analysis)
+- [ ] Cover remaining edge cases surfaced during real-world use
 
 ## Decision Log
 
