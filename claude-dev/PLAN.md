@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 8 - Documentation and Release Prep
-**Status**: In Progress (README and docs/ complete; issue/PR closure + release prep remain)
-**Focus**: Close issues/PRs, pre-release checklist, release
+**Phase**: Phase 9 - Additional Privilege Escalation and Exposure Checks
+**Status**: In Progress
+**Focus**: Add four new checks (unquoted service paths, weak program permissions, installed compilers, network shares) and re-test
 
 ## Phases
 
@@ -210,7 +210,7 @@ VM testing (complete):
 - [x] Review observations fixed: blank [*] lines, AllowRemoteRPC typo
 - [x] Test matrices populated in TESTING_STANDARD.md
 
-Release prep (remaining):
+Release prep (deferred until after Phase 9):
 - [ ] Close Issue #2 (USB, AV, software inventory, netstat - all implemented)
 - [ ] Close PR #5 with note that features integrated via rewrite
 - [ ] Clean up claude-dev/review.local/ directory after review
@@ -219,6 +219,35 @@ Release prep (remaining):
 - [ ] Tag dev-v2 on claude-dev, push
 - [ ] Create release-v2 branch, strip claude-dev/ and CLAUDE.md
 - [ ] Force-push to main, tag v2, create GitHub release
+
+### Phase 9: Additional Privilege Escalation and Exposure Checks
+
+**Status**: Complete
+
+Four new checks to add to the canonical set (total goes from 59 to 63):
+
+- [x] **Check 24: Unquoted Service Paths** -- enumerate service ImagePath values, flag any with spaces not enclosed in quotes (classic local privilege escalation vector)
+- [x] **Check 25: Weak Program Directory Permissions** -- inspect NTFS ACLs on Program Files, Program Files (x86), and non-standard top-level C:\ folders for write/modify permissions granted to Users, Authenticated Users, or Everyone
+- [x] **Check 26: Installed Compilers** -- detect GCC/MinGW, clang, MSVC cl.exe, assemblers, Strawberry Perl, make, cmake. Searches PATH plus common install roots (C:\Strawberry, C:\MinGW, C:\msys64)
+- [x] **Check 53: Network Shares** -- enumerate non-default SMB shares (excludes ADMIN$, C$, D$, IPC$)
+
+Canonical numbering updates (propagates through all three scripts and docs):
+- System Info: was 1-23, now 1-26 (adds 24, 25, 26)
+- Security: was 24-30, now 27-33
+- Authentication: was 31-39, now 34-42
+- Network: was 40-49, now 43-52 + new 53 (Network Shares)
+- PowerShell: was 50-56, now 54-60
+- Logging: was 57-59, now 61-63
+
+Implementation tasks:
+- [x] Added Get-UnquotedServicePaths, Get-WeakProgramPermissions, Get-InstalledCompilers, Get-NetworkShares to PSv3
+- [x] Ported all four functions to PSv2 (Get-WmiObject, Get-Acl, Win32_Share equivalents)
+- [x] Added four new check blocks to CMD with renumbered subheadings for all downstream checks
+- [x] Updated CANONICAL_CHECKS.md with new numbering and three new System Info rows plus Network Shares row
+- [x] Updated docs/CHECKS.md with new entries and renumbered existing entries
+- [x] Added REMEDIATION.md entries for each new check; renumbered and reordered existing entries
+- [x] Full VM retest 2026-04-14 (all scripts on all 6 VMs): all pass, 0 stderr, 63 checks per CMD report
+- [x] Test matrix counts confirmed updated
 
 ## Decision Log
 

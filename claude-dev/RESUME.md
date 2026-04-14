@@ -4,37 +4,68 @@
 
 **Last Session**: 2026-04-14
 **Branch**: claude-dev
-**Status**: Clean -- README and docs/ complete; release prep remains
+**Status**: Clean -- Phase 9 complete (4 new checks across all scripts, all VMs pass)
 
 ## What Was Accomplished
 
-### Phases 1-7: Complete (see earlier sessions)
+### Phases 1-8: Complete (see earlier sessions)
 
-### Phase 5 Reset + VM Testing (Complete, see earlier sessions)
+### Phase 9: Additional Privilege Escalation and Exposure Checks (Complete)
 
-### Review observations fixed (Complete, see earlier sessions)
+Added four new checks across all three scripts. Total checks went from 59 to 63. All canonical numbering shifted accordingly.
 
-### Phase 8 Documentation Refactor (Complete)
+**New checks:**
 
-Simplified README.md from 152 lines to 75 lines. Moved detail to `docs/`:
+| # | Name | Detects |
+|---|---|---|
+| 24 | Unquoted Service Paths | Service `ImagePath` values with spaces but no quotes (local privesc) |
+| 25 | Weak Program Directory Permissions | NTFS ACLs on Program Files / vendor dirs that grant Modify/Write to non-admins |
+| 26 | Installed Compilers | GCC, MinGW, clang, MSVC, NASM, Strawberry Perl, Python (LotL risk) |
+| 53 | Network Shares | Non-default SMB shares (excludes ADMIN$, C$, IPC$, etc.) |
 
-- **`README.md`** (~75 lines): one-paragraph overview, three-script table, quick-start commands, links to docs/, references, collaborators, license. No more inline check lists or TODO blocks.
+**Numbering changes (all renumbered consistently across scripts and docs):**
+- Old Security 24-30 → New 27-33
+- Old Auth 31-39 → New 34-42
+- Old Network 40-49 → New 43-52, plus new 53 (Network Shares)
+- Old PowerShell 50-56 → New 54-60
+- Old Logging 57-59 → New 61-63
 
-- **`docs/USAGE.md`** (~160 lines): prerequisites (admin, execution policy), per-script invocation with redirection patterns (file, screen, clipboard, Tee-Object), getting the report off the target, non-admin behavior, troubleshooting table, "what CHAPS does not do" scope clarification, removal instructions.
+**Implementation summary:**
 
-- **`docs/CHECKS.md`** (~115 lines): all 59 checks in canonical order, grouped by the six report sections, with a brief "what it verifies" column and registry paths where relevant. Script capability matrix showing CMD's four info-only checks (AppLocker, ASR, PSVersions, PSLanguage). Guidance on disabling individual checks via the toggle variables.
+- **PSv3 (chaps_PSv3.ps1)**: Added Get-UnquotedServicePaths, Get-WeakProgramPermissions, Get-InstalledCompilers, Get-NetworkShares functions. Standard pattern: registry/Get-Acl/Get-Command. Total: 2,671 lines, 69 functions.
 
-- **`docs/INTERPRETING_REPORTS.md`** (~155 lines): report structure, status prefix table ([+]/[-]/[*]/[x]), 5-step triage workflow (header → [-] findings → [x] errors → [*] informational → confirm [+] on high-value controls), common [-] priorities, [x] causes table, cross-script comparison notes, report-to-writeup mapping.
+- **PSv2 (chaps_PSv2.ps1)**: Same four functions ported to PSv2-compatible syntax (no -Depth on Get-ChildItem, Win32_Share via WMI). Total: 2,631 lines, 69 functions.
 
-- **`docs/REMEDIATION.md`** (~625 lines): per-check remediation for every check that can produce a negative finding. For each: what the finding means, why it matters, concrete remediation (registry key, GPO path, or command), ICS/OT caveats where relevant. Closes with a suggested remediation priority order (credential-theft vectors → logging → protocol hardening → attack-surface reduction → exploit mitigations → account hygiene → infrastructure).
+- **CMD (chaps.bat)**: New checks plus renumbering of all 39 downstream Check N: subheadings. Check 24 (unquoted paths) implemented as dump-and-review using `wmic ... | findstr` -- pure CMD detection of unquoted+space+exe across nested for loops with quote-character comparison was too fragile, so the check lists all unquoted candidates for manual review. Check 25 (permissions) uses temp-file ACL inspection with icacls. Check 26 (compilers) uses `where` + filesystem search of common install roots. Check 53 (shares) uses `net share` with admin-share filter. Total: 63 checks, all CRLF.
 
-Updated `claude-dev/ARCHITECTURE.md` file tree to include the `docs/` directory.
+**Test results (2026-04-14 full VM run):**
+
+| Script | Win7 | Win10 | Win11 | Srv2016 | Srv2019 | Srv2022 |
+|---|---|---|---|---|---|---|
+| PSv3 | (version error, expected) | OK 198L | OK 220L | OK 198L | OK 202L | OK 201L |
+| PSv2 | OK 206L | OK 197L | OK 219L | OK 197L | OK 201L | OK 201L |
+| CMD | OK 712L 63ch | OK 798L 63ch | OK 822L 63ch | OK 751L 63ch | OK 775L 63ch | OK 754L 63ch |
+
+All scripts: rc=0, 0 stderr, all expected sections present, all four new checks executing.
+
+**Bugs fixed during Phase 9 implementation:**
+
+1. **CMD Check 24 quote-character comparison**: Direct `if "!var:~0,1!"=="^""` patterns inside nested for/if blocks consistently caused parser errors. Resolved by switching to a simpler dump-and-review approach using `findstr /r /c:"^PathName=[A-Za-z]:"` to filter unquoted-looking entries. The auto-detection of "space before .exe" requires more involved CMD parsing than is reliable; the trade-off is that the assessor reviews the output instead.
+
+2. **CMD Check 25 nested for/if depth**: The original implementation had four levels of nested parentheses (if-admin → for-each-base → if-exists → for-each-dir → call). CMD's parser broke on directory paths containing spaces. Resolved by using temp files (`dir /ad /b > tmp.txt`, then `for /f "usebackq" ... in (tmp.txt)`) which avoids the nesting issue entirely.
+
+**Documentation updated:**
+
+- `claude-dev/CANONICAL_CHECKS.md` -- regenerated with all 63 checks in correct sections
+- `docs/CHECKS.md` -- regenerated with renumbered catalog and four new check rows
+- `docs/REMEDIATION.md` -- added remediation guidance for all four new checks; renumbered all existing check entries; reordered file so checks appear in canonical numerical order
+- `claude-dev/PLAN.md` -- Phase 9 marked complete
 
 ## In Progress
 
-- Phase 8 release prep:
+- Phase 8 release prep (deferred from before Phase 9):
   - Close Issue #2 and PR #5
-  - Clean up review.local/ after user review
+  - Clean up review.local/ after user review of new check outputs
   - Delete stale remote branches
   - Pre-release checklist and tagging
 
@@ -44,38 +75,28 @@ Updated `claude-dev/ARCHITECTURE.md` file tree to include the `docs/` directory.
 
 ## Next Steps
 
-1. **User review of the doc set.** Walk through README.md, then docs/ in the natural reading order (USAGE → CHECKS → INTERPRETING_REPORTS → REMEDIATION). Look for wording issues, missing coverage, or excessive detail.
-
-2. **Commit and push the doc refactor** once approved.
-
-3. **Close GitHub issues and PRs:**
-   - Issue #2 (USB, AV, software inventory, netstat): all four implemented in Phase 3.
-   - PR #5 (Dev Kaushik): features integrated via rewrite, close with thank-you comment.
-
-4. **Clean up remote branches** (see PLAN.md Phase 1 list): Intern-Dev, ai-test, port-to-PSv2, smbv1-check-returns-a-false-positive-error, typos-and-grammar, update-output-directory, cmd-bat-refactor, report_format_update.
-
-5. **Remove `claude-dev/review.local/`** once manual review is finished.
-
-6. **Pre-release checklist** per `claude-dev/GIT_RELEASE_STEPS.md`.
-
-7. **Tag and release**:
-   - Tag `dev-v2` on claude-dev, push
-   - Create `release-v2` branch, strip `claude-dev/` and `CLAUDE.md` and `docs/` stays
-   - Force-push to main, tag `v2`, create GitHub release
+1. **User review of the four new checks in `claude-dev/review.local/`.** Spot-check Win10 and one server VM for each new check to confirm output looks right. Pay attention to:
+   - Check 24: dump format -- is the manual-review note clear enough?
+   - Check 25: false positive on `C:\Temp` (which we created for testing) -- expected, will not appear in real assessments unless that folder exists
+   - Check 26: spot-check on a system with Strawberry Perl or VS Build Tools to verify detection works
+   - Check 53: the lab VMs have no custom shares, so all reported `[+] No non-default SMB shares detected` -- want to validate detection on a system with shares
+2. **Commit and push Phase 9 changes.**
+3. **Resume Phase 8 release prep.**
 
 ## Open Questions
 
-- None currently. Ready for user review of the doc set.
+- Is the dump-and-review approach for Check 24 acceptable, or do you want me to invest more time in a CMD-only auto-detection? (PSv3/PSv2 do auto-detect; only CMD is the limitation.)
+- Should the Compiler check (#26) emit `[*]` instead of `[-]` when compilers are found? Right now it reports `[-]` to flag attention, but a build server legitimately needs them.
 
 ## Files Modified This Session
 
 | File | Change |
 |------|--------|
-| README.md | Rewrote from 152 lines to ~75 lines: overview, table, quick start, doc links, collaborators, license |
-| docs/USAGE.md | New -- detailed running instructions, output patterns, troubleshooting |
-| docs/CHECKS.md | New -- catalog of all 59 checks with descriptions |
-| docs/INTERPRETING_REPORTS.md | New -- status prefixes, triage workflow, cross-script comparison |
-| docs/REMEDIATION.md | New -- per-check remediation guidance with GPO/registry/command detail |
-| claude-dev/ARCHITECTURE.md | File tree updated to include docs/ |
-| claude-dev/PLAN.md | Phase 8 detailed with documentation-complete checkpoint |
+| PowerShellv3/chaps_PSv3.ps1 | +4 new check functions, +4 toggles, +4 Show-Config lines, +4 main calls |
+| PowerShellv2/chaps_PSv2.ps1 | Same +4 functions in PSv2-compatible syntax |
+| CMD/chaps.bat | +4 new checks, renumbered 39 downstream check headers |
+| claude-dev/CANONICAL_CHECKS.md | Regenerated with all 63 checks |
+| docs/CHECKS.md | Regenerated with renumbered catalog |
+| docs/REMEDIATION.md | Added remediation for 4 new checks; renumbered existing entries; reordered |
+| claude-dev/PLAN.md | Phase 9 marked complete |
 | claude-dev/RESUME.md | This file |

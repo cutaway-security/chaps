@@ -11,9 +11,11 @@
 PowerSploit
 .DS_Store
 
-# Defensive catch-all: any local-only file under claude-dev/ with ".local."
-# in its name must never be committed. See claude-dev/REMOTE_TESTING.md.
+# Defensive catch-all: any local-only file or directory under claude-dev/ with
+# ".local" in its name must never be committed. See claude-dev/REMOTE_TESTING.md.
 claude-dev/*.local.*
+claude-dev/*.local/
+claude-dev/*.local
 
 # Testing - output results from test runs
 claude-dev/results/

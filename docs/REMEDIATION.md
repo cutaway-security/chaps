@@ -213,7 +213,52 @@ Repeat for each unneeded service. **Always confirm the service is unused** befor
 
 ## Section 2 — Security Checks
 
-### Check 24 — SMB Server Configuration
+### Check 24 — Unquoted Service Paths
+
+**Finding:** `[-] Unquoted service path: <service> -> C:\Some Path\service.exe`
+
+**Why it matters:** When a Windows service has an `ImagePath` that contains a space and is not enclosed in quotes, an attacker who can write to an earlier space-separated path (e.g., `C:\Some.exe`) can hijack execution. The Service Control Manager tries each parsed prefix as an executable.
+
+**Remediate:** Quote the `ImagePath` value in the registry. For each affected service:
+```cmd
+sc config <ServiceName> binPath= "\"C:\Some Path\service.exe\" -optional-args"
+```
+Or edit `HKLM\SYSTEM\CurrentControlSet\Services\<ServiceName>!ImagePath` directly and add quotes around the executable path. Restart the service. Vendor-installed services are the most common offenders; report the issue to the vendor or wrap the path yourself.
+
+**ICS note:** Some PLC programming environments and HMI vendor services install with unquoted paths. Test that the service still starts after editing the registry value before deploying widely.
+
+### Check 25 — Weak Program Directory Permissions
+
+**Finding:** `[-] Weak ACL: 'C:\Vendor\App' grants Modify, Write to NT AUTHORITY\Authenticated Users`
+
+**Why it matters:** When a non-admin user can write to a folder containing executables that run with elevated privileges (services, scheduled tasks, helper utilities run by admins), they can replace those executables with malicious versions. Classic local privilege escalation.
+
+**Remediate:** Tighten the ACL so only Administrators and SYSTEM have Modify/Write:
+```powershell
+$path = 'C:\Vendor\App'
+icacls $path /inheritance:r
+icacls $path /grant:r 'BUILTIN\Administrators:(OI)(CI)(F)' 'NT AUTHORITY\SYSTEM:(OI)(CI)(F)' 'BUILTIN\Users:(OI)(CI)(RX)'
+```
+Or via Properties → Security tab in Explorer: remove the "Modify"/"Write" permission for Users / Authenticated Users / Everyone, leaving only Read & Execute.
+
+**ICS note:** Some legacy vendor installers default to writable Program Files folders so the runtime user can write log/config files there. Move those files to `%ProgramData%\<Vendor>` and tighten the install folder. Validate the application still runs after permission changes.
+
+### Check 26 — Installed Compilers
+
+**Finding:** `[-] N compiler/build tool binary(ies) detected (living-off-the-land risk)`
+
+**Why it matters:** Compilers and build tools (gcc, MinGW, clang, MSVC `cl.exe`, NASM, Strawberry Perl, Python, make) on a production system give an attacker the ability to compile malware locally — bypassing antivirus signatures that would catch a pre-built binary. Compilers are rarely needed on operator workstations, HMIs, or production servers.
+
+**Remediate:** If the compiler/tool is not required for normal operation:
+- Uninstall via Control Panel → Programs, or `msiexec /uninstall <ProductCode>` for MSI-installed tools.
+- For MinGW/MSYS/Strawberry Perl etc. installed by extracting an archive, delete the install folder and remove its `bin\` directory from `PATH`.
+- For Visual Studio Build Tools, uninstall via the Visual Studio Installer.
+
+If the tool is genuinely required (e.g., a vendor-supplied build utility), document the business justification, restrict the binary's NTFS ACL to specific users, and consider AppLocker rules to block execution by the broader user population.
+
+**ICS note:** Some vendor SDKs and engineering workstations legitimately need compilers (e.g., systems that compile PLC code, custom build servers). For HMI/operator workstations with no engineering role, treat compiler presence as a finding to remove.
+
+### Check 27 — SMB Server Configuration
 
 **Findings:**
 - `[-] SMBv1 is Enabled`
@@ -239,7 +284,7 @@ Set-SmbServerConfiguration -EncryptData $true -Force
 ```
 ICS note: Some legacy HMI or PLC vendor systems communicate using SMBv1. Audit first; disable only after confirming nothing depends on it.
 
-### Check 25 — Anonymous Enumeration
+### Check 28 — Anonymous Enumeration
 
 **Findings:**
 - `[-] RestrictAnonymous registry key is not configured`
@@ -252,7 +297,7 @@ ICS note: Some legacy HMI or PLC vendor systems communicate using SMBv1. Audit f
 - `HKLM\SYSTEM\CurrentControlSet\Control\Lsa!RestrictAnonymousSAM` = `1`
 - GPO: `Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Network access: Do not allow anonymous enumeration of SAM accounts and shares` → **Enabled**.
 
-### Check 26 — Untrusted Fonts (Windows 10+)
+### Check 29 — Untrusted Fonts (Windows 10+)
 
 **Finding:** `[-] Kernel MitigationOptions key is configured not to block`
 
@@ -260,7 +305,7 @@ ICS note: Some legacy HMI or PLC vendor systems communicate using SMBv1. Audit f
 
 **Remediate:** `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel!MitigationOptions` — set the appropriate hex bitmask for font blocking. See [Block untrusted fonts](https://docs.microsoft.com/en-us/windows/security/threat-protection/block-untrusted-fonts-in-enterprise).
 
-### Check 27 — ASR Rules
+### Check 30 — ASR Rules
 
 **Finding:** `[-] No Attack Surface Reduction rules configured.` (or `[-] ASR Rule <GUID>: Disabled`)
 
@@ -274,7 +319,7 @@ Set-MpPreference -AttackSurfaceReductionRules_Ids 9e6c4e1f-7d60-472f-ba1a-a39ef6
 ```
 See [ASR rules reference](https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/attack-surface-reduction-rules-reference) for the full list of GUIDs and actions.
 
-### Check 28 — SMB Client Signing
+### Check 31 — SMB Client Signing
 
 **Findings:**
 - `[-] SMB Client Require Security Signature is Disabled`
@@ -287,7 +332,7 @@ See [ASR rules reference](https://learn.microsoft.com/en-us/microsoft-365/securi
 - `!EnableSecuritySignature` = `1`
 - GPO: `Computer Configuration → Windows Settings → Security Settings → Local Policies → Security Options → Microsoft network client: Digitally sign communications (always)` → **Enabled**.
 
-### Check 29 — TLS/SSL Protocol Configuration
+### Check 32 — TLS/SSL Protocol Configuration
 
 **Finding:** `[-] <proto> Server is enabled (should be disabled)` — for SSL 2.0, SSL 3.0, TLS 1.0, TLS 1.1
 
@@ -299,7 +344,7 @@ See [ASR rules reference](https://learn.microsoft.com/en-us/microsoft-365/securi
 
 Also disable client-side by repeating under `\Client`. Reboot required. Test server-side applications (e.g., IIS, SQL Server, WSUS) for compatibility before disabling TLS 1.0/1.1 on production.
 
-### Check 30 — Audit Policy
+### Check 33 — Audit Policy
 
 **Finding:** `[-] Audit policy for <subcategory>: No Auditing`
 
@@ -319,7 +364,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 
 ## Section 3 — Authentication Checks
 
-### Check 31 — RDP Deny
+### Check 34 — RDP Deny
 
 **Findings:**
 - `[-] AllowRemoteRPC should be disabled to deny RDP: 1`
@@ -332,7 +377,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 - Also set `!AllowRemoteRPC` = `0`.
 - GPO: `Computer Configuration → Administrative Templates → Windows Components → Remote Desktop Services → Remote Desktop Session Host → Connections → Allow users to connect remotely by using Remote Desktop Services` → **Disabled**.
 
-### Check 32 — Local Administrators
+### Check 35 — Local Administrators
 
 **Finding:** `[-] More than one account is in local Administrators group`
 
@@ -340,7 +385,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 
 **Remediate:** Review membership (`net localgroup Administrators`). Remove service/user accounts that do not need local admin. Where domain admin access is needed, use a dedicated admin account or Just-In-Time (JIT) access via tools like PAM.
 
-### Check 33 — NTLM Session Security
+### Check 36 — NTLM Session Security
 
 **Findings:**
 - `[-] NtlmMinServerSec not configured. Recommend 0x20080030.`
@@ -353,7 +398,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 - `!NtlmMinClientSec` = `0x20080030`.
 - GPO: `Security Options → Network security: Minimum session security for NTLM SSP based (including secure RPC) <servers/clients>` → **Require NTLMv2 session security**, **Require 128-bit encryption**.
 
-### Check 34 — LAN Manager Authentication
+### Check 37 — LAN Manager Authentication
 
 **Findings:**
 - `[-] LmCompatibilityLevel not configured. Default may allow LM/NTLM.`
@@ -366,7 +411,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 - `HKLM\System\CurrentControlSet\Control\Lsa!NoLmHash` = `1`
 - GPO: `Security Options → Network security: LAN Manager authentication level` → **Send NTLMv2 response only. Refuse LM & NTLM**.
 
-### Check 35 — Cached Logons
+### Check 38 — Cached Logons
 
 **Finding:** `[-] CachedLogonsCount Is Not Set to 0 or 1`
 
@@ -376,7 +421,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 - `HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon!CachedLogonsCount` = `0` or `1` (REG_SZ containing `"0"` or `"1"`).
 - Setting to 0 means no cached logons; users cannot authenticate if the domain is unreachable. Setting to 1 allows one cached logon. Choose based on the system's role.
 
-### Check 36 — Interactive Login (LocalAccountTokenFilterPolicy)
+### Check 39 — Interactive Login (LocalAccountTokenFilterPolicy)
 
 **Finding:** `[-] LocalAccountTokenFilterPolicy Is Set`
 
@@ -386,7 +431,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 - Remove or set to 0: `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system!LocalAccountTokenFilterPolicy`.
 - Do the same in `HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\policies\system` on 64-bit systems.
 
-### Check 37 — WDigest
+### Check 40 — WDigest
 
 **Finding:** `[-] WDigest UseLogonCredential key is Enabled`
 
@@ -394,7 +439,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 
 **Remediate:** `HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest!UseLogonCredential` = `0`. Disabled by default on Windows 8.1+ / Server 2012 R2+. An explicit `1` value means someone turned it back on and should be investigated.
 
-### Check 38 — Restrict RPC Clients
+### Check 41 — Restrict RPC Clients
 
 **Finding:** `[-] RestrictRemoteClients registry key is not configured`
 
@@ -402,7 +447,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 
 **Remediate:** `HKLM\Software\Policies\Microsoft\Windows NT\Rpc!RestrictRemoteClients` = `1` (authenticated). GPO: `Computer Configuration → Administrative Templates → System → Remote Procedure Call → Restrict Unauthenticated RPC clients` → **Enabled**, **Authenticated**.
 
-### Check 39 — RDP Network Level Authentication
+### Check 42 — RDP Network Level Authentication
 
 **Findings:**
 - `[-] RDP Network Level Authentication (NLA) is not required`
@@ -419,7 +464,7 @@ For domain-managed systems, configure via GPO: `Computer Configuration → Windo
 
 ## Section 4 — Network Checks
 
-### Check 41 — IPv6 Interfaces
+### Check 44 — IPv6 Interfaces
 
 **Finding:** `[-] Host IPv6 network interface assigned`
 
@@ -431,7 +476,7 @@ Disable-NetAdapterBinding -Name "<adapter>" -ComponentID ms_tcpip6
 ```
 If IPv6 is used, ensure monitoring covers IPv6 and accept the finding.
 
-### Check 42 — WPAD
+### Check 45 — WPAD
 
 **Findings:**
 - `[-] No WPAD entry detected. Should contain: wpad 255.255.255.255`
@@ -447,7 +492,7 @@ If IPv6 is used, ensure monitoring covers IPv6 and accept the finding.
 - Disable the service: `Set-Service -Name WinHttpAutoProxySvc -StartupType Disabled` then `Stop-Service`.
 - Apply KB3165191 (or a superseding cumulative update).
 
-### Check 43 — WINS Configuration
+### Check 46 — WINS Configuration
 
 **Findings:**
 - `[-] DNSEnabledForWINSResolution is enabled`
@@ -461,7 +506,7 @@ netsh interface ipv4 set dnsservers "<adapter>" source=dhcp
 ```
 And in the adapter's TCP/IP → Advanced → WINS tab, uncheck both.
 
-### Check 44 — LLMNR
+### Check 47 — LLMNR
 
 **Finding:** `[-] DNSClient.EnableMulticast does not exist or is enabled`
 
@@ -469,7 +514,7 @@ And in the adapter's TCP/IP → Advanced → WINS tab, uncheck both.
 
 **Remediate:** `HKLM\Software\policies\Microsoft\Windows NT\DNSClient!EnableMulticast` = `0`. GPO: `Computer Configuration → Administrative Templates → Network → DNS Client → Turn off multicast name resolution` → **Enabled**.
 
-### Check 45 — Computer Browser Service
+### Check 48 — Computer Browser Service
 
 **Finding:** `[-] Computer Browser service is: Running`
 
@@ -481,7 +526,7 @@ Stop-Service -Name Browser -Force
 Set-Service -Name Browser -StartupType Disabled
 ```
 
-### Check 46 — NetBIOS over TCP/IP
+### Check 49 — NetBIOS over TCP/IP
 
 **Finding:** `[-] NetBios is Enabled: <value>`
 
@@ -489,7 +534,7 @@ Set-Service -Name Browser -StartupType Disabled
 
 **Remediate:** Per adapter, set `HKLM\SYSTEM\CurrentControlSet\Services\NetBT\Parameters\Interfaces\Tcpip_<GUID>!NetbiosOptions` = `2` (disable NetBIOS over TCP/IP). Can also be set on a DHCP server as a scope option, or in the adapter properties → TCP/IPv4 → Advanced → WINS → Disable NetBIOS over TCP/IP.
 
-### Check 49 — TCP/IP Stack Hardening
+### Check 52 — TCP/IP Stack Hardening
 
 **Findings:**
 - `[-] IP source routing is not fully disabled`
@@ -507,7 +552,20 @@ Set-Service -Name Browser -StartupType Disabled
 
 ## Section 5 — PowerShell Checks
 
-### Check 50 — PowerShell Versions
+### Check 53 — Network Shares
+
+**Finding:** `[-] N non-default SMB share(s) detected: <name> -> <path>`
+
+**Why it matters:** Each user-created SMB share is a potential network entry point: misconfigured permissions can expose data, allow file write attacks, or enable lateral movement. Shares hosted on workstations and HMIs are particularly suspect — workstations are not file servers.
+
+**Remediate:** For each share in the report, decide whether it's needed:
+- **Not needed:** Remove the share. `Remove-SmbShare -Name <ShareName>` (PowerShell) or `net share <ShareName> /delete` (CMD).
+- **Needed:** Verify ACLs are correct. View with `Get-SmbShareAccess -Name <ShareName>` and tighten with `Grant-SmbShareAccess` / `Revoke-SmbShareAccess`. Also verify NTFS ACLs on the underlying folder.
+- **Replace with a different mechanism:** For occasional file transfer, prefer pull-based tools (scp from a jump host, robocopy from a designated server) over leaving SMB shares running.
+
+**ICS note:** Engineer/operator workstations sometimes have shares left over from initial system setup or troubleshooting. These are often forgotten and rarely reviewed. Eliminate them.
+
+### Check 54 — PowerShell Versions
 
 **Finding:** `[-] Current PowerShell Version is less than Version 5` or `[-] PowerShell Version 2 should be disabled`
 
@@ -519,7 +577,7 @@ Disable-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2
 ```
 Also uninstall .NET Framework 2.0/3.5 if no applications require it.
 
-### Check 51 — PowerShell Language Mode
+### Check 55 — PowerShell Language Mode
 
 **Finding:** `[-] Execution Language Mode Is Not ConstrainedLanguage`
 
@@ -545,7 +603,7 @@ Also uninstall .NET Framework 2.0/3.5 if no applications require it.
 
 Equivalent registry keys under `HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\*`.
 
-### Check 56 — WinRM
+### Check 60 — WinRM
 
 **Findings:**
 - `[-] WinRM Services is running and may be accepting connections`
@@ -569,7 +627,7 @@ If WinRM is needed, restrict via:
 
 ## Section 6 — Logging Checks
 
-### Check 57 — Event Log Sizes
+### Check 61 — Event Log Sizes
 
 **Finding:** `[-] <log> max log size is smaller than <N> GB: <actual> GB`
 
@@ -587,7 +645,7 @@ Recommended thresholds (from CHAPS defaults):
 
 Also configure log forwarding (Windows Event Forwarding, Splunk/Elastic agent, Sysmon channel forwarding) so events survive even if local logs roll.
 
-### Check 58 — Command-Line Auditing
+### Check 62 — Command-Line Auditing
 
 **Finding:** `[-] ProcessCreationIncludeCmdLine_Enabled Is Not Set`
 
@@ -597,7 +655,7 @@ Also configure log forwarding (Windows Event Forwarding, Splunk/Elastic agent, S
 
 Also ensure **Process Creation** is audited under Advanced Audit Policy (see Check 30).
 
-### Check 59 — Windows Script Host
+### Check 63 — Windows Script Host
 
 **Findings:**
 - `[-] WSH Setting Enabled key is Enabled`

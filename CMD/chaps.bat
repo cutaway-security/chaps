@@ -581,16 +581,125 @@ for %%S in (Spooler RemoteRegistry SNMP TlntSvr RemoteAccess NetTcpPortSharing S
 )
 echo.
 
+:: -------------------------------------------------------
+:: CHECK 24: Unquoted Service Paths
+:: -------------------------------------------------------
+echo ### Check 24: Unquoted Service Paths
+echo.
+echo [*] Services with unquoted PathName values (starting with a drive letter, not a quote).
+echo [*] Review each for a space before the .exe -- those are privilege escalation risks:
+if "!WMIC_PRESENT!"=="true" (
+    wmic service get Name,PathName /value 2>nul | findstr /r /i /c:"^PathName=[A-Za-z]:"
+) else (
+    echo [*] WMIC not available. Cannot enumerate service paths.
+)
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 25: Weak Program Directory Permissions
+:: -------------------------------------------------------
+echo ### Check 25: Weak Program Directory Permissions
+echo.
+if "!IS_ADMIN!"=="false" (
+    echo [*] Weak program permission check skipped ^(requires Administrator for consistent ACL reads^).
+    goto :check25_done
+)
+echo [*] Directories granting Modify/Write/FullControl to Users, Authenticated Users, or Everyone:
+echo [*] ^(Review each -- these are privilege escalation risks^)
+set "weak_found=0"
+set "permtmp=%TEMP%\chaps_perm.txt"
+if exist "!permtmp!" del "!permtmp!" >nul 2>&1
+:: Collect directories to inspect into a temp listing. Write paths, one per line, to a secondary temp.
+set "dirlist=%TEMP%\chaps_dirs.txt"
+if exist "!dirlist!" del "!dirlist!" >nul 2>&1
+:: Enumerate Program Files and Program Files (x86) children
+dir /ad /b "%SystemDrive%\Program Files" 2>nul > "!permtmp!"
+for /f "usebackq delims=" %%D in ("!permtmp!") do echo %SystemDrive%\Program Files\%%D>> "!dirlist!"
+dir /ad /b "%SystemDrive%\Program Files (x86)" 2>nul > "!permtmp!"
+for /f "usebackq delims=" %%D in ("!permtmp!") do echo %SystemDrive%\Program Files (x86)\%%D>> "!dirlist!"
+:: Enumerate non-standard root folders
+dir /ad /b "%SystemDrive%\" 2>nul > "!permtmp!"
+for /f "usebackq delims=" %%D in ("!permtmp!") do (
+    set "dn=%%D"
+    set "skipit=0"
+    if /i "!dn!"=="Program Files"       set "skipit=1"
+    if /i "!dn!"=="Program Files (x86)" set "skipit=1"
+    if /i "!dn!"=="Windows"             set "skipit=1"
+    if /i "!dn!"=="Users"               set "skipit=1"
+    if /i "!dn!"=="ProgramData"         set "skipit=1"
+    if /i "!dn!"=="PerfLogs"            set "skipit=1"
+    if /i "!dn!"=="Recovery"            set "skipit=1"
+    if /i "!dn!"=="MSOCache"            set "skipit=1"
+    if /i "!dn!"=="inetpub"             set "skipit=1"
+    if "!dn:~0,1!"=="$" set "skipit=1"
+    if "!skipit!"=="0" echo %SystemDrive%\!dn!>> "!dirlist!"
+)
+:: Process each candidate directory with icacls
+if exist "!dirlist!" (
+    for /f "usebackq delims=" %%P in ("!dirlist!") do (
+        :: Run icacls, filter output for risky principal + rights combo
+        icacls "%%P" 2>nul | findstr /i /c:"Everyone:" /c:"BUILTIN\Users:" /c:"Authenticated Users:" > "!permtmp!"
+        if exist "!permtmp!" (
+            findstr /i /c:"(F)" /c:"(M)" /c:"(W)" /c:"(WD)" /c:"(Modify)" /c:"(FullControl)" "!permtmp!" >nul 2>&1
+            if not errorlevel 1 (
+                echo [-] %%P
+                for /f "usebackq delims=" %%A in ("!permtmp!") do echo [*]     %%A
+                set /a weak_found+=1
+            )
+        )
+    )
+)
+if exist "!permtmp!" del "!permtmp!" >nul 2>&1
+if exist "!dirlist!" del "!dirlist!" >nul 2>&1
+if "!weak_found!"=="0" (
+    echo [+] No weak permissions detected on program/vendor directories examined.
+) else (
+    echo [*] !weak_found! director^(ies^) with weak permissions found ^(listed above^).
+)
+:check25_done
+echo.
+
+:: -------------------------------------------------------
+:: CHECK 26: Installed Compilers
+:: -------------------------------------------------------
+echo ### Check 26: Installed Compilers
+echo.
+set "compiler_found=0"
+:: Search PATH via 'where' for common compiler binaries
+for %%C in (gcc.exe g++.exe cc.exe cc1.exe clang.exe clang++.exe clang-cl.exe cl.exe mingw32-gcc.exe x86_64-w64-mingw32-gcc.exe i686-w64-mingw32-gcc.exe nasm.exe masm.exe ml.exe ml64.exe make.exe mingw32-make.exe nmake.exe cmake.exe perl.exe python.exe) do (
+    for /f "delims=" %%P in ('where %%C 2^>nul') do (
+        for /f "tokens=*" %%Q in ("%%P") do (
+            echo [*]   %%Q
+            set /a compiler_found+=1
+        )
+    )
+)
+:: Check common install roots
+for %%R in ("%SystemDrive%\Strawberry" "%SystemDrive%\Perl" "%SystemDrive%\Perl64" "%SystemDrive%\MinGW" "%SystemDrive%\msys64" "%SystemDrive%\msys" "%SystemDrive%\cygwin64" "%SystemDrive%\cygwin" "%SystemDrive%\Python27" "%SystemDrive%\Python3" "%SystemDrive%\TDM-GCC-64" "%SystemDrive%\Program Files\LLVM" "%SystemDrive%\Program Files (x86)\LLVM") do (
+    if exist "%%~R" (
+        for /f "delims=" %%F in ('dir /s /b "%%~R\gcc.exe" "%%~R\g++.exe" "%%~R\clang.exe" "%%~R\cl.exe" "%%~R\perl.exe" "%%~R\make.exe" "%%~R\cmake.exe" "%%~R\nasm.exe" 2^>nul') do (
+            echo [*]   %%F
+            set /a compiler_found+=1
+        )
+    )
+)
+if "!compiler_found!"=="0" (
+    echo [+] No common compilers or build tools detected.
+) else (
+    echo [-] !compiler_found! compiler/build tool binary^(ies^) detected ^(living-off-the-land risk; listed above^).
+)
+echo.
+
 :: =============================================================
-:: SECURITY CHECKS (24-30)
+:: SECURITY CHECKS (27-33)
 :: =============================================================
 echo ## Security Checks
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 24: SMB Server Configuration
+:: CHECK 27: SMB Server Configuration
 :: -------------------------------------------------------
-echo ### Check 24: SMB Server Configuration
+echo ### Check 27: SMB Server Configuration
 echo.
 set "SMB_PATH=HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"
 set "_smb1="
@@ -642,9 +751,9 @@ if "!_srue!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 25: Anonymous Enumeration
+:: CHECK 28: Anonymous Enumeration
 :: -------------------------------------------------------
-echo ### Check 25: Anonymous Enumeration
+echo ### Check 28: Anonymous Enumeration
 echo.
 set "_ra="
 call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "RestrictAnonymous" _ra
@@ -669,9 +778,9 @@ if "!_ras!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 26: Untrusted Font Blocking
+:: CHECK 29: Untrusted Font Blocking
 :: -------------------------------------------------------
-echo ### Check 26: Untrusted Font Blocking
+echo ### Check 29: Untrusted Font Blocking
 echo.
 set "_mopt="
 call :GetRegVal "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel" "MitigationOptions" _mopt
@@ -684,17 +793,17 @@ if defined _mopt (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 27: ASR Rules
+:: CHECK 30: ASR Rules
 :: -------------------------------------------------------
-echo ### Check 27: ASR Rules
+echo ### Check 30: ASR Rules
 echo.
 echo [*] ASR Rules: Not available in CMD. Requires PowerShell Get-MpPreference cmdlet.
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 28: SMB Client Signing
+:: CHECK 31: SMB Client Signing
 :: -------------------------------------------------------
-echo ### Check 28: SMB Client Signing
+echo ### Check 31: SMB Client Signing
 echo.
 set "SMBC_PATH=HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
 set "_crss="
@@ -714,9 +823,9 @@ if "!_cess!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 29: TLS/SSL Protocol Configuration
+:: CHECK 32: TLS/SSL Protocol Configuration
 :: -------------------------------------------------------
-echo ### Check 29: TLS/SSL Protocol Configuration
+echo ### Check 32: TLS/SSL Protocol Configuration
 echo.
 set "SCHANNEL_BASE=HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols"
 for %%P in ("SSL 2.0" "SSL 3.0" "TLS 1.0" "TLS 1.1" "TLS 1.2" "TLS 1.3") do (
@@ -740,24 +849,24 @@ for %%P in ("SSL 2.0" "SSL 3.0" "TLS 1.0" "TLS 1.1" "TLS 1.2" "TLS 1.3") do (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 30: Audit Policy
+:: CHECK 33: Audit Policy
 :: -------------------------------------------------------
-echo ### Check 30: Audit Policy
+echo ### Check 33: Audit Policy
 echo.
 echo [*] Audit policy settings:
 for /f "tokens=*" %%A in ('auditpol /get /category:* 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: =============================================================
-:: AUTHENTICATION CHECKS (31-39)
+:: AUTHENTICATION CHECKS (34-42)
 :: =============================================================
 echo ## Authentication Checks
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 31: RDP Deny
+:: CHECK 34: RDP Deny
 :: -------------------------------------------------------
-echo ### Check 31: RDP Configuration
+echo ### Check 34: RDP Configuration
 echo.
 set "_arrpc="
 call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server" "AllowRemoteRPC" _arrpc
@@ -780,9 +889,9 @@ if "!_fdts!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 32: Local Administrators
+:: CHECK 35: Local Administrators
 :: -------------------------------------------------------
-echo ### Check 32: Local Administrators
+echo ### Check 35: Local Administrators
 echo.
 set "foundSep=false"
 set /a numAdmins=0
@@ -812,9 +921,9 @@ echo [*] Members: !adminList!
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 33: NTLM Session Security
+:: CHECK 36: NTLM Session Security
 :: -------------------------------------------------------
-echo ### Check 33: NTLM Session Security
+echo ### Check 36: NTLM Session Security
 echo.
 set "_nss="
 call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" "NtlmMinServerSec" _nss
@@ -837,9 +946,9 @@ if "!_nsc!"=="0x20080030" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 34: LAN Manager Authentication
+:: CHECK 37: LAN Manager Authentication
 :: -------------------------------------------------------
-echo ### Check 34: LAN Manager Authentication
+echo ### Check 37: LAN Manager Authentication
 echo.
 set "_lmcl="
 call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Lsa" "LmCompatibilityLevel" _lmcl
@@ -864,9 +973,9 @@ if "!_nlmh!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 35: Cached Logons
+:: CHECK 38: Cached Logons
 :: -------------------------------------------------------
-echo ### Check 35: Cached Logons
+echo ### Check 38: Cached Logons
 echo.
 set "_clc="
 call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "CachedLogonsCount" _clc
@@ -878,9 +987,9 @@ if defined _clc (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 36: Interactive Login / LocalAccountTokenFilterPolicy
+:: CHECK 39: Interactive Login / LocalAccountTokenFilterPolicy
 :: -------------------------------------------------------
-echo ### Check 36: Interactive Login (LocalAccountTokenFilterPolicy)
+echo ### Check 39: Interactive Login (LocalAccountTokenFilterPolicy)
 echo.
 set "_latfp="
 call :GetRegValTokens3 "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" "LocalAccountTokenFilterPolicy" _latfp
@@ -902,9 +1011,9 @@ if "!_wlatfp!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 37: WDigest
+:: CHECK 40: WDigest
 :: -------------------------------------------------------
-echo ### Check 37: WDigest Credential Caching
+echo ### Check 40: WDigest Credential Caching
 echo.
 set "_wdig="
 call :GetRegValTokens3 "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" "UseLogonCredential" _wdig
@@ -918,9 +1027,9 @@ if "!_wdig!"=="0x0" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 38: Restrict RPC Clients
+:: CHECK 41: Restrict RPC Clients
 :: -------------------------------------------------------
-echo ### Check 38: Restrict RPC Clients
+echo ### Check 41: Restrict RPC Clients
 echo.
 set "_rrpc="
 call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows NT\Rpc" "RestrictRemoteClients" _rrpc
@@ -936,9 +1045,9 @@ if "!_rrpc!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 39: RDP NLA
+:: CHECK 42: RDP NLA
 :: -------------------------------------------------------
-echo ### Check 39: RDP Network Level Authentication
+echo ### Check 42: RDP Network Level Authentication
 echo.
 set "_nla="
 call :GetRegValTokens3 "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" "UserAuthentication" _nla
@@ -963,15 +1072,15 @@ if "!_mel!"=="0x3" (
 echo.
 
 :: =============================================================
-:: NETWORK CHECKS (40-49)
+:: NETWORK CHECKS (43-52)
 :: =============================================================
 echo ## Network Checks
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 40: IPv4 Interfaces
+:: CHECK 43: IPv4 Interfaces
 :: -------------------------------------------------------
-echo ### Check 40: IPv4 Interfaces
+echo ### Check 43: IPv4 Interfaces
 echo.
 set "ipv4_found=false"
 for /f "tokens=2 delims=:" %%A in ('ipconfig 2^>nul ^| findstr /C:"IPv4 Address" /C:"IP Address"') do (
@@ -984,9 +1093,9 @@ if "!ipv4_found!"=="false" echo [*] No IPv4 addresses found.
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 41: IPv6 Interfaces
+:: CHECK 44: IPv6 Interfaces
 :: -------------------------------------------------------
-echo ### Check 41: IPv6 Interfaces
+echo ### Check 44: IPv6 Interfaces
 echo.
 set "ipv6_global=false"
 for /f "tokens=2 delims=:" %%A in ('ipconfig 2^>nul ^| findstr /C:"IPv6 Address"') do (
@@ -1005,9 +1114,9 @@ if "!ipv6_global!"=="false" echo [+] No non-link-local IPv6 addresses detected.
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 42: WPAD
+:: CHECK 45: WPAD
 :: -------------------------------------------------------
-echo ### Check 42: WPAD Configuration
+echo ### Check 45: WPAD Configuration
 echo.
 findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" >nul 2>&1
 if %errorlevel%==0 (
@@ -1030,9 +1139,9 @@ if /i "!_winsvc!"=="RUNNING" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 43: WINS
+:: CHECK 46: WINS
 :: -------------------------------------------------------
-echo ### Check 43: WINS Configuration
+echo ### Check 46: WINS Configuration
 echo.
 if "!WMIC_PRESENT!"=="true" (
     for /f "tokens=2 delims==" %%A in ('"wmic nicconfig where IPEnabled=TRUE get DNSEnabledForWINSResolution /value 2>nul"') do (
@@ -1059,9 +1168,9 @@ if "!WMIC_PRESENT!"=="true" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 44: LLMNR
+:: CHECK 47: LLMNR
 :: -------------------------------------------------------
-echo ### Check 44: LLMNR
+echo ### Check 47: LLMNR
 echo.
 set "_llmnr="
 call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows NT\DNSClient" "EnableMulticast" _llmnr
@@ -1075,9 +1184,9 @@ if "!_llmnr!"=="0x0" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 45: Computer Browser Service
+:: CHECK 48: Computer Browser Service
 :: -------------------------------------------------------
-echo ### Check 45: Computer Browser Service
+echo ### Check 48: Computer Browser Service
 echo.
 call :CheckSvcState Browser _brsvc
 if /i "!_brsvc!"=="RUNNING" (
@@ -1090,9 +1199,9 @@ if /i "!_brsvc!"=="RUNNING" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 46: NetBIOS over TCP/IP
+:: CHECK 49: NetBIOS over TCP/IP
 :: -------------------------------------------------------
-echo ### Check 46: NetBIOS over TCP/IP
+echo ### Check 49: NetBIOS over TCP/IP
 echo.
 if "!WMIC_PRESENT!"=="true" (
     for /f "tokens=2 delims==" %%A in ('"wmic nicconfig where IPEnabled=TRUE get TcpipNetbiosOptions /value 2>nul"') do (
@@ -1108,27 +1217,27 @@ if "!WMIC_PRESENT!"=="true" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 47: Network Connections
+:: CHECK 50: Network Connections
 :: -------------------------------------------------------
-echo ### Check 47: Network Connections
+echo ### Check 50: Network Connections
 echo.
 echo [*] Active network connections ^(netstat -ano^):
 for /f "tokens=*" %%A in ('netstat -ano 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 48: Firewall Profiles
+:: CHECK 51: Firewall Profiles
 :: -------------------------------------------------------
-echo ### Check 48: Firewall Profiles
+echo ### Check 51: Firewall Profiles
 echo.
 echo [*] Firewall profile status:
 for /f "tokens=*" %%A in ('netsh advfirewall show allprofiles 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 49: TCP/IP Stack Hardening
+:: CHECK 52: TCP/IP Stack Hardening
 :: -------------------------------------------------------
-echo ### Check 49: TCP/IP Stack Hardening
+echo ### Check 52: TCP/IP Stack Hardening
 echo.
 set "TCPIP_PATH=HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
 set "_disr="
@@ -1160,32 +1269,69 @@ if "!_prd!"=="0x0" (
 )
 echo.
 
+:: -------------------------------------------------------
+:: CHECK 53: Network Shares
+:: -------------------------------------------------------
+echo ### Check 53: Network Shares
+echo.
+set "share_found=0"
+for /f "skip=4 tokens=1,2,*" %%A in ('net share 2^>nul') do (
+    set "sname=%%A"
+    set "spath=%%B"
+    set "sdesc=%%C"
+    :: Skip the "The command completed successfully." footer line
+    if /i not "!sname!"=="The" (
+        :: Skip default admin shares: ADMIN$, IPC$, PRINT$, FAX$, and drive letter shares like C$, D$
+        set "is_default=0"
+        if /i "!sname!"=="ADMIN$" set "is_default=1"
+        if /i "!sname!"=="IPC$"   set "is_default=1"
+        if /i "!sname!"=="PRINT$" set "is_default=1"
+        if /i "!sname!"=="FAX$"   set "is_default=1"
+        :: Drive letter admin shares (single letter followed by $)
+        if not "!sname:~1,1!"=="" (
+            if "!sname:~1,1!"=="$" if "!sname:~2,1!"=="" set "is_default=1"
+        )
+        if "!is_default!"=="0" (
+            if not "!sname!"=="" (
+                echo [*]   !sname! -^> !spath! ^(!sdesc!^)
+                set /a share_found+=1
+            )
+        )
+    )
+)
+if "!share_found!"=="0" (
+    echo [+] No non-default SMB shares detected.
+) else (
+    echo [-] !share_found! non-default SMB share^(s^) detected ^(listed above^).
+)
+echo.
+
 :: =============================================================
-:: POWERSHELL CHECKS (50-56)
+:: POWERSHELL CHECKS (54-60)
 :: =============================================================
 echo ## PowerShell Checks
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 50: PowerShell Versions
+:: CHECK 54: PowerShell Versions
 :: -------------------------------------------------------
-echo ### Check 50: PowerShell Versions
+echo ### Check 54: PowerShell Versions
 echo.
 echo [*] PowerShell Versions: Not available in CMD. Requires PowerShell runtime.
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 51: PowerShell Language Mode
+:: CHECK 55: PowerShell Language Mode
 :: -------------------------------------------------------
-echo ### Check 51: PowerShell Language Mode
+echo ### Check 55: PowerShell Language Mode
 echo.
 echo [*] PowerShell Language Mode: Not available in CMD. Requires PowerShell runtime.
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 52: PowerShell Module Logging
+:: CHECK 56: PowerShell Module Logging
 :: -------------------------------------------------------
-echo ### Check 52: PowerShell Module Logging
+echo ### Check 56: PowerShell Module Logging
 echo.
 set "_pml="
 call :GetRegValTokens3 "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" "EnableModuleLogging" _pml
@@ -1205,9 +1351,9 @@ if "!_pml!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 53: PowerShell Script Block Logging
+:: CHECK 57: PowerShell Script Block Logging
 :: -------------------------------------------------------
-echo ### Check 53: PowerShell Script Block Logging
+echo ### Check 57: PowerShell Script Block Logging
 echo.
 set "_sbl="
 call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockLogging" _sbl
@@ -1226,9 +1372,9 @@ if "!_sbil!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 54: PowerShell Transcription
+:: CHECK 58: PowerShell Transcription
 :: -------------------------------------------------------
-echo ### Check 54: PowerShell Transcription
+echo ### Check 58: PowerShell Transcription
 echo.
 set "_pst="
 call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableTranscripting" _pst
@@ -1254,9 +1400,9 @@ if defined _pod (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 55: PowerShell Protected Event Logging
+:: CHECK 59: PowerShell Protected Event Logging
 :: -------------------------------------------------------
-echo ### Check 55: PowerShell Protected Event Logging
+echo ### Check 59: PowerShell Protected Event Logging
 echo.
 set "_pel="
 call :GetRegValTokens3 "HKLM\Software\Policies\Microsoft\Windows\EventLog\ProtectedEventLogging" "EnableProtectedEventLogging" _pel
@@ -1268,9 +1414,9 @@ if "!_pel!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 56: WinRM
+:: CHECK 60: WinRM
 :: -------------------------------------------------------
-echo ### Check 56: WinRM Service
+echo ### Check 60: WinRM Service
 echo.
 call :CheckSvcState WinRM _wrmsvc
 if /i "!_wrmsvc!"=="RUNNING" (
@@ -1285,15 +1431,15 @@ for /f "tokens=*" %%A in ('netsh advfirewall firewall show rule name^="Windows R
 echo.
 
 :: =============================================================
-:: LOGGING CHECKS (57-59)
+:: LOGGING CHECKS (61-63)
 :: =============================================================
 echo ## Logging Checks
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 57: Event Log Sizes
+:: CHECK 61: Event Log Sizes
 :: -------------------------------------------------------
-echo ### Check 57: Event Log Sizes
+echo ### Check 61: Event Log Sizes
 echo.
 for %%L in (Application Security System "Windows PowerShell" "Microsoft-Windows-PowerShell/Operational" "Microsoft-Windows-Sysmon/Operational" "Microsoft-Windows-TaskScheduler/Operational" "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall" "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational" "Microsoft-Windows-WMI-Activity/Operational" "Microsoft-Windows-DNS-Client/Operational") do (
     set "_logsize="
@@ -1310,9 +1456,9 @@ for %%L in (Application Security System "Windows PowerShell" "Microsoft-Windows-
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 58: Command-Line Process Auditing
+:: CHECK 62: Command-Line Process Auditing
 :: -------------------------------------------------------
-echo ### Check 58: Command-Line Process Auditing
+echo ### Check 62: Command-Line Process Auditing
 echo.
 set "_claud="
 call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" "ProcessCreationIncludeCmdLine_Enabled" _claud
@@ -1324,9 +1470,9 @@ if "!_claud!"=="0x1" (
 echo.
 
 :: -------------------------------------------------------
-:: CHECK 59: Windows Script Host
+:: CHECK 63: Windows Script Host
 :: -------------------------------------------------------
-echo ### Check 59: Windows Script Host
+echo ### Check 63: Windows Script Host
 echo.
 set "_wsh="
 call :GetRegValTokens3 "HKLM\Software\Microsoft\Windows Script Host\Settings" "Enabled" _wsh

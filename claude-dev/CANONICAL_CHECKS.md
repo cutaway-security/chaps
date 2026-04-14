@@ -2,6 +2,8 @@
 
 Canonical check order for all three CHAPS scripts. PSv3 is the reference implementation. PSv2 and CMD must implement every check in this exact order. Checks that cannot be performed by a given script must output an info line with the reason.
 
+Total checks: 63.
+
 ## System Info Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
@@ -29,74 +31,78 @@ Canonical check order for all three CHAPS scripts. PSv3 is the reference impleme
 | 21 | Secure Boot | Get-SecureBoot | Confirm-SecureBootUEFI / Registry | Yes (reg query) |
 | 22 | LSA Protection | Get-LSAProtection | Registry | Yes (reg query) |
 | 23 | Risky services | Get-ServiceHardening | Get-Service | Yes (sc query) |
+| 24 | Unquoted service paths | Get-UnquotedServicePaths | Registry walk + path parsing | Yes (wmic + findstr; manual review) |
+| 25 | Weak program directory permissions | Get-WeakProgramPermissions | Get-Acl | Yes (icacls + findstr) |
+| 26 | Installed compilers | Get-InstalledCompilers | Get-Command + filesystem search | Yes (where + dir) |
 
 ## Security Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
 |---|-------|---------------|--------|:---:|
-| 24 | SMB server config | Get-SMBv1 | Get-SmbServerConfiguration | Partial (registry) |
-| 25 | Anonymous enumeration | Get-AnonEnum | Registry | Yes (reg query) |
-| 26 | Untrusted fonts | Get-UntrustedFonts | Registry | Yes (reg query) |
-| 27 | ASR rules | Get-ASRRules | Get-MpPreference | No (PS cmdlet only) -- info msg |
-| 28 | SMB client signing | Get-SMBClientConfig | Registry | Yes (reg query) |
-| 29 | TLS/SSL protocols | Get-TLSConfig | Registry | Yes (reg query) |
-| 30 | Audit policy | Get-AuditPolicy | auditpol | Yes (auditpol) |
+| 27 | SMB server config | Get-SMBv1 | Get-SmbServerConfiguration | Partial (registry) |
+| 28 | Anonymous enumeration | Get-AnonEnum | Registry | Yes (reg query) |
+| 29 | Untrusted fonts | Get-UntrustedFonts | Registry | Yes (reg query) |
+| 30 | ASR rules | Get-ASRRules | Get-MpPreference | No (PS cmdlet only) -- info msg |
+| 31 | SMB client signing | Get-SMBClientConfig | Registry | Yes (reg query) |
+| 32 | TLS/SSL protocols | Get-TLSConfig | Registry | Yes (reg query) |
+| 33 | Audit policy | Get-AuditPolicy | auditpol | Yes (auditpol) |
 
 ## Authentication Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
 |---|-------|---------------|--------|:---:|
-| 31 | RDP deny | Get-RDPDeny | Registry | Yes (reg query) |
-| 32 | Local administrators | Get-LocalAdmin | Get-LocalGroupMember / net localgroup | Yes (net localgroup) |
-| 33 | NTLM session security | Get-NTLMSession | Registry | Yes (reg query) |
-| 34 | LAN Manager auth | Get-LANMAN | Registry | Yes (reg query) |
-| 35 | Cached logons | Get-CachedLogons | Registry | Yes (reg query) |
-| 36 | Interactive login | Get-InteractiveLogin | Registry | Yes (reg query) |
-| 37 | WDigest | Get-WDigest | Registry | Yes (reg query) |
-| 38 | Restrict RPC clients | Get-RestrictRDPClients | Registry | Yes (reg query) |
-| 39 | RDP NLA | Get-RDPNLAConfig | Registry | Yes (reg query) |
+| 34 | RDP deny | Get-RDPDeny | Registry | Yes (reg query) |
+| 35 | Local administrators | Get-LocalAdmin | Get-LocalGroupMember / net localgroup | Yes (net localgroup) |
+| 36 | NTLM session security | Get-NTLMSession | Registry | Yes (reg query) |
+| 37 | LAN Manager auth | Get-LANMAN | Registry | Yes (reg query) |
+| 38 | Cached logons | Get-CachedLogons | Registry | Yes (reg query) |
+| 39 | Interactive login | Get-InteractiveLogin | Registry | Yes (reg query) |
+| 40 | WDigest | Get-WDigest | Registry | Yes (reg query) |
+| 41 | Restrict RPC clients | Get-RestrictRDPClients | Registry | Yes (reg query) |
+| 42 | RDP NLA | Get-RDPNLAConfig | Registry | Yes (reg query) |
 
 ## Network Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
 |---|-------|---------------|--------|:---:|
-| 40 | IPv4 interfaces | Get-NetworkSettingsIPv4 | Get-NetIPAddress / WMI | Yes (ipconfig) |
-| 41 | IPv6 interfaces | Get-NetworkSettingsIPv6 | WMI | Yes (ipconfig) |
-| 42 | WPAD | Get-WPAD | hosts file + Registry + Get-Service | Yes (findstr + reg query + sc query) |
-| 43 | WINS | Get-WINSConfig | WMI | Yes (wmic) |
-| 44 | LLMNR | Get-LLMNRConfig | Registry | Yes (reg query) |
-| 45 | Computer Browser | Get-CompBrowser | Get-Service | Yes (sc query) |
-| 46 | NetBIOS | Get-NetBIOS | WMI | Yes (wmic) |
-| 47 | Network connections | Get-NetConnections | Get-NetTCPConnection / netstat | Yes (netstat) |
-| 48 | Firewall profiles | Get-FirewallProfile | Get-NetFirewallProfile / netsh | Yes (netsh) |
-| 49 | TCP/IP hardening | Get-TCPIPHardening | Registry | Yes (reg query) |
+| 43 | IPv4 interfaces | Get-NetworkSettingsIPv4 | Get-NetIPAddress / WMI | Yes (ipconfig) |
+| 44 | IPv6 interfaces | Get-NetworkSettingsIPv6 | WMI | Yes (ipconfig) |
+| 45 | WPAD | Get-WPAD | hosts file + Registry + Get-Service | Yes (findstr + reg query + sc query) |
+| 46 | WINS | Get-WINSConfig | WMI | Yes (wmic) |
+| 47 | LLMNR | Get-LLMNRConfig | Registry | Yes (reg query) |
+| 48 | Computer Browser | Get-CompBrowser | Get-Service | Yes (sc query) |
+| 49 | NetBIOS | Get-NetBIOS | WMI | Yes (wmic) |
+| 50 | Network connections | Get-NetConnections | Get-NetTCPConnection / netstat | Yes (netstat) |
+| 51 | Firewall profiles | Get-FirewallProfile | Get-NetFirewallProfile / netsh | Yes (netsh) |
+| 52 | TCP/IP hardening | Get-TCPIPHardening | Registry | Yes (reg query) |
+| 53 | Network shares | Get-NetworkShares | Get-SmbShare / Win32_Share | Yes (net share) |
 
 ## PowerShell Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
 |---|-------|---------------|--------|:---:|
-| 50 | PS versions | Get-PSVersions | $PSVersionTable / Get-WindowsOptionalFeature | N/A -- requires PowerShell runtime |
-| 51 | PS language mode | Get-PSLanguage | $ExecutionContext.SessionState | N/A -- requires PowerShell runtime |
-| 52 | PS module logging | Get-PSModule | Registry | Yes (reg query) |
-| 53 | PS script block logging | Get-PSScript | Registry | Yes (reg query) |
-| 54 | PS transcription | Get-PSTranscript | Registry | Yes (reg query) |
-| 55 | PS protected events | Get-PSProtectedEvent | Registry | Yes (reg query) |
-| 56 | WinRM | Get-WinRM | Test-WSMan / Get-Service / netsh | Partial (sc query + netsh) |
+| 54 | PS versions | Get-PSVersions | $PSVersionTable / Get-WindowsOptionalFeature | N/A -- requires PowerShell runtime |
+| 55 | PS language mode | Get-PSLanguage | $ExecutionContext.SessionState | N/A -- requires PowerShell runtime |
+| 56 | PS module logging | Get-PSModule | Registry | Yes (reg query) |
+| 57 | PS script block logging | Get-PSScript | Registry | Yes (reg query) |
+| 58 | PS transcription | Get-PSTranscript | Registry | Yes (reg query) |
+| 59 | PS protected events | Get-PSProtectedEvent | Registry | Yes (reg query) |
+| 60 | WinRM | Get-WinRM | Test-WSMan / Get-Service / netsh | Partial (sc query + netsh) |
 
 ## Logging Checks
 
 | # | Check | PSv3 Function | Method | CMD Possible |
 |---|-------|---------------|--------|:---:|
-| 57 | Event log sizes | Get-PSEventLog | Get-WinEvent -ListLog | Partial (wevtutil) |
-| 58 | Command-line auditing | Get-CmdAuditing | Registry | Yes (reg query) |
-| 59 | Windows Script Host | Get-WinScripting | Registry + Get-HotFix | Yes (reg query) |
+| 61 | Event log sizes | Get-PSEventLog | Get-WinEvent -ListLog | Partial (wevtutil) |
+| 62 | Command-line auditing | Get-CmdAuditing | Registry | Yes (reg query) |
+| 63 | Windows Script Host | Get-WinScripting | Registry + Get-HotFix | Yes (reg query) |
 
 ## Summary
 
-- **Total checks**: 59
-- **CMD fully possible**: 44
-- **CMD partially possible**: 8 (can check some aspects but not all)
+- **Total checks**: 63
+- **CMD fully possible**: 47
+- **CMD partially possible / manual review**: 9 (BitLocker, EMET, CredDeviceGuard, AntiVirus, SMBv1 server, WinRM, EventLog sizes, plus #24 unquoted service paths is dump-and-review)
 - **CMD N/A**: 2 (PSVersions, PSLanguage -- require PowerShell runtime)
-- **CMD info-only**: 5 (AppLocker, ASR -- require PS-only cmdlets with no CMD equivalent)
+- **CMD info-only**: 5 (AppLocker, ASR -- require PS-only cmdlets with no CMD equivalent; PSVersions, PSLanguage; Unquoted service paths reports raw data)
 
 For N/A and info-only checks, CMD outputs: `[*] <Check Name>: Not available in CMD. <Reason>.`

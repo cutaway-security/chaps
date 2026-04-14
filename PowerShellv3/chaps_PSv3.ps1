@@ -59,6 +59,9 @@ $getAccountPolicyCheck      = $true
 $getSecureBootCheck         = $true
 $getLSAProtectionCheck      = $true
 $getServiceHardeningCheck   = $true
+$getUnquotedServicePathsCheck = $true
+$getWeakProgramPermissionsCheck = $true
+$getInstalledCompilersCheck = $true
 ## Security Checks
 $getSMBv1Check              = $true        
 $getAnonEnumCheck           = $true   
@@ -88,6 +91,7 @@ $getNetBIOSCheck            = $true
 $getNetConnectionsCheck     = $true
 $getFirewallProfileCheck    = $true
 $getTCPIPHardeningCheck     = $true
+$getNetworkSharesCheck      = $true
 ## PowerShell Checks
 $getPSVersionCheck          = $true
 $getPSLanguageCheck         = $true
@@ -194,6 +198,9 @@ Write-Output "    Get Account Policy: $getAccountPolicyCheck"
     Write-Output "    Get Secure Boot: $getSecureBootCheck"
 Write-Output "    Get LSA Protection: $getLSAProtectionCheck"
     Write-Output "    Get Service Hardening: $getServiceHardeningCheck"
+    Write-Output "    Get Unquoted Service Paths: $getUnquotedServicePathsCheck"
+    Write-Output "    Get Weak Program Permissions: $getWeakProgramPermissionsCheck"
+    Write-Output "    Get Installed Compilers: $getInstalledCompilersCheck"
     ## Security Checks
     Write-Output "    Get SMBv1 Check: $getSMBv1Check"
 Write-Output "    Get Anonmyous Enumeration: $getAnonEnumCheck"   
@@ -223,6 +230,7 @@ Write-Output "    Get Computer Browser: $getCompBrowserCheck"
 Write-Output "    Get Network Connections: $getNetConnectionsCheck"
     Write-Output "    Get Firewall Profile: $getFirewallProfileCheck"
 Write-Output "    Get TCP/IP Hardening: $getTCPIPHardeningCheck"
+    Write-Output "    Get Network Shares: $getNetworkSharesCheck"
     ## PowerShell Checks
     Write-Output "    Get PS Version: $getPSVersionCheck"
 Write-Output "    Get PS Language: $getPSLanguageCheck"
@@ -1292,6 +1300,181 @@ function Get-SMBClientConfig {
 }
 }
 
+function Get-UnquotedServicePaths {
+    # Detect service ImagePath values with spaces that are not enclosed in quotes.
+    # Classic local privilege escalation: an attacker who can write to an earlier
+    # space-separated path can hijack the service binary.
+    # Ref: https://docs.microsoft.com/en-us/windows/win32/services/service-control-manager
+    Try {
+        $found = 0
+        $services = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\*' -ErrorAction SilentlyContinue |
+            Where-Object { $_.ImagePath -ne $null }
+        foreach ($svc in $services) {
+            $img = [string]$svc.ImagePath
+            $trimmed = $img.TrimStart()
+            # Skip driver paths (\??\ or \SystemRoot\) and already-quoted paths
+            if ($trimmed -match '^\\\?\?\\' -or $trimmed -match '^\\SystemRoot\\' -or $trimmed.StartsWith('"')) {
+                continue
+            }
+            # Extract the executable portion (everything up to first .exe, case-insensitive)
+            if ($trimmed -match '^(?<path>[^"]*?\.exe)(\s|$)') {
+                $exePath = $Matches['path']
+                if ($exePath -match '\s') {
+                    Write-Output "$neg_str Unquoted service path with space(s): $($svc.PSChildName) -> $img"
+                    $found++
+                }
+            }
+        }
+        if ($found -eq 0) {
+            Write-Output "$pos_str No unquoted service paths with spaces detected."
+        } else {
+            Write-Output "$inf_str $found unquoted service path(s) found. Each is a local privilege escalation risk."
+        }
+    }
+    Catch {
+        Write-Output "$err_str Enumerating service ImagePath values failed: $($_.Exception.Message)"
+    }
+}
+
+function Get-WeakProgramPermissions {
+    # Check NTFS ACLs on Program Files, Program Files (x86), and non-standard
+    # root-level C:\ directories. Flag any folder that grants Write, Modify,
+    # FullControl, or WriteData to Users, Authenticated Users, or Everyone.
+    # Ref: https://docs.microsoft.com/en-us/windows/win32/fileio/access-control-lists
+    if (-NOT $global:admin_user) {
+        Write-Output "$inf_str Weak program permission check skipped (requires Administrator for consistent ACL reads)."
+        return
+    }
+
+    $targets = @()
+    foreach ($base in @("$env:SystemDrive\Program Files", "$env:SystemDrive\Program Files (x86)")) {
+        if (Test-Path $base) {
+            $targets += Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Non-standard root-level folders (vendor software installed directly on C:)
+    $standardRootDirs = @('Program Files', 'Program Files (x86)', 'Windows', 'Users', 'ProgramData',
+                         'PerfLogs', '$Recycle.Bin', 'System Volume Information', 'Recovery',
+                         'Documents and Settings', 'MSOCache', 'inetpub', '$WINRE_BACKUP_PARTITION.MARKER')
+    Try {
+        $rootDirs = Get-ChildItem -Path "$env:SystemDrive\" -Directory -Force -ErrorAction SilentlyContinue |
+            Where-Object { $standardRootDirs -notcontains $_.Name }
+        $targets += $rootDirs
+    }
+    Catch { }
+
+    $riskyPrincipals = @('Everyone', 'BUILTIN\Users', 'NT AUTHORITY\Authenticated Users', 'Users', 'Authenticated Users')
+    $riskyRights = @('Write', 'Modify', 'FullControl', 'WriteData', 'CreateFiles', 'AppendData', 'CreateDirectories')
+    $weakCount = 0
+    $checkedCount = 0
+
+    foreach ($dir in $targets) {
+        $checkedCount++
+        Try {
+            $acl = Get-Acl -Path $dir.FullName -ErrorAction Stop
+            foreach ($ace in $acl.Access) {
+                $principal = [string]$ace.IdentityReference
+                if ($ace.AccessControlType -ne 'Allow') { continue }
+                $isRiskyPrincipal = $false
+                foreach ($rp in $riskyPrincipals) {
+                    if ($principal -eq $rp -or $principal -like "*\$rp") { $isRiskyPrincipal = $true; break }
+                }
+                if (-not $isRiskyPrincipal) { continue }
+                $rights = [string]$ace.FileSystemRights
+                foreach ($rr in $riskyRights) {
+                    if ($rights -match $rr) {
+                        Write-Output "$neg_str Weak ACL: '$($dir.FullName)' grants $rights to $principal"
+                        $weakCount++
+                        break
+                    }
+                }
+            }
+        }
+        Catch {
+            # Skip unreadable directories (e.g., System Volume Information)
+        }
+    }
+
+    if ($weakCount -eq 0) {
+        Write-Output "$pos_str No weak permissions detected on $checkedCount program/vendor directories examined."
+    } else {
+        Write-Output "$inf_str $weakCount weak ACL entries across $checkedCount directories examined. Each allows a non-admin user to modify program files."
+    }
+}
+
+function Get-InstalledCompilers {
+    # Detect installed compilers, assemblers, and build tools. These are common
+    # targets of living-off-the-land attacks: an attacker present on the system
+    # can compile malicious binaries locally to evade antivirus signatures.
+    $compilerNames = @(
+        'gcc.exe', 'g++.exe', 'cc.exe', 'cc1.exe',
+        'clang.exe', 'clang++.exe', 'clang-cl.exe',
+        'cl.exe',
+        'mingw32-gcc.exe', 'x86_64-w64-mingw32-gcc.exe', 'i686-w64-mingw32-gcc.exe',
+        'nasm.exe', 'masm.exe', 'ml.exe', 'ml64.exe',
+        'make.exe', 'mingw32-make.exe', 'nmake.exe',
+        'cmake.exe',
+        'perl.exe', 'python.exe'
+    )
+
+    $commonRoots = @(
+        "$env:SystemDrive\Strawberry",
+        "$env:SystemDrive\Perl",
+        "$env:SystemDrive\Perl64",
+        "$env:SystemDrive\MinGW",
+        "$env:SystemDrive\msys64",
+        "$env:SystemDrive\msys",
+        "$env:SystemDrive\cygwin64",
+        "$env:SystemDrive\cygwin",
+        "$env:SystemDrive\Python27",
+        "$env:SystemDrive\Python3",
+        "$env:SystemDrive\Program Files\LLVM",
+        "$env:SystemDrive\Program Files (x86)\LLVM",
+        "$env:SystemDrive\TDM-GCC-64",
+        "$env:SystemDrive\Program Files\Microsoft Visual Studio",
+        "$env:SystemDrive\Program Files (x86)\Microsoft Visual Studio"
+    )
+
+    $found = @()
+
+    # Search PATH for each compiler name via Get-Command
+    foreach ($name in $compilerNames) {
+        Try {
+            $cmds = Get-Command $name -ErrorAction SilentlyContinue -All
+            foreach ($c in $cmds) {
+                if ($c.Path) {
+                    $found += $c.Path
+                }
+            }
+        }
+        Catch { }
+    }
+
+    # Search common install roots (shallow scan, 3 levels deep)
+    foreach ($root in $commonRoots) {
+        if (Test-Path $root) {
+            Try {
+                $hits = Get-ChildItem -Path $root -Recurse -Depth 3 -File -Include $compilerNames -ErrorAction SilentlyContinue
+                foreach ($h in $hits) {
+                    $found += $h.FullName
+                }
+            }
+            Catch { }
+        }
+    }
+
+    $unique = $found | Sort-Object -Unique
+    if ($unique.Count -eq 0) {
+        Write-Output "$pos_str No common compilers or build tools detected."
+    } else {
+        Write-Output "$neg_str $($unique.Count) compiler/build tool binary(ies) detected (living-off-the-land risk):"
+        foreach ($path in $unique) {
+            Write-Output "$inf_str   $path"
+        }
+    }
+}
+
 # Security Checks
 #############################
 function Get-SMBv1 {
@@ -1959,6 +2142,55 @@ foreach ($line in $fwState){
     }
 }
 
+function Get-NetworkShares {
+    # Enumerate non-default SMB shares. Default admin shares (ADMIN$, C$, D$,
+    # IPC$, and other drive letter administrative shares) are excluded.
+    # Ref: https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-share
+    $defaultShares = @('ADMIN$', 'IPC$', 'PRINT$', 'FAX$')
+    $custom = @()
+
+    if (Test-CommandExists Get-SmbShare) {
+        Try {
+            $shares = Get-SmbShare -ErrorAction Stop
+            foreach ($s in $shares) {
+                $name = $s.Name
+                if ($defaultShares -contains $name) { continue }
+                # Drive letter admin shares like C$, D$, E$
+                if ($name -match '^[A-Z]\$$') { continue }
+                $custom += "$name -> $($s.Path) ($($s.Description))"
+            }
+        }
+        Catch {
+            Write-Output "$err_str Get-SmbShare failed: $($_.Exception.Message)"
+            return
+        }
+    } else {
+        # WMI fallback for systems without the SMB module
+        Try {
+            $shares = Get-WmiObject -Class Win32_Share -ErrorAction Stop
+            foreach ($s in $shares) {
+                $name = $s.Name
+                if ($defaultShares -contains $name) { continue }
+                if ($name -match '^[A-Z]\$$') { continue }
+                $custom += "$name -> $($s.Path) ($($s.Description))"
+            }
+        }
+        Catch {
+            Write-Output "$err_str Win32_Share WMI query failed: $($_.Exception.Message)"
+            return
+        }
+    }
+
+    if ($custom.Count -eq 0) {
+        Write-Output "$pos_str No non-default SMB shares detected."
+    } else {
+        Write-Output "$neg_str $($custom.Count) non-default SMB share(s) detected:"
+        foreach ($line in $custom) {
+            Write-Output "$inf_str   $line"
+        }
+    }
+}
+
 # PowerShell Checks
 ############################
 <#
@@ -2378,6 +2610,9 @@ if ($getAccountPolicyCheck)     { Get-AccountPolicy }
 if ($getSecureBootCheck)        { Get-SecureBoot }
 if ($getLSAProtectionCheck)     { Get-LSAProtection }
 if ($getServiceHardeningCheck)  { Get-ServiceHardening }
+if ($getUnquotedServicePathsCheck)    { Get-UnquotedServicePaths }
+if ($getWeakProgramPermissionsCheck)  { Get-WeakProgramPermissions }
+if ($getInstalledCompilersCheck)      { Get-InstalledCompilers }
 Write-Output ""
 Write-Output "## Security Checks"
 Write-Output ""
@@ -2413,6 +2648,7 @@ if ($getNetBIOSCheck)           { Get-NetBIOS }
 if ($getNetConnectionsCheck)    { Get-NetConnections }
 if ($getFirewallProfileCheck)   { Get-FirewallProfile }
 if ($getTCPIPHardeningCheck)    { Get-TCPIPHardening }
+if ($getNetworkSharesCheck)     { Get-NetworkShares }
 Write-Output ""
 Write-Output "## PowerShell Checks"
 Write-Output ""
