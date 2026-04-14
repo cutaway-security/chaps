@@ -1,6 +1,6 @@
 # CHAPS v2
 
-CHAPS v2 is a ground-up modernization of the Configuration Hardening Assessment Scripts. The check coverage has grown from the original PowerShell-only script to **63 checks across three script variants** (PowerShell 3+, PowerShell 2, and CMD batch), all producing the same Markdown report format. A new post-processing analyzer tool turns reports into structured findings with MITRE ATT&CK mappings.
+CHAPS v2 is a ground-up modernization of the Configuration Hardening Assessment PowerShell Scripts. The check coverage has grown from the original PowerShell-only script to **63 checks across three script variants** (PowerShell 3+, PowerShell 2, and CMD batch), all producing the same Markdown report format. A new post-processing analyzer tool turns reports into structured findings with MITRE ATT&CK mappings.
 
 This release is targeted at OT/ICS environments -- engineer/operator workstations, HMI systems, historians, and management servers -- where Microsoft Policy Analyzer and commercial assessment tools cannot be installed. It runs on any Windows system from XP through Windows 11 / Server 2022.
 

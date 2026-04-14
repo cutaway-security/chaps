@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Project**: CHAPS (Configuration Hardening Assessment PowerShell Script)
+**Project**: CHAPS (Configuration Hardening Assessment PowerShell Scripts)
 **Repository**: https://github.com/cutaway-security/chaps
 **Development Branch**: claude-dev
 **Description**: CHAPS provides CMD, PowerShell v2, and PowerShell v3+ scripts to evaluate the security configuration of standalone Windows systems in isolated OT/ICS environments. It targets systems where Microsoft Policy Analyzer and other commercial assessment tools cannot be installed, such as Engineer/Operator workstations, HMI systems, and management servers.
