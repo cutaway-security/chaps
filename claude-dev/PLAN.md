@@ -210,12 +210,13 @@ VM testing (complete):
 - [x] Review observations fixed: blank [*] lines, AllowRemoteRPC typo
 - [x] Test matrices populated in TESTING_STANDARD.md
 
-Release prep (deferred until after Phase 9):
-- [ ] Close Issue #2 (USB, AV, software inventory, netstat - all implemented)
-- [ ] Close PR #5 with note that features integrated via rewrite
-- [ ] Clean up claude-dev/review.local/ directory after review
-- [ ] Delete stale remote branches (Intern-Dev, ai-test, already-merged branches)
-- [ ] Pre-release checklist per GIT_RELEASE_STEPS.md
+Release prep (items 1-4 complete 2026-04-14; items 5-8 paused pending release redirection):
+- [x] Close Issue #2 -- all four requested features (USB, AV, software inventory, netstat) implemented; closing comment cites the corresponding v2.0 check numbers
+- [x] Close PR #5 -- thank-you comment to @0xKaushik; features integrated via v2.0 rewrite with proper framework conventions
+- [x] Close PR #14 (prerequisite for deleting cmd-bat-refactor branch) -- thank-you comment to @workentin; content merged into claude-dev
+- [x] Clean up claude-dev/review.local/ -- 21 local analysis files removed
+- [x] Delete 8 stale remote branches: ai-test, port-to-PSv2, smbv1-check-returns-a-false-positive-error, typos-and-grammar, update-output-directory, cmd-bat-refactor, report_format_update, Intern-Dev
+- [ ] **PAUSED: pre-release checklist and tagging -- awaiting user direction on revised release approach**
 - [ ] Tag dev-v2 on claude-dev, push
 - [ ] Create release-v2 branch, strip claude-dev/ and CLAUDE.md
 - [ ] Force-push to main, tag v2, create GitHub release
