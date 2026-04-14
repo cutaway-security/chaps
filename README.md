@@ -1,6 +1,10 @@
-# CHAPS: Configuration Hardening Assessment Scripts
+# CHAPS: Configuration Hardening Assessment PowerShell Scripts
+
+<img align="left" width="120" height="120" src="images/chaps_logo_small-letters.png" alt="CHAPS logo">
 
 CHAPS is a set of read-only scripts for checking Windows system security configuration where additional assessment software (such as Microsoft Policy Analyzer or commercial tools) cannot be installed. It is designed for Industrial Control System (ICS) and operational technology environments — engineer/operator workstations, HMI systems, historians, and management servers — but runs on any Windows system.
+
+<br clear="left"/>
 
 CHAPS is **not a replacement** for the [Microsoft Security Compliance Toolkit](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10) and Policy Analyzer. Use those when you can install software on the target. Use CHAPS when you can't.
 

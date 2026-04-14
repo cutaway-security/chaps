@@ -70,7 +70,7 @@ Attribution
 
 When sharing or redistributing CHAPS, attribution must include:
 
-  - Project name: CHAPS (Configuration Hardening Assessment Scripts)
+  - Project name: CHAPS (Configuration Hardening Assessment PowerShell Scripts)
   - Project URL: https://github.com/cutaway-security/chaps
   - Author: Cutaway Security, LLC (https://www.cutawaysecurity.com/)
   - License notice: Licensed under GPL v3 (or commercial terms, as
