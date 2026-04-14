@@ -270,14 +270,56 @@ function Get-AdminState {
 # System Info Checks
 #############################
 function Get-SystemInfo {
+    # Try Get-ComputerInfo first (PSv5.1+), then Win32_OperatingSystem WMI,
+    # then fall back to parsing 'systeminfo' output. Get-ComputerInfo can
+    # fail under non-interactive SSH sessions with a console output buffer
+    # access-denied error, so the try/catch is required even when the cmdlet
+    # is present.
+    $sysdata = $null
+
     if (Test-CommandExists Get-ComputerInfo) {
-        $comsysinfo = Get-ComputerInfo -Property WindowsProductName,OsVersion,WindowsCurrentVersion,WindowsVersion,OsArchitecture,CsWorkgroup
-        $sysdata = "$($comsysinfo.WindowsProductName), $($comsysinfo.OsVersion), $($comsysinfo.WindowsCurrentVersion), $($comsysinfo.WindowsVersion), $($comsysinfo.OsArchitecture), $($comsysinfo.CsWorkgroup)"
-    } else {
-        $sdata = systeminfo
-        $sysdata = ($sdata | Select-String -Pattern '^OS Version','^OS Name','^System Type','^Domain') -join ', '
+        Try {
+            $comsysinfo = Get-ComputerInfo -Property WindowsProductName,OsVersion,WindowsCurrentVersion,WindowsVersion,OsArchitecture,CsWorkgroup -ErrorAction Stop
+            if ($comsysinfo -ne $null -and $comsysinfo.WindowsProductName) {
+                $sysdata = "$($comsysinfo.WindowsProductName), $($comsysinfo.OsVersion), $($comsysinfo.WindowsCurrentVersion), $($comsysinfo.WindowsVersion), $($comsysinfo.OsArchitecture), $($comsysinfo.CsWorkgroup)"
+            }
+        }
+        Catch {
+            # Get-ComputerInfo threw; fall through to WMI/systeminfo
+            $sysdata = $null
+        }
     }
-    Write-Output "$inf_str $sysdata"
+
+    if (-not $sysdata) {
+        Try {
+            $os = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction Stop
+            $cs = Get-WmiObject -Class Win32_ComputerSystem -ErrorAction SilentlyContinue
+            $workgroup = if ($cs -ne $null -and $cs.Workgroup) { $cs.Workgroup } else { '' }
+            $sysdata = "$($os.Caption), $($os.Version), $($os.BuildNumber), $($os.OSArchitecture), $workgroup"
+        }
+        Catch {
+            $sysdata = $null
+        }
+    }
+
+    if (-not $sysdata) {
+        Try {
+            $sdata = systeminfo 2>$null
+            $parts = $sdata | Select-String -Pattern '^OS Name','^OS Version','^System Type','^Domain'
+            if ($parts -ne $null) {
+                $sysdata = ($parts | ForEach-Object { $_.Line.Trim() }) -join ' | '
+            }
+        }
+        Catch {
+            $sysdata = $null
+        }
+    }
+
+    if (-not $sysdata) {
+        Write-Output "$err_str System info collection failed: Get-ComputerInfo, Get-WmiObject Win32_OperatingSystem, and systeminfo all unavailable or failed."
+    } else {
+        Write-Output "$inf_str $sysdata"
+    }
 }
 
 function Get-WinVersion{
