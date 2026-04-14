@@ -1,5 +1,14 @@
 #requires -Version 3
 <#
+chaps-analyze.ps1 - post-processing analyzer for CHAPS Markdown reports.
+
+Author:  Don C. Weber (@cutaway) <dev [@] cutawaysecurity.com>
+Project: https://github.com/cutaway-security/chaps
+
+Copyright (c) 2019-2026 Cutaway Security, LLC
+Dual-licensed under GPL v3 (see LICENSE) and a commercial license.
+See NOTICE for terms, attribution, and commercial licensing contact.
+
 .SYNOPSIS
 CHAPS Analysis Tool -- converts a CHAPS Markdown report into a structured
 findings analysis with recommendations and MITRE ATT&CK mappings.

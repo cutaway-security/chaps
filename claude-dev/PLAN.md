@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 10 - Analysis Tooling (chaps-analyze.ps1)
+**Phase**: Phase 11 - Licensing and Header Standardization
 **Status**: In Progress
-**Focus**: Post-processing tool that converts CHAPS reports into structured findings analysis with recommendations and MITRE ATT&CK mappings. Single PowerShell script, JSON knowledge base, phased content.
+**Focus**: Adopt dual-license posture (GPL v3 + Commercial), add root LICENSE and NOTICE files, standardize per-file headers, update copyright. Required before Phase 8 release tagging can resume. Phase 12 (release tooling) follows.
 
 ## Phases
 
@@ -210,13 +210,13 @@ VM testing (complete):
 - [x] Review observations fixed: blank [*] lines, AllowRemoteRPC typo
 - [x] Test matrices populated in TESTING_STANDARD.md
 
-Release prep (items 1-4 complete 2026-04-14; items 5-8 paused pending release redirection):
+Release prep (items 1-4 complete 2026-04-14; items 5-8 BLOCKED on Phase 11 + 12):
 - [x] Close Issue #2 -- all four requested features (USB, AV, software inventory, netstat) implemented; closing comment cites the corresponding v2.0 check numbers
 - [x] Close PR #5 -- thank-you comment to @0xKaushik; features integrated via v2.0 rewrite with proper framework conventions
 - [x] Close PR #14 (prerequisite for deleting cmd-bat-refactor branch) -- thank-you comment to @workentin; content merged into claude-dev
 - [x] Clean up claude-dev/review.local/ -- 21 local analysis files removed
 - [x] Delete 8 stale remote branches: ai-test, port-to-PSv2, smbv1-check-returns-a-false-positive-error, typos-and-grammar, update-output-directory, cmd-bat-refactor, report_format_update, Intern-Dev
-- [ ] **PAUSED: pre-release checklist and tagging -- awaiting user direction on revised release approach**
+- [ ] **BLOCKED on Phase 11 (licensing) and Phase 12 (release tooling). Resume after both complete.**
 - [ ] Tag dev-v2 on claude-dev, push
 - [ ] Create release-v2 branch, strip claude-dev/ and CLAUDE.md
 - [ ] Force-push to main, tag v2, create GitHub release
@@ -287,6 +287,55 @@ Later batches (not yet scoped):
 - [ ] Optional: batch mode (directory of reports -> rollup analysis)
 - [ ] Cover remaining edge cases surfaced during real-world use
 
+### Phase 11: Licensing and Header Standardization
+
+**Status**: Complete
+
+Goal: adopt a license posture that allows consulting teams, organizations, and students to use CHAPS freely while preventing other vendors from bundling CHAPS into proprietary products without permission. Decision: keep GPL v3 (already the project license) and add an explicit commercial-license offer for parties that cannot comply with GPL v3. Match the dual-license pattern used in the sibling ICSWatchDog project, but with GPL v3 as the open-source half (CHAPS is software; ICSWatchDog uses CC BY-SA because its content is XML/docs).
+
+Key clarifications baked into NOTICE and README:
+
+- Running CHAPS to produce a report is *use*, not *distribution*; the resulting report is not a derivative work of CHAPS.
+- Internal organizational use does not trigger GPL v3 redistribution obligations.
+- Consultants delivering reports to clients owe nothing under GPL.
+- Vendors bundling CHAPS (modified or unmodified) into closed-source products must either GPL-license that product or obtain a commercial license from Cutaway Security, LLC.
+
+Tasks:
+
+- [x] Added root `LICENSE` file containing the full GPL v3 text (canonical FSF text from /usr/share/common-licenses/GPL-3, 674 lines)
+- [x] Added root `NOTICE` file documenting dual-license terms, copyright, contact for commercial license, permitted-use clarifications (consulting, internal, academic, report-not-derivative), and when a commercial license is required
+- [x] Standardized per-file headers in PSv3, PSv2, CMD, and `tools/chaps-analyze.ps1`: replaced ~16-line inline GPL boilerplate with a short block citing LICENSE + NOTICE
+- [x] Updated copyright across all files to `Copyright (c) 2019-2026 Cutaway Security, LLC`
+- [x] Updated `README.md` "License" section: replaced one-line GPL statement with full Project License section mirroring NOTICE; links to LICENSE and NOTICE
+- [x] No leftover license language in dev docs that contradicts the new posture (verified)
+
+Out of scope for Phase 11:
+- No website, no Jekyll docs site (deferred indefinitely; user has not requested one)
+- No third-party content inventory in NOTICE -- CHAPS has none
+
+### Phase 12: Release Tooling and Deployment Process
+
+**Status**: Not Started (depends on Phase 11)
+
+Goal: bring CHAPS release process up to ICSWatchDog standard so future releases are repeatable, low-risk, and partially automated. The current `claude-dev/GIT_RELEASE_STEPS.md` documents the manual procedure; this phase adds a defensive safety net and a preflight automation script.
+
+Tasks:
+
+- [ ] Add `.gitattributes` with `export-ignore` entries for `claude-dev/`, `CLAUDE.md`, `LICENSE` exempted, and any future test-fixture paths -- defensive safety net so `git archive` and GitHub auto-tarballs strip dev files even if the manual `git rm` step is missed
+- [ ] Add `claude-dev/release.sh` adapted from ICSWatchDog -- automates Steps 1-5 of GIT_RELEASE_STEPS.md (preflight, dev-tag, release-branch, dev-file strip, verify) and stops before any destructive action; force-push to main remains manual
+- [ ] Update `GIT_RELEASE_STEPS.md` to reference `release.sh` and to add the LICENSE/NOTICE/README license section to the pre-release checklist
+- [ ] Update GIT_RELEASE_STEPS.md "Files Removed During Release" table -- LICENSE and NOTICE must NOT be stripped
+- [ ] Optionally add `claude-dev/test-fleet.sh` (future) -- single command to run all three scripts on all test VMs and collect output for review
+
+Out of scope for Phase 12:
+- No `deploy-site.sh` (no website)
+- No GitHub Actions / CI -- not requested
+- No signed releases / Sigstore -- not requested
+
+### Phase 8 (resumed): Release Tagging
+
+After Phase 11 and 12 complete, the original Phase 8 tagging items execute against a repo that has LICENSE, NOTICE, standardized headers, `.gitattributes`, and `release.sh` in place.
+
 ## Decision Log
 
 | Date | Decision | Rationale |
@@ -314,6 +363,10 @@ Later batches (not yet scoped):
 | 2026-04-14 | Single OT/ICS advisory at top of analysis output | Admins know what can break; per-check warnings would be noise |
 | 2026-04-14 | Phased knowledge base | Ship ~12-15 entries for most common negative findings first; expand based on real use |
 | 2026-04-14 | Emit unmatched findings succinctly | Silent gaps are misleading; succinct flagging gives users a backlog and keeps the report honest |
+| 2026-04-14 | Dual-license CHAPS as GPL v3 + Commercial; do not switch to CC, MIT, Elastic, or BUSL | GPL v3 already covers the consulting/student/internal-org use cases (use is not distribution; reports are not derivative works), and its copyleft is the lever that forces proprietary bundlers to either open-source their product or buy a commercial license. CC BY-SA is wrong for software. MIT/Apache permit unrestricted bundling. Elastic/BUSL are not OSI-approved and create friction with universities and consulting shops. |
+| 2026-04-14 | Copyright line standardized to `Copyright (c) 2019-2026, Cutaway Security, LLC` | 2019 preserves PSv2 original authorship; 2026 marks the v2 rewrite. LLC matches Cutaway Security's current legal entity and the ICSWatchDog convention; PSv3/CMD's "Inc." is a stale copy-paste. |
+| 2026-04-14 | Per-file headers shrink to a 3-line block citing LICENSE + NOTICE | Long inline GPL boilerplate in every file is noise; concentrating the license text in LICENSE and the dual-license terms in NOTICE keeps script headers focused on author/date/purpose and matches the ICSWatchDog cross-project convention. |
+| 2026-04-14 | Add `.gitattributes` export-ignore + `release.sh` automation; defer website | Adopt the ICSWatchDog release safety net (defensive strip on `git archive`) and the preflight script (Steps 1-5 automated, force-push manual). Skip Jekyll/CNAME/deploy-site -- no website is in scope for CHAPS. |
 
 ## Out of Scope
 

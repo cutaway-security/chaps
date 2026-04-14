@@ -1,0 +1,91 @@
+CHAPS - Configuration Hardening Assessment PowerShell Scripts
+Copyright (c) 2019-2026 Cutaway Security, LLC
+https://github.com/cutaway-security/chaps
+
+This project is dual-licensed:
+
+  1. Open-Source License: GNU General Public License v3.0 (GPL v3)
+     See the LICENSE file in this repository for the full text.
+     https://www.gnu.org/licenses/gpl-3.0.html
+
+  2. Commercial License: Available for organizations that need to
+     incorporate CHAPS into proprietary products or services without
+     complying with the terms of GPL v3 (for example, embedding CHAPS
+     in a closed-source assessment appliance, commercial toolkit, or
+     SaaS offering that redistributes the scripts). Contact
+     Cutaway Security, LLC for terms.
+     Email: info@cutawaysecurity.com
+     Web:   https://www.cutawaysecurity.com/
+
+
+Permitted Use Under GPL v3
+==========================
+
+The following uses are explicitly permitted under GPL v3 and do NOT
+require a commercial license:
+
+  - Running CHAPS on systems you own, administer, or are authorized to
+    assess. Producing a CHAPS report by running the scripts is "use,"
+    not "distribution," and triggers no GPL obligations.
+
+  - Consulting engagements: running CHAPS on a client's system and
+    delivering the resulting Markdown report (or analyzer output) to
+    the client. Reports are not derivative works of CHAPS.
+
+  - Internal use within an organization, including modification of the
+    scripts for site-specific needs, provided modified copies are not
+    redistributed outside the organization.
+
+  - Use by students, researchers, and educators for learning,
+    coursework, and academic publication.
+
+  - Forking, modifying, and redistributing CHAPS under the terms of
+    GPL v3 (i.e., your modified version is also released under GPL v3
+    and includes source code).
+
+
+When a Commercial License Is Required
+=====================================
+
+A commercial license is required when an organization redistributes
+CHAPS (modified or unmodified) as part of a product or service whose
+own license is incompatible with GPL v3. Examples:
+
+  - Bundling CHAPS into a closed-source security appliance, agent,
+    or assessment platform sold or licensed to third parties.
+
+  - Including CHAPS in a proprietary toolkit or distribution where
+    the toolkit itself is not released under GPL v3.
+
+  - Offering a managed or SaaS service that redistributes the CHAPS
+    scripts to end users without source code under GPL-compatible
+    terms.
+
+If you are unsure whether your use case requires a commercial license,
+contact info@cutawaysecurity.com.
+
+
+Attribution
+===========
+
+When sharing or redistributing CHAPS, attribution must include:
+
+  - Project name: CHAPS (Configuration Hardening Assessment Scripts)
+  - Project URL: https://github.com/cutaway-security/chaps
+  - Author: Cutaway Security, LLC (https://www.cutawaysecurity.com/)
+  - License notice: Licensed under GPL v3 (or commercial terms, as
+    applicable)
+  - Indication of modifications, if any
+
+
+Third-Party Content
+===================
+
+CHAPS contains no third-party code. The scripts use only built-in
+Windows facilities (PowerShell cmdlets, CMD commands, registry, WMI,
+netsh, wevtutil, auditpol, etc.).
+
+Reference materials cited in docs/REMEDIATION.md and the analyzer
+knowledge base (CIS Benchmarks, DISA STIGs, Microsoft documentation)
+are referenced for understanding only. CHAPS does not redistribute
+their content.

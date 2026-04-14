@@ -81,6 +81,12 @@ Per-check references are included inline in `docs/REMEDIATION.md`.
 - Mike Saunders ([@hardwaterhacker](https://twitter.com/hardwaterhacker)) — [RedSiege, LLC](https://www.redsiege.com/)
 - Brandon Workentin — [Enaxy, LLC](https://www.enaxy.com)
 
-## License
+## Project License
 
-GNU General Public License v3. See the license block at the top of each script file.
+CHAPS is dual-licensed.
+
+**Open Source**: [GNU General Public License v3.0](LICENSE) -- you may run, modify, and redistribute CHAPS under the terms of GPL v3. Consulting use, internal organizational use, and academic use are all permitted; reports produced by running CHAPS are *not* derivative works and carry no GPL obligation.
+
+**Commercial**: Organizations that need to incorporate CHAPS into proprietary products or services without complying with GPL v3 (for example, embedding CHAPS in a closed-source assessment appliance, commercial toolkit, or SaaS offering that redistributes the scripts) may obtain a commercial license. Contact [Cutaway Security, LLC](https://www.cutawaysecurity.com/) at info@cutawaysecurity.com for terms.
+
+See the [NOTICE](NOTICE) file for the full dual-license statement, permitted-use details, and attribution requirements.
