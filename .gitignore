@@ -1,15 +1,18 @@
 # VIM Swap Files
 *.swp
 
-# Output files
+# Output files (legacy chaps artifacts and scratch outputs)
 *.csv
 *.xml
 *.txt
 *.rtf
 *.xlsx
-*.json
 PowerSploit
 .DS_Store
+
+# NOTE: we used to also ignore *.json globally, but the analysis tool ships a
+# JSON knowledge base under tools/knowledge/. If a future artifact produces
+# JSON that should be gitignored, add a more specific pattern.
 
 # Defensive catch-all: any local-only file or directory under claude-dev/ with
 # ".local" in its name must never be committed. See claude-dev/REMOTE_TESTING.md.

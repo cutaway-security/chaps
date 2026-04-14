@@ -6,9 +6,9 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 
 ## Current Phase
 
-**Phase**: Phase 9 - Additional Privilege Escalation and Exposure Checks
+**Phase**: Phase 10 - Analysis Tooling (chaps-analyze.ps1)
 **Status**: In Progress
-**Focus**: Add four new checks (unquoted service paths, weak program permissions, installed compilers, network shares) and re-test
+**Focus**: Post-processing tool that converts CHAPS reports into structured findings analysis with recommendations and MITRE ATT&CK mappings. Single PowerShell script, JSON knowledge base, phased content.
 
 ## Phases
 
@@ -249,6 +249,37 @@ Implementation tasks:
 - [x] Full VM retest 2026-04-14 (all scripts on all 6 VMs): all pass, 0 stderr, 63 checks per CMD report
 - [x] Test matrix counts confirmed updated
 
+### Phase 10: Analysis Tooling
+
+**Status**: In Progress
+
+Post-processing tool that analyzes a CHAPS markdown report and emits a structured findings report with per-finding recommendations, MITRE ATT&CK mappings, and references. The output is suitable for direct human review, ingestion into AI reporting tools (executive summaries, ticket backlogs), and ingestion into AI attack-planning tools (pentest teams reframe into attack plans).
+
+Decision: single PowerShell tool (not two separate defender/attacker tools). Rationale: in an AI-assisted environment, pre-opinionated output for a specific audience is less valuable than richly-structured neutral facts; AI tooling on either side reframes the output. Also cheaper to maintain one knowledge base.
+
+First batch:
+
+- [ ] Create `tools/chaps-analyze.ps1` -- PowerShell 3.0+, no external dependencies
+- [ ] Create `tools/knowledge/findings.json` -- editable knowledge base, ~12-15 Phase 1 entries covering the most common negative findings
+- [ ] Support `-InputReport <path>` (required) and `-KnowledgeOverride <path>` (optional for user-supplied JSON that extends or overrides bundled entries)
+- [ ] Parse CHAPS metadata block, six category sections, and status prefixes
+- [ ] Match `[-]` findings against knowledge-base patterns; emit structured Markdown with Severity, Observation, Technical detail, Risk, Recommendation, MITRE ATT&CK, References, Related findings
+- [ ] Emit unmatched `[-]` findings succinctly so users know gaps exist
+- [ ] Emit incomplete-check ([x]) appendix and informational-evidence summary appendix
+- [ ] Include single OT/ICS advisory paragraph near the top (not per-check)
+- [ ] Severity scheme: Critical/High/Medium/Low/Info
+- [ ] Exit non-zero on invalid input (non-CHAPS file, missing knowledge base, etc.)
+- [ ] No logging, no telemetry, no external network calls
+- [ ] Create `docs/ANALYSIS.md` -- user-facing doc for the tool
+- [ ] Update `README.md` with a brief mention and link to `docs/ANALYSIS.md`
+- [ ] Update `docs/INTERPRETING_REPORTS.md` to cross-reference the analysis tool as optional automation
+
+Later batches:
+
+- [ ] Expand knowledge base to cover remaining common findings (SMB server signing, TLS, LLMNR, NetBIOS, WPAD, RDP NLA, WinRM, Sysmon absence, AV absence, autoupdate, BitLocker, etc.)
+- [ ] Role-aware severity adjustments (DC vs. workstation vs. HMI)
+- [ ] Optional: batch mode (directory of reports -> rollup analysis)
+
 ## Decision Log
 
 | Date | Decision | Rationale |
@@ -269,6 +300,13 @@ Implementation tasks:
 | 2026-04-13 | References are for understanding, not specific benchmark targeting | Check recommendations cite sources but don't target specific CIS/STIG versions |
 | 2026-04-13 | Phase work sequentially: consolidate -> fix bugs -> new checks -> markdown -> test -> port | Changes flow from reference PSv3 outward; testing validates before porting |
 | 2026-04-13 | Adapt ICSWatchDog Proxmox VM testing infrastructure | Existing VM fleet and SSH-based testing methodology proven in sister project |
+| 2026-04-14 | One analysis tool, not two (defender+pentest) | AI tooling reframes neutral facts into audience-specific output; pre-opinionated separate tools duplicate work and create distribution complexity; single knowledge base is cheaper to maintain |
+| 2026-04-14 | Analysis tool in PowerShell (not Python) | OT admins already use PowerShell; avoids second runtime install; same ecosystem as the collection scripts. Pentest teams with Linux workstations can run via PowerShell Core |
+| 2026-04-14 | Knowledge base in JSON with optional user override file | JSON is stdlib-parseable, editable, diffable; -KnowledgeOverride flag lets organizations add custom entries without touching bundled file |
+| 2026-04-14 | Include MITRE ATT&CK mappings in analysis output | Standard vocabulary useful to both defender and attacker audiences; supports threat-model mapping and AI attack-planning |
+| 2026-04-14 | Single OT/ICS advisory at top of analysis output | Admins know what can break; per-check warnings would be noise |
+| 2026-04-14 | Phased knowledge base | Ship ~12-15 entries for most common negative findings first; expand based on real use |
+| 2026-04-14 | Emit unmatched findings succinctly | Silent gaps are misleading; succinct flagging gives users a backlog and keeps the report honest |
 
 ## Out of Scope
 

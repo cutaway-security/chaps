@@ -158,3 +158,12 @@ The following files exist only on the `claude-dev` branch and are stripped befor
 | `claude-dev/CANONICAL_CHECKS.md` | Canonical check order reference |
 | `claude-dev/vm-lookup` | VMID/Proxmox parser for ~/.ssh/config |
 | `claude-dev/results/` | Local test output (gitignored, but remove directory anyway) |
+| `claude-dev/*.local/` | Local-only review directories (e.g., review.local, gitignored) |
+
+The following DO ship with the release (public-facing):
+- `README.md`
+- `PowerShellv3/chaps_PSv3.ps1`
+- `PowerShellv2/chaps_PSv2.ps1`
+- `CMD/chaps.bat`
+- `docs/` (USAGE, CHECKS, INTERPRETING_REPORTS, REMEDIATION, ANALYSIS)
+- `tools/chaps-analyze.ps1` and `tools/knowledge/findings.json`

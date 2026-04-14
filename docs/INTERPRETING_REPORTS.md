@@ -151,3 +151,15 @@ A typical assessment write-up from a CHAPS report includes:
 5. **Limitations** — any `[x]` that could not be resolved, reason, and recommended follow-up.
 
 The Markdown format makes it straightforward to import findings into a report template, convert to PDF/HTML, or feed into an LLM for summarization.
+
+## Automating triage with chaps-analyze.ps1
+
+For a structured pass over a CHAPS report, use the bundled analysis tool:
+
+```powershell
+.\tools\chaps-analyze.ps1 -InputReport report.md > analysis.md
+```
+
+The analyzer produces a severity-ordered Markdown document with per-finding recommendations, MITRE ATT&CK mappings, and references, drawing from a bundled knowledge base. Output is suitable for direct review or for ingestion into AI reporting and threat-modeling tools.
+
+See [ANALYSIS.md](ANALYSIS.md) for usage details and for how to extend the knowledge base with organization-specific entries via `-KnowledgeOverride`.

@@ -45,12 +45,23 @@ chaps.bat > %COMPUTERNAME%-chaps.md
 
 The report is a plain Markdown file. Copy it off the target system for review and delete the local copy.
 
+## Analyzing Reports
+
+Pass a CHAPS report through `tools/chaps-analyze.ps1` (PowerShell 3.0+, no external dependencies) to get a structured Markdown analysis with findings, recommendations, and MITRE ATT&CK mappings:
+
+```powershell
+.\tools\chaps-analyze.ps1 -InputReport <target>-chaps.md > <target>-analysis.md
+```
+
+The analysis output is structured for direct human review or for ingestion into AI reporting and threat-modeling tools. See [docs/ANALYSIS.md](docs/ANALYSIS.md) for details.
+
 ## Documentation
 
 - **[docs/USAGE.md](docs/USAGE.md)** — Detailed running instructions, permissions, output handling, non-admin behavior, troubleshooting.
-- **[docs/CHECKS.md](docs/CHECKS.md)** — All 59 checks in canonical order with a brief description of what each verifies.
+- **[docs/CHECKS.md](docs/CHECKS.md)** — All 63 checks in canonical order with a brief description of what each verifies.
 - **[docs/INTERPRETING_REPORTS.md](docs/INTERPRETING_REPORTS.md)** — How to read the status prefixes (`[+]` / `[-]` / `[*]` / `[x]`), what each category means, how to triage findings.
 - **[docs/REMEDIATION.md](docs/REMEDIATION.md)** — Per-check remediation guidance for negative findings: registry keys, Group Policy paths, commands, and references.
+- **[docs/ANALYSIS.md](docs/ANALYSIS.md)** — How to use the `chaps-analyze.ps1` tool and how to extend the knowledge base.
 
 ## References
 

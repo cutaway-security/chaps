@@ -46,9 +46,14 @@ chaps/
     README.md                       # Public overview, quick start, links to docs/
     docs/
         USAGE.md                    # Running instructions (public)
-        CHECKS.md                   # Catalog of all 59 checks (public)
+        CHECKS.md                   # Catalog of all 63 checks (public)
         INTERPRETING_REPORTS.md     # How to read the output (public)
         REMEDIATION.md              # Per-check remediation guidance (public)
+        ANALYSIS.md                 # Analysis tool usage (public)
+    tools/
+        chaps-analyze.ps1           # Post-processing analysis tool (public)
+        knowledge/
+            findings.json           # Editable knowledge base (public)
     .gitignore
     claude-dev/
         ARCHITECTURE.md             # This file

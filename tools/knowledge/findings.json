@@ -1,0 +1,299 @@
+{
+  "wdigest_enabled": {
+    "title": "WDigest cleartext credential caching enabled",
+    "matches": ["WDigest UseLogonCredential key is Enabled", "WDigest UseLogonCredential: 0x1", "WDigest UseLogonCredential: 1"],
+    "check": "Check 40",
+    "section": "Authentication",
+    "severity": "High",
+    "technical_detail": "When UseLogonCredential=1, the Digest Authentication security package keeps plaintext passwords in LSASS memory for the duration of the logon session. Windows 8.1+ / Server 2012 R2+ disable this by default; an explicit 1 means it was turned back on.",
+    "risk": "Any process that can read LSASS memory (SYSTEM context, or a user with SeDebugPrivilege) can extract plaintext passwords. This materially lowers the bar for credential theft in an intrusion.",
+    "recommendation": "WDigest cleartext caching should be disabled on all systems unless a specific legacy application requires it. Confirm no dependent services before changing.",
+    "mitre_attack": [
+      {"id": "T1003.001", "name": "OS Credential Dumping: LSASS Memory"}
+    ],
+    "related_findings": ["runasppl_disabled", "credential_guard_off", "cached_logons_high"],
+    "references": ["CIS Benchmark 2.3.11.7", "STIG V-63687", "Microsoft KB 2871997"]
+  },
+
+  "runasppl_disabled": {
+    "title": "LSA Protection (RunAsPPL) disabled",
+    "matches": ["LSA Protection (RunAsPPL) is not enabled", "LSA Protection (RunAsPPL) registry key not found", "RunAsPPL not configured", "LSA Protection (RunAsPPL) is disabled"],
+    "check": "Check 22",
+    "section": "System Info",
+    "severity": "High",
+    "technical_detail": "LSA Protection (Protected Process Light) runs the LSASS process under a code-integrity boundary. Non-protected processes -- even those running as SYSTEM -- cannot read LSASS memory when RunAsPPL is enabled.",
+    "risk": "Without LSA Protection, any code running as SYSTEM or with SeDebugPrivilege can read LSASS memory and extract credentials (cleartext passwords if WDigest is on, hashes, Kerberos tickets).",
+    "recommendation": "Enable LSA Protection by setting RunAsPPL to 1 (or 2 with UEFI lock on Windows 11 22H2+). Before rollout, audit the System event log for LSA-related driver incompatibilities, because incompatible drivers are prevented from loading into LSASS.",
+    "mitre_attack": [
+      {"id": "T1003.001", "name": "OS Credential Dumping: LSASS Memory"}
+    ],
+    "related_findings": ["wdigest_enabled", "credential_guard_off"],
+    "references": ["CIS Benchmark 18.9.39.2", "Microsoft: Configuring Additional LSA Protection"]
+  },
+
+  "credential_guard_off": {
+    "title": "Credential Guard / HVCI not running",
+    "matches": ["Credential Guard or HVCI service is not running", "Device Guard WMI class not available", "SecurityServicesConfigured: 0"],
+    "check": "Check 13",
+    "section": "System Info",
+    "severity": "High",
+    "technical_detail": "Credential Guard uses Virtualization-Based Security (VBS) to isolate LSASS secrets in a VTL1 context that is inaccessible to the normal kernel. When running, standard LSASS memory-dumping attacks cannot reach NTLM hashes or Kerberos ticket-granting tickets.",
+    "risk": "Without Credential Guard, credentials in LSASS are recoverable by any tool with SYSTEM access that can read LSASS memory. Combined with WDigest or absent LSA Protection, credential theft becomes trivial.",
+    "recommendation": "Enable Credential Guard. Requires UEFI, Secure Boot, TPM 2.0, and CPU virtualization support. Validate via msinfo32 after enabling: Virtualization-based security and Credential Guard should both show Running.",
+    "mitre_attack": [
+      {"id": "T1003.001", "name": "OS Credential Dumping: LSASS Memory"},
+      {"id": "T1558.003", "name": "Steal or Forge Kerberos Tickets: Kerberoasting"}
+    ],
+    "related_findings": ["runasppl_disabled", "wdigest_enabled", "secure_boot_off"],
+    "references": ["CIS Benchmark 18.9.11.1", "Microsoft: Credential Guard overview"]
+  },
+
+  "uac_disabled": {
+    "title": "UAC disabled (EnableLUA=0)",
+    "matches": ["UAC is disabled (EnableLUA:"],
+    "check": "Check 19",
+    "section": "System Info",
+    "severity": "High",
+    "technical_detail": "EnableLUA=0 disables User Account Control entirely. All processes run with the user's full token, and there is no split-token behavior for administrators -- an administrator-equivalent account is effectively root-equivalent for every launched process.",
+    "risk": "Any code executed by an administrator account runs with full admin rights, bypassing the primary defense against silent elevation. Malware that executes as an admin user inherits full system privileges with no consent prompt.",
+    "recommendation": "Enable UAC by setting EnableLUA=1. A reboot is required. Also verify ConsentPromptBehaviorAdmin is 1 or 2 and PromptOnSecureDesktop is 1. Rare systems (some kiosks, some legacy ICS) may have been configured this way deliberately -- confirm whether the policy is intentional before changing.",
+    "mitre_attack": [
+      {"id": "T1548.002", "name": "Abuse Elevation Control Mechanism: Bypass User Account Control"}
+    ],
+    "related_findings": ["alwaysinstallelevated_both"],
+    "references": ["CIS Benchmark 2.3.17.6", "STIG V-63325"]
+  },
+
+  "uac_prompt_weak": {
+    "title": "UAC prompt behavior relaxed",
+    "matches": ["UAC admin prompt may not be secure", "UAC does not prompt on secure desktop"],
+    "check": "Check 19",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "ConsentPromptBehaviorAdmin values of 0, 3, 4, or 5 weaken the UAC consent prompt (auto-elevate without prompting, or prompt for credentials but without the secure desktop isolation). PromptOnSecureDesktop=0 allows malicious processes to interact with the consent prompt.",
+    "risk": "Malware or a compromised user process can spoof or intercept the consent prompt, causing the user to unknowingly approve elevation for attacker-controlled code.",
+    "recommendation": "Set ConsentPromptBehaviorAdmin to 1 (prompt for consent on secure desktop) or 2 (prompt for consent), and PromptOnSecureDesktop to 1.",
+    "mitre_attack": [
+      {"id": "T1548.002", "name": "Abuse Elevation Control Mechanism: Bypass User Account Control"}
+    ],
+    "related_findings": ["uac_disabled"],
+    "references": ["CIS Benchmark 2.3.17.1", "STIG V-63323"]
+  },
+
+  "alwaysinstallelevated_both": {
+    "title": "AlwaysInstallElevated enabled for both HKLM and HKCU",
+    "matches": ["Users can install software as NT AUTHORITY\\SYSTEM"],
+    "check": "Check 7",
+    "section": "System Info",
+    "severity": "Critical",
+    "technical_detail": "When both HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer!AlwaysInstallElevated and HKCU\\...\\AlwaysInstallElevated are set to 1, Windows Installer runs any MSI with SYSTEM privileges regardless of who invokes it. Any authenticated user can craft a malicious MSI and escalate to SYSTEM.",
+    "risk": "Trivial local privilege escalation. Any unprivileged user on the system gains SYSTEM execution via a one-line MSI.",
+    "recommendation": "Disable AlwaysInstallElevated on both HKLM and HKCU, or remove the registry values entirely. Policy Object path: Computer Configuration AND User Configuration -> Administrative Templates -> Windows Components -> Windows Installer -> Always install with elevated privileges.",
+    "mitre_attack": [
+      {"id": "T1548.002", "name": "Abuse Elevation Control Mechanism: Bypass User Account Control"},
+      {"id": "T1078.003", "name": "Valid Accounts: Local Accounts"}
+    ],
+    "related_findings": ["uac_disabled"],
+    "references": ["fuzzysecurity.com/tutorials/16.html", "greyhathacker.net: Abusing MSIs Elevated Privileges"]
+  },
+
+  "smbv1_enabled": {
+    "title": "SMBv1 server protocol enabled",
+    "matches": ["SMBv1 is Enabled", "SMB1 server protocol is ENABLED", "SMB1 server protocol is enabled"],
+    "check": "Check 27",
+    "section": "Security",
+    "severity": "High",
+    "technical_detail": "SMBv1 is the original Server Message Block protocol, deprecated since 2014. It has known unauthenticated-remote-code-execution vulnerabilities (MS17-010 / EternalBlue, WannaCry) and lacks modern security features (no cryptographic integrity, no pre-authentication integrity).",
+    "risk": "A network-reachable SMBv1 server is directly exposed to known-exploitable vulnerabilities. Wormable malware (WannaCry, NotPetya class) specifically targets SMBv1.",
+    "recommendation": "Disable the SMBv1 server protocol. Before rollout, check for legacy clients that still require SMBv1 -- older printers, scanners, and some ICS/OT systems (HMIs, legacy Windows-based controllers) may not support SMBv2+. Enable SMBv1 auditing (Check 27) first to discover any active SMBv1 clients.",
+    "mitre_attack": [
+      {"id": "T1210", "name": "Exploitation of Remote Services"}
+    ],
+    "related_findings": ["smb_server_signing_off", "smb_client_signing_off"],
+    "references": ["CIS Benchmark 18.3.3", "Microsoft: Stop using SMB1"]
+  },
+
+  "smb_server_signing_off": {
+    "title": "SMB server signing not required",
+    "matches": ["SMB Server Require Security Signature is Disabled", "SMB server RequireSecuritySignature: 0"],
+    "check": "Check 27",
+    "section": "Security",
+    "severity": "Medium",
+    "technical_detail": "When SMB server signing is not required, SMB sessions can be relayed or tampered with by an attacker positioned on the network. An attacker with LLMNR/NBT-NS poisoning or a similar man-in-the-middle capability can relay the victim's authentication to arbitrary SMB targets.",
+    "risk": "Enables SMB relay attacks (ntlmrelayx class). Combined with administrator user accounts that authenticate across the network, this leads directly to lateral movement or remote SYSTEM execution.",
+    "recommendation": "Require SMB server signing. Verify any legacy clients (older Windows, appliances) that might break before enabling cluster-wide.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"},
+      {"id": "T1550.002", "name": "Use Alternate Authentication Material: Pass the Hash"}
+    ],
+    "related_findings": ["smb_client_signing_off", "llmnr_enabled", "netbios_enabled", "lmhash_not_configured"],
+    "references": ["CIS Benchmark 2.3.8.2", "STIG V-63653"]
+  },
+
+  "localaccounttokenfilterpolicy_set": {
+    "title": "LocalAccountTokenFilterPolicy enabled (UAC remote filtering disabled)",
+    "matches": ["LocalAccountTokenFilterPolicy Is Set", "LocalAccountTokenFilterPolicy in Wow6432Node Is Set", "LocalAccountTokenFilterPolicy is set to 0x1", "LocalAccountTokenFilterPolicy is set to 1"],
+    "check": "Check 39",
+    "section": "Authentication",
+    "severity": "High",
+    "technical_detail": "When LocalAccountTokenFilterPolicy=1, UAC's default behavior of filtering local admin tokens for remote access is disabled. Local administrator accounts authenticated over the network (e.g., via SMB) receive a full admin access token instead of the filtered user token.",
+    "risk": "Enables pass-the-hash and local-admin-credential-reuse attacks. An attacker who recovers a local administrator password hash can authenticate over SMB to any other system sharing that password and execute as full admin without triggering UAC filtering.",
+    "recommendation": "Remove or set to 0 in both policies\\system and Wow6432Node\\...\\policies\\system. The default behavior (UAC token filtering for remote admin logon) should be preserved unless a specific application requires it.",
+    "mitre_attack": [
+      {"id": "T1550.002", "name": "Use Alternate Authentication Material: Pass the Hash"},
+      {"id": "T1021.002", "name": "Remote Services: SMB/Windows Admin Shares"}
+    ],
+    "related_findings": ["smb_server_signing_off"],
+    "references": ["4sysops.com: Disable PowerShell Remoting", "harmj0y.net: Pass-the-Hash Is Dead"]
+  },
+
+  "lmhash_not_configured": {
+    "title": "LAN Manager hash storage not disabled (NoLmHash missing)",
+    "matches": ["NoLmHash registry key is not configured", "NoLmHash: 0", "NoLmHash not configured"],
+    "check": "Check 37",
+    "section": "Authentication",
+    "severity": "High",
+    "technical_detail": "Without NoLmHash=1, Windows stores passwords as LM hashes in addition to NTLM. LM hashes are trivially crackable: they split passwords at 7 characters, uppercase them, and use weak DES. A 14-character password cracks as two independent 7-character hashes.",
+    "risk": "Any attacker with SAM database access (local or backed-up) can recover passwords from LM hashes in seconds to hours. Offline cracking requires no network access.",
+    "recommendation": "Set NoLmHash=1 to prevent LM hash storage. Force a password change on all accounts afterward so existing LM hashes are cleared from the SAM.",
+    "mitre_attack": [
+      {"id": "T1003.002", "name": "OS Credential Dumping: Security Account Manager"},
+      {"id": "T1110.002", "name": "Brute Force: Password Cracking"}
+    ],
+    "related_findings": ["lmcompatibility_weak"],
+    "references": ["CIS Benchmark 2.3.11.5", "STIG V-63797"]
+  },
+
+  "lmcompatibility_weak": {
+    "title": "LAN Manager authentication level allows LM or NTLMv1",
+    "matches": ["LmCompatibilityLevel not configured", "LM Compatability Level is not configured to prevent LM and NTLM"],
+    "check": "Check 37",
+    "section": "Authentication",
+    "severity": "High",
+    "technical_detail": "LmCompatibilityLevel 5 forces the system to send NTLMv2 only and refuse LM and NTLMv1. Values below 5 allow the weaker protocols, which are crackable offline and vulnerable to relay attacks.",
+    "risk": "Enables offline cracking of captured network authentication. NTLMv1 has known cryptographic weaknesses that allow downgrade attacks and hash recovery.",
+    "recommendation": "Set LmCompatibilityLevel=5 (Send NTLMv2 response only; refuse LM and NTLM). Validate any legacy systems that still rely on LM/NTLMv1 (rare but possible on very old appliances).",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"},
+      {"id": "T1110.002", "name": "Brute Force: Password Cracking"}
+    ],
+    "related_findings": ["lmhash_not_configured", "ntlm_session_weak"],
+    "references": ["CIS Benchmark 2.3.11.7", "STIG V-73697"]
+  },
+
+  "ntlm_session_weak": {
+    "title": "NTLM session security does not require NTLMv2 + 128-bit",
+    "matches": ["NtlmMinServerSec not configured", "NtlmMinClientSec not configured", "NTLM Session Server Security settings is not configured to require NTLMv2", "NTLM Session Client Security settings is not configured to require NTLMv2"],
+    "check": "Check 36",
+    "section": "Authentication",
+    "severity": "Medium",
+    "technical_detail": "NtlmMinServerSec and NtlmMinClientSec=0x20080030 enforce NTLMv2 session security with 128-bit encryption. Lower values allow older session-security options, including unencrypted or weakly-encrypted sessions.",
+    "risk": "Weakly-encrypted NTLM sessions are more susceptible to offline cracking of captured authentication. Also prevents NTLM relay attacks from being downgraded to weaker crypto.",
+    "recommendation": "Set both NtlmMinServerSec and NtlmMinClientSec to 0x20080030 (537395248) to require NTLMv2 + 128-bit encryption for session security.",
+    "mitre_attack": [
+      {"id": "T1557.001", "name": "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay"}
+    ],
+    "related_findings": ["lmcompatibility_weak"],
+    "references": ["CIS Benchmark 2.3.11.9", "STIG V-73697"]
+  },
+
+  "unquoted_service_path": {
+    "title": "Unquoted service path with embedded space(s)",
+    "matches": ["Unquoted service path with space", "Unquoted service path:"],
+    "check": "Check 24",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "A Windows service whose ImagePath contains a space and is not enclosed in quotes is parsed greedily by the Service Control Manager. If an attacker can write to an earlier space-separated path (e.g., C:\\Program.exe when the service is C:\\Program Files\\App\\service.exe), the SCM launches the attacker's binary instead.",
+    "risk": "Local privilege escalation to the service's account (often SYSTEM). Exploitation requires write access to an intermediate path, which combined with weak directory permissions elsewhere provides a reliable escalation vector.",
+    "recommendation": "Quote the ImagePath in the registry for each affected service. Vendor-installed services are the most common offenders; notify the vendor or wrap the path manually in HKLM\\SYSTEM\\CurrentControlSet\\Services\\<name>!ImagePath.",
+    "mitre_attack": [
+      {"id": "T1574.009", "name": "Hijack Execution Flow: Path Interception by Unquoted Path"}
+    ],
+    "related_findings": ["weak_program_permissions"],
+    "references": ["Microsoft: Service Control Manager path parsing"]
+  },
+
+  "weak_program_permissions": {
+    "title": "Weak ACL on program directory",
+    "matches": ["Weak ACL:"],
+    "check": "Check 25",
+    "section": "System Info",
+    "severity": "Medium",
+    "technical_detail": "NTFS ACL on a directory under Program Files, Program Files (x86), or a root-level vendor directory grants Modify, Write, FullControl, WriteData, CreateFiles, AppendData, or CreateDirectories to a non-admin principal (Users, Authenticated Users, Everyone).",
+    "risk": "Any non-admin user can replace program binaries, DLLs, or configuration files. When those files are later executed by a privileged process (service, scheduled task, administrator manually running the program), the attacker gains execution in that privileged context.",
+    "recommendation": "Tighten the ACL so only Administrators and SYSTEM have Modify/Write. Users typically need only Read & Execute. If the vendor application requires write access to its install folder for logs or config, move those files to %ProgramData%\\<Vendor> and restrict the install folder.",
+    "mitre_attack": [
+      {"id": "T1574.005", "name": "Hijack Execution Flow: Executable Installer File Permissions Weakness"},
+      {"id": "T1574.010", "name": "Hijack Execution Flow: Services File Permissions Weakness"}
+    ],
+    "related_findings": ["unquoted_service_path"],
+    "references": ["Microsoft: Access Control Lists overview"]
+  },
+
+  "compilers_present": {
+    "title": "Compilers or build tools present on system",
+    "matches": ["compiler/build tool binary"],
+    "check": "Check 26",
+    "section": "System Info",
+    "severity": "Low",
+    "technical_detail": "One or more compilers, assemblers, or build tools were detected (GCC, MinGW, clang, MSVC cl.exe, NASM, make, cmake, Strawberry Perl, Python). These enable local compilation on the system.",
+    "risk": "An attacker with code execution on the box can compile arbitrary binaries locally, bypassing antivirus signature detection that would catch a pre-built payload downloaded from the network. This is a living-off-the-land enabler.",
+    "recommendation": "Remove compilers from systems that do not need them (operator workstations, HMIs, general-purpose servers). On engineering workstations or systems that genuinely require build capability, document the business justification, restrict binary ACLs to specific users, and consider AppLocker/WDAC rules to restrict execution by the broader user population.",
+    "mitre_attack": [
+      {"id": "T1027.004", "name": "Obfuscated Files or Information: Compile After Delivery"},
+      {"id": "T1588.001", "name": "Obtain Capabilities: Malware"}
+    ],
+    "related_findings": [],
+    "references": []
+  },
+
+  "ps_module_logging_off": {
+    "title": "PowerShell Module Logging not enabled",
+    "matches": ["EnableModuleLogging Is Not Set", "PowerShell Module Logging is not enabled"],
+    "check": "Check 56",
+    "section": "PowerShell",
+    "severity": "Low",
+    "technical_detail": "PowerShell Module Logging records cmdlet invocations and parameter values from specified modules to Event ID 4103. Without it, a forensic analyst cannot see which cmdlets executed or with what arguments.",
+    "risk": "PowerShell-borne attacks are much harder to detect and investigate. Threat actors heavily use PowerShell for post-compromise operations; without logging, the forensic trail is largely gone.",
+    "recommendation": "Enable Module Logging via GPO (Computer Configuration -> Administrative Templates -> Windows Components -> Windows PowerShell -> Turn on Module Logging). Configure module names as * (all modules).",
+    "mitre_attack": [
+      {"id": "T1562.002", "name": "Impair Defenses: Disable Windows Event Logging"},
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off", "cmdline_auditing_off"],
+    "references": ["CIS Benchmark 18.9.100.1"]
+  },
+
+  "ps_scriptblock_logging_off": {
+    "title": "PowerShell Script Block Logging not enabled",
+    "matches": ["EnableScriptBlockLogging Is Not Set", "Script Block Logging is not enabled"],
+    "check": "Check 57",
+    "section": "PowerShell",
+    "severity": "Low",
+    "technical_detail": "Script Block Logging records the full content of every PowerShell script block that executes, to Event ID 4104. This captures obfuscated commands, in-memory code, and dynamically-generated scripts that other logging methods miss.",
+    "risk": "The single most useful PowerShell logging mechanism for threat hunting and forensics. Without it, obfuscated PowerShell attacks are largely invisible in the event log.",
+    "recommendation": "Enable Script Block Logging via GPO (Computer Configuration -> Administrative Templates -> Windows Components -> Windows PowerShell -> Turn on PowerShell Script Block Logging). Also enable invocation logging (separate sub-setting).",
+    "mitre_attack": [
+      {"id": "T1562.002", "name": "Impair Defenses: Disable Windows Event Logging"},
+      {"id": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"}
+    ],
+    "related_findings": ["ps_module_logging_off"],
+    "references": ["CIS Benchmark 18.9.100.2"]
+  },
+
+  "cmdline_auditing_off": {
+    "title": "Command-line auditing not enabled",
+    "matches": ["ProcessCreationIncludeCmdLine_Enabled Is Not Set", "Command-line auditing is not enabled", "ProcessCreationIncludeCmdLine_Enabled: 0"],
+    "check": "Check 62",
+    "section": "Logging",
+    "severity": "Medium",
+    "technical_detail": "ProcessCreationIncludeCmdLine_Enabled=1 causes Event ID 4688 (process creation) to include the full command line in the event record. Without it, only the executable name and parent process are logged, not the arguments.",
+    "risk": "Command-line arguments are often the most informative part of a process-creation event. Malicious invocations like `powershell -enc <base64>` or `cmd /c net user admin /add /domain` are invisible without this setting.",
+    "recommendation": "Enable via GPO (Computer Configuration -> Administrative Templates -> System -> Audit Process Creation -> Include command line in process creation events). Also confirm Process Creation auditing is enabled under Advanced Audit Policy Configuration.",
+    "mitre_attack": [
+      {"id": "T1562.002", "name": "Impair Defenses: Disable Windows Event Logging"}
+    ],
+    "related_findings": ["ps_scriptblock_logging_off"],
+    "references": ["CIS Benchmark 17.3.1"]
+  }
+}
