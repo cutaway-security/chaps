@@ -25,11 +25,11 @@ Each category has its own procedures and pass/fail criteria defined below. Do no
 | SSH Alias | VMID | Proxmox | OS | PS Version | Scripts Supported | Notes |
 |---|---|---|---|---|---|---|
 | Win7Pro-Dev | 107 | proxmox0 | Windows 7 Pro | 2.0 | PSv2, CMD | PSv3 will exit with version error (expected). Limited cmdlet availability. |
-| Win10Pro-Dev | 108 | proxmox0 | Windows 10 Pro | 5.1 | PSv3, PSv2, CMD | Primary parity test target. |
-| Win11Pro-Dev | 102 | proxmox0 | Windows 11 Pro | 5.1 | PSv3, PSv2, CMD | `[System.Environment]::OSVersion.Version.Major` still reports 10. |
-| WinServer2016-Dev | 110 | proxmox0 | Windows Server 2016 | TBD | PSv3, PSv2, CMD | No SecurityCenter2 namespace. Start and verify before first test. |
-| WinServer2019-Dev | 109 | proxmox0 | Windows Server 2019 | TBD | PSv3, PSv2, CMD | No SecurityCenter2 namespace. `Get-MpComputerStatus` fallback used. |
-| WinServer2022-Dev | 111 | proxmox0 | Windows Server 2022 | TBD | PSv3, PSv2, CMD | Windows LAPS may be built-in. |
+| Win10Pro-Dev | 108 | proxmox0 | Windows 10 Pro (1809) | 5.1.17763.1 | PSv3, PSv2, CMD | Primary parity test target. |
+| Win11Pro-Dev | 102 | proxmox0 | Windows 11 Pro | 5.1.22621.4249 | PSv3, PSv2, CMD | `[System.Environment]::OSVersion.Version.Major` still reports 10. |
+| WinServer2016-Dev | 110 | proxmox0 | Windows Server 2016 | 5.1.14393.693 | PSv3, PSv2, CMD | No SecurityCenter2 namespace. |
+| WinServer2019-Dev | 109 | proxmox0 | Windows Server 2019 | 5.1.17763.8510 | PSv3, PSv2, CMD | No SecurityCenter2 namespace. `Get-MpComputerStatus` fallback used. |
+| WinServer2022-Dev | 111 | proxmox0 | Windows Server 2022 | 5.1.20348.4294 | PSv3, PSv2, CMD | Windows LAPS may be built-in. |
 
 Systems aliased but not yet built (VMID = N/A): WinServer2012-Dev, WinServer2025-Dev. Do not include in test runs until installed and added to this table.
 
@@ -268,6 +268,8 @@ Known per-OS behavior observed during development. Update this as real test runs
 
 - All three scripts are fully supported. Primary parity target.
 - Win11 reports `OSVersion.Version.Major = 10`. Checks using `-ge 10` work correctly; checks using `-eq 10` would incorrectly treat Win11 as Win10. All CHAPS PSv3 checks use `-ge 10` (fixed in Phase 2).
+- Win10Pro-Dev in the lab is build 1809 (17763) -- older than typical workstation 22H2 but sufficient for PSv3 testing.
+- **Known issue observed during connection testing:** `Get-ComputerInfo` fails under non-interactive SSH sessions with `Win32 internal error "Access is denied" ... while reading the console output buffer`. This affects `Get-SystemInfo` in the PSv3 script (line ~274). The function's `Test-CommandExists` gate returns true (the cmdlet is present), but the cmdlet throws at runtime. Needs fix during script testing: wrap `Get-ComputerInfo` in try/catch and fall back to `systeminfo` parsing on failure.
 
 ### 7.3 Server VMs (2016, 2019, 2022)
 
