@@ -202,8 +202,8 @@ echo.
 echo [*] Installed hotfixes ^(review for missing patches^):
 if "!WMIC_PRESENT!"=="true" (
     for /f "tokens=*" %%A in ('"wmic qfe get HotFixID,InstalledOn /format:table 2>nul"') do (
-        set "line=%%A"
-        if not "!line!"=="" echo [*]   !line!
+        :: Inner for /f tokens=* filters out whitespace-only lines (produces no iteration)
+        for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
     )
 ) else (
     echo [*] WMIC not available. Use systeminfo to review installed hotfixes.
@@ -433,8 +433,8 @@ echo.
 if "!WMIC_PRESENT!"=="true" (
     echo [*] USB controller devices:
     for /f "tokens=*" %%A in ('"wmic path Win32_USBControllerDevice get Dependent 2>nul"') do (
-        set "uline=%%A"
-        if not "!uline!"=="" echo [*]   !uline!
+        :: Inner for /f tokens=* filters out whitespace-only lines (produces no iteration)
+        for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
     )
 ) else (
     echo [*] WMIC not available. Cannot enumerate USB devices.
@@ -471,7 +471,7 @@ echo ### Check 18: Software Inventory
 echo.
 echo [*] Installed software ^(HKLM Uninstall^):
 for /f "tokens=2,*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" /s 2^>nul ^| findstr /i "DisplayName"') do (
-    if not "%%B"=="" echo [*]   %%B
+    for /f "tokens=*" %%C in ("%%B") do echo [*]   %%C
 )
 echo.
 
@@ -515,10 +515,10 @@ echo.
 echo ### Check 20: Account Policies
 echo.
 echo [*] Net accounts output:
-for /f "tokens=*" %%A in ('net accounts 2^>nul') do echo [*]   %%A
+for /f "tokens=*" %%A in ('net accounts 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 echo [*] Guest account status:
-for /f "tokens=*" %%A in ('net user Guest 2^>nul ^| findstr /i "Account active"') do echo [*]   %%A
+for /f "tokens=*" %%A in ('net user Guest 2^>nul ^| findstr /i "Account active"') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 if "!WMIC_PRESENT!"=="true" (
     echo [*] Built-in Administrator account ^(SID -500^):
@@ -745,7 +745,7 @@ echo.
 echo ### Check 30: Audit Policy
 echo.
 echo [*] Audit policy settings:
-for /f "tokens=*" %%A in ('auditpol /get /category:* 2^>nul') do echo [*]   %%A
+for /f "tokens=*" %%A in ('auditpol /get /category:* 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: =============================================================
@@ -1012,7 +1012,7 @@ echo.
 findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" >nul 2>&1
 if %errorlevel%==0 (
     echo [*] WPAD entry found in hosts file:
-    for /f "tokens=*" %%A in ('findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" 2^>nul') do echo [*]   %%A
+    for /f "tokens=*" %%A in ('findstr /i "wpad" "%SystemRoot%\System32\drivers\etc\hosts" 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 ) else (
     echo [*] No WPAD entry in hosts file.
 )
@@ -1113,7 +1113,7 @@ echo.
 echo ### Check 47: Network Connections
 echo.
 echo [*] Active network connections ^(netstat -ano^):
-for /f "tokens=*" %%A in ('netstat -ano 2^>nul') do echo [*]   %%A
+for /f "tokens=*" %%A in ('netstat -ano 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: -------------------------------------------------------
@@ -1122,7 +1122,7 @@ echo.
 echo ### Check 48: Firewall Profiles
 echo.
 echo [*] Firewall profile status:
-for /f "tokens=*" %%A in ('netsh advfirewall show allprofiles 2^>nul') do echo [*]   %%A
+for /f "tokens=*" %%A in ('netsh advfirewall show allprofiles 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: -------------------------------------------------------
@@ -1281,7 +1281,7 @@ if /i "!_wrmsvc!"=="RUNNING" (
     echo [+] WinRM service is not installed.
 )
 echo [*] WinRM HTTP-In firewall rule:
-for /f "tokens=*" %%A in ('netsh advfirewall firewall show rule name^="Windows Remote Management (HTTP-In)" 2^>nul') do echo [*]   %%A
+for /f "tokens=*" %%A in ('netsh advfirewall firewall show rule name^="Windows Remote Management (HTTP-In)" 2^>nul') do for /f "tokens=*" %%B in ("%%A") do echo [*]   %%B
 echo.
 
 :: =============================================================

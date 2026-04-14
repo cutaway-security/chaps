@@ -1449,7 +1449,7 @@ function Get-RDPDeny {
     # How to Remotely Enable and Disable (RDP) Remote Desktop: https://www.interfacett.com/blogs/how-to-remotely-enable-and-disable-rdp-remote-desktop/
     Try{
         if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).AllowRemoteRPC){
-            Write-Output "$neg_str + AllowRemoteRPC is should be set to disable RDP: 1"
+            Write-Output "$neg_str AllowRemoteRPC should be disabled to deny RDP: 1"
 } else {
             Write-Output "$pos_str AllowRemoteRPC is set to deny RDP: 0"
 }
@@ -1662,9 +1662,8 @@ function Get-NetworkSettingsIPv4 {
         if ($ips -ne $null){
             foreach ($ip in $ips){
                 if ($ip -ne $null){
-                    #$inf_str + "Host network interface assigned:" $ip
                     Write-Output "$inf_str Host network interface assigned: $ip"
-}
+                }
             }
         }else{
             # Use Throw function to call the Catch function
@@ -2287,14 +2286,14 @@ function Get-PSEventLog {
         Try{
             $lsize = [math]::Round((Get-WinEvent -ListLog $l -ErrorAction Stop).MaximumSizeInBytes / (1024*1024*1024),3)
             if ($lsize -lt $logs[$l]){
-                #$neg_str + $l "max log size is smaller than $logs[$l] GB: $lsize GB"                Write-Output "$neg_str $l max log size is smaller than $($logs[$l]) GB: $lsize GB"
-} else {
-                #$pos_str + $l "max log size is okay: $lsize GB"                Write-Output "$pos_str $l max log size is okay: $lsize GB"
-}
+                Write-Output "$neg_str $l max log size is smaller than $($logs[$l]) GB: $lsize GB"
+            } else {
+                Write-Output "$pos_str $l max log size is okay: $lsize GB"
+            }
         }
         Catch{
             Write-Output "$err_str Testing $l log size failed."
-}
+        }
     }
 }
 

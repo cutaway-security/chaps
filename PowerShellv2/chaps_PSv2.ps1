@@ -1463,7 +1463,7 @@ function Get-RDPDeny {
     # How to Remotely Enable and Disable (RDP) Remote Desktop: https://www.interfacett.com/blogs/how-to-remotely-enable-and-disable-rdp-remote-desktop/
     Try{
         if ([bool](Get-ItemProperty -path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -ErrorAction SilentlyContinue).AllowRemoteRPC){
-            Write-Output "$neg_str + AllowRemoteRPC is should be set to disable RDP: 1"
+            Write-Output "$neg_str AllowRemoteRPC should be disabled to deny RDP: 1"
 } else {
             Write-Output "$pos_str AllowRemoteRPC is set to deny RDP: 0"
 }
