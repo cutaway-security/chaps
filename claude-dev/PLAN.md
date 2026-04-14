@@ -7,8 +7,8 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 ## Current Phase
 
 **Phase**: Phase 8 - Documentation and Release Prep
-**Status**: In Progress (VM testing complete)
-**Focus**: Update README, close issues/PRs, final validation, release
+**Status**: In Progress (README and docs/ complete; issue/PR closure + release prep remain)
+**Focus**: Close issues/PRs, pre-release checklist, release
 
 ## Phases
 
@@ -195,18 +195,30 @@ VM testing deferred to Phase 8 for full fleet testing of all three scripts.
 
 ### Phase 8: Documentation and Release Prep
 
-**Status**: Not Started
+**Status**: In Progress
 
-- [ ] Update README.md with all new checks and features
-- [ ] Update usage instructions for all three scripts
-- [ ] Document markdown report format and how to use it for reports and AI analysis
-- [ ] Update references and hardening guide links
-- [ ] Remove completed TODO items from README
-- [ ] Close Issue #2 after feature implementation
-- [ ] Close PR #5 after integrating changes
-- [ ] Final cross-script output comparison test on all VMs
+Documentation (complete):
+- [x] Simplified README.md: overview, script table, quick start, links to docs/, collaborators, license (~75 lines)
+- [x] docs/USAGE.md: prerequisites, per-script invocation, output patterns, non-admin behavior, troubleshooting, removal
+- [x] docs/CHECKS.md: all 59 checks in canonical order, organized by section, with brief descriptions and CMD capability matrix
+- [x] docs/INTERPRETING_REPORTS.md: status prefixes, triage workflow, common findings, cross-script comparison, report-to-writeup workflow
+- [x] docs/REMEDIATION.md: per-check remediation guidance (28 remediable checks detailed), Group Policy paths, registry keys, commands, priority order
+
+VM testing (complete):
+- [x] Full test run: all three scripts on all six VMs, 2026-04-13 (results in claude-dev/review.local/)
+- [x] Runtime bugs fixed: Get-SystemInfo fallback chain, CMD LF->CRLF, Get-BitLocker manage-bde probe, PSv2 Get-WmiObject parameters
+- [x] Review observations fixed: blank [*] lines, AllowRemoteRPC typo
+- [x] Test matrices populated in TESTING_STANDARD.md
+
+Release prep (remaining):
+- [ ] Close Issue #2 (USB, AV, software inventory, netstat - all implemented)
+- [ ] Close PR #5 with note that features integrated via rewrite
+- [ ] Clean up claude-dev/review.local/ directory after review
+- [ ] Delete stale remote branches (Intern-Dev, ai-test, already-merged branches)
 - [ ] Pre-release checklist per GIT_RELEASE_STEPS.md
-- [ ] Tag and release per GIT_RELEASE_STEPS.md
+- [ ] Tag dev-v2 on claude-dev, push
+- [ ] Create release-v2 branch, strip claude-dev/ and CLAUDE.md
+- [ ] Force-push to main, tag v2, create GitHub release
 
 ## Decision Log
 

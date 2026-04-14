@@ -43,7 +43,12 @@ Configuration details in claude-dev/remote-testing.example.conf (local copy giti
 ```
 chaps/
     CLAUDE.md                       # Project rules and guidelines
-    README.md                       # Public documentation and usage
+    README.md                       # Public overview, quick start, links to docs/
+    docs/
+        USAGE.md                    # Running instructions (public)
+        CHECKS.md                   # Catalog of all 59 checks (public)
+        INTERPRETING_REPORTS.md     # How to read the output (public)
+        REMEDIATION.md              # Per-check remediation guidance (public)
     .gitignore
     claude-dev/
         ARCHITECTURE.md             # This file

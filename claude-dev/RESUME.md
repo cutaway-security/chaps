@@ -2,64 +2,41 @@
 
 ## Current State
 
-**Last Session**: 2026-04-13
+**Last Session**: 2026-04-14
 **Branch**: claude-dev
-**Status**: Clean -- full VM test run complete, all scripts pass on all 6 VMs
+**Status**: Clean -- README and docs/ complete; release prep remains
 
 ## What Was Accomplished
 
-### Phases 1-7: Complete (see previous sessions)
+### Phases 1-7: Complete (see earlier sessions)
 
-### Phase 5 Reset: Testing Infrastructure Aligned with ICSWatchDog Standard (Complete)
+### Phase 5 Reset + VM Testing (Complete, see earlier sessions)
 
-See earlier RESUME.md entries.
+### Review observations fixed (Complete, see earlier sessions)
 
-### Full VM Test Run 2026-04-13
+### Phase 8 Documentation Refactor (Complete)
 
-Ran all three CHAPS scripts against all 6 built VMs in the lab:
+Simplified README.md from 152 lines to 75 lines. Moved detail to `docs/`:
 
-**PSv3 (skip Win7 -- expected PS version error):**
-- Win10Pro-Dev, Win11Pro-Dev, WinServer2016-Dev, WinServer2019-Dev, WinServer2022-Dev: rc=0, 6 sections, 0 stderr
-- Win7Pro-Dev: clean version error exit (expected, PASS)
+- **`README.md`** (~75 lines): one-paragraph overview, three-script table, quick-start commands, links to docs/, references, collaborators, license. No more inline check lists or TODO blocks.
 
-**PSv2 (all 6 VMs):**
-- Win7Pro-Dev, Win10Pro-Dev, Win11Pro-Dev, WinServer2016-Dev, WinServer2019-Dev, WinServer2022-Dev: rc=0, 6 sections, 0 stderr
+- **`docs/USAGE.md`** (~160 lines): prerequisites (admin, execution policy), per-script invocation with redirection patterns (file, screen, clipboard, Tee-Object), getting the report off the target, non-admin behavior, troubleshooting table, "what CHAPS does not do" scope clarification, removal instructions.
 
-**CMD (all 6 VMs):**
-- All 6 VMs: rc=0, 7 sections (6 + footer), 59 checks, 0 stderr
+- **`docs/CHECKS.md`** (~115 lines): all 59 checks in canonical order, grouped by the six report sections, with a brief "what it verifies" column and registry paths where relevant. Script capability matrix showing CMD's four info-only checks (AppLocker, ASR, PSVersions, PSLanguage). Guidance on disabling individual checks via the toggle variables.
 
-Results stored in `claude-dev/results/` (gitignored).
+- **`docs/INTERPRETING_REPORTS.md`** (~155 lines): report structure, status prefix table ([+]/[-]/[*]/[x]), 5-step triage workflow (header → [-] findings → [x] errors → [*] informational → confirm [+] on high-value controls), common [-] priorities, [x] causes table, cross-script comparison notes, report-to-writeup mapping.
 
-### Bugs Surfaced and Fixed
+- **`docs/REMEDIATION.md`** (~625 lines): per-check remediation for every check that can produce a negative finding. For each: what the finding means, why it matters, concrete remediation (registry key, GPO path, or command), ICS/OT caveats where relevant. Closes with a suggested remediation priority order (credential-theft vectors → logging → protocol hardening → attack-surface reduction → exploit mitigations → account hygiene → infrastructure).
 
-1. **Get-SystemInfo** -- `Get-ComputerInfo` fails under non-interactive SSH with "Access is denied" on console buffer. Added three-tier fallback chain: `Get-ComputerInfo` -> `Get-WmiObject Win32_OperatingSystem` -> `systeminfo` command parsing. All tiers wrapped in try/catch.
-
-2. **CMD/chaps.bat line endings** -- File had LF instead of CRLF. Windows CMD parser silently skipped Checks 11-33 on all VMs. Fixed by converting to CRLF. All 59 checks now emit correctly.
-
-3. **Get-BitLocker manage-bde fallback** -- On Server editions where BitLocker feature isn't installed, neither `Get-BitLockerVolume` nor `manage-bde.exe` exists. The fallback threw noisy CommandNotFound to stderr. Added `Get-Command manage-bde.exe` probe; emits `[*]` info line when neither is available. Fixed in both PSv3 and PSv2.
-
-4. **PSv2 Get-CimInstance -> Get-WmiObject migration** -- Two functions (Get-CredDeviceGuard, Get-AntiVirus) retained the Cim-only `-ClassName` parameter after the migration. `Get-WmiObject` expects `-Class`. Also fixed Unicode en-dash characters inherited from earlier branch history in both PSv3 and PSv2.
-
-### Parity Matrix (Win10Pro-Dev, 2026-04-13)
-
-| Measure | PSv3 | PSv2 | CMD |
-|---|---|---|---|
-| Output lines | 182 | 192 | 554 |
-| Section headers | 6 | 6 | 7 (6 + footer) |
-| `[+]` positive | 36 | 34 | 22 |
-| `[-]` negative | 53 | 63 | 16 |
-| `[*]` informational | 54 | 56 | 299 |
-| `[x]` error | 1 | 1 | 0 |
-
-All three scripts attempt every canonical check. CMD's higher `[*]` count reflects raw-output checks (`netstat`, `net accounts`, software inventory) which emit one line per data row.
-
-The only remaining `[x]` errors are environmental (isolated lab has no internet, so the WinPatch check can't reach Microsoft Update) and a few Win7-specific event log names that don't exist on that OS -- both expected.
+Updated `claude-dev/ARCHITECTURE.md` file tree to include the `docs/` directory.
 
 ## In Progress
 
-- Phase 8: Documentation and Release Prep
-  - VM testing: COMPLETE
-  - Remaining: README update, close Issue #2 / PR #5, final release prep
+- Phase 8 release prep:
+  - Close Issue #2 and PR #5
+  - Clean up review.local/ after user review
+  - Delete stale remote branches
+  - Pre-release checklist and tagging
 
 ## Blockers
 
@@ -67,34 +44,38 @@ The only remaining `[x]` errors are environmental (isolated lab has no internet,
 
 ## Next Steps
 
-1. Update README.md to reflect:
-   - New version 2.0.0
-   - Markdown output to stdout (users redirect to file)
-   - Three scripts: PSv3, PSv2, CMD -- same canonical checks
-   - Removed setup steps related to output directory
-   - Usage examples for all three scripts
-   - Updated check list (59 checks) with brief descriptions
-   - Note testing status (tested on Win7, 10, 11, Server 2016/19/22)
+1. **User review of the doc set.** Walk through README.md, then docs/ in the natural reading order (USAGE → CHECKS → INTERPRETING_REPORTS → REMEDIATION). Look for wording issues, missing coverage, or excessive detail.
 
-2. Close Issue #2 (feature requests: USB, antivirus, software inventory, netstat) -- all implemented in Phase 3.
+2. **Commit and push the doc refactor** once approved.
 
-3. Close PR #5 -- features integrated via rewrite, not direct merge.
+3. **Close GitHub issues and PRs:**
+   - Issue #2 (USB, AV, software inventory, netstat): all four implemented in Phase 3.
+   - PR #5 (Dev Kaushik): features integrated via rewrite, close with thank-you comment.
 
-4. Pre-release checklist per GIT_RELEASE_STEPS.md.
+4. **Clean up remote branches** (see PLAN.md Phase 1 list): Intern-Dev, ai-test, port-to-PSv2, smbv1-check-returns-a-false-positive-error, typos-and-grammar, update-output-directory, cmd-bat-refactor, report_format_update.
 
-5. Optional: non-admin test pass to complete the "Non-admin graceful" row in test matrices.
+5. **Remove `claude-dev/review.local/`** once manual review is finished.
+
+6. **Pre-release checklist** per `claude-dev/GIT_RELEASE_STEPS.md`.
+
+7. **Tag and release**:
+   - Tag `dev-v2` on claude-dev, push
+   - Create `release-v2` branch, strip `claude-dev/` and `CLAUDE.md` and `docs/` stays
+   - Force-push to main, tag `v2`, create GitHub release
 
 ## Open Questions
 
-- None currently.
+- None currently. Ready for user review of the doc set.
 
 ## Files Modified This Session
 
 | File | Change |
 |------|--------|
-| PowerShellv3/chaps_PSv3.ps1 | Get-SystemInfo fallback chain, Get-BitLocker manage-bde probe, fixed en-dash in Get-CredDeviceGuard |
-| PowerShellv2/chaps_PSv2.ps1 | Same fixes + Get-CimInstance -> Get-WmiObject with -Class param fix |
-| CMD/chaps.bat | Converted LF -> CRLF line endings |
-| claude-dev/TESTING_STANDARD.md | Populated test matrices with 2026-04-13 results, parity matrix, bug summary |
+| README.md | Rewrote from 152 lines to ~75 lines: overview, table, quick start, doc links, collaborators, license |
+| docs/USAGE.md | New -- detailed running instructions, output patterns, troubleshooting |
+| docs/CHECKS.md | New -- catalog of all 59 checks with descriptions |
+| docs/INTERPRETING_REPORTS.md | New -- status prefixes, triage workflow, cross-script comparison |
+| docs/REMEDIATION.md | New -- per-check remediation guidance with GPO/registry/command detail |
+| claude-dev/ARCHITECTURE.md | File tree updated to include docs/ |
+| claude-dev/PLAN.md | Phase 8 detailed with documentation-complete checkpoint |
 | claude-dev/RESUME.md | This file |
-| claude-dev/PLAN.md | Phase 8 marked in progress |
