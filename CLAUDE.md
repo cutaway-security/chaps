@@ -17,6 +17,7 @@ Before starting any development session, read these documents in order:
 2. **claude-dev/ARCHITECTURE.md** - System design, data structures, script organization
 3. **claude-dev/PLAN.md** - Project roadmap, current phase, milestones, completion status
 4. **claude-dev/RESUME.md** - Development status, what is in progress, blockers, session context
+5. **claude-dev/VIBE_HISTORY.md** - Decision trail and lessons. AI session-continuity memory: Claude writes and reads it, it is not a document you are expected to maintain by hand
 
 **At session start**: Confirm you have read these documents before proceeding. List your understanding of the current state and next steps. Wait for confirmation before proceeding.
 
@@ -115,6 +116,27 @@ Follow the standard code quality rules for this project's languages:
 
 ---
 
+## Tooling / Skills
+
+CHAPS uses the Cutaway framework skills (installed globally) for ongoing work.
+`cutsec-init` does not apply -- the project is already populated.
+
+- **multi-ai-code-review** -- used during CHAPS update planning and
+  implementation. Architecture mode reviews update plans and analyzer/check
+  changes; diagnostic mode does false-positive root-cause analysis against a
+  CHAPS scan report or `claude-dev/results/*.md`.
+- **research-reviewer** / **strunk-prose-tightener** -- review and tighten
+  `docs/` and `README.md` before a release.
+- **humanizer** -- de-AI human-facing deliverables (README, release notes,
+  announcements).
+
+**Data scope:** CHAPS development is not sensitive. CHAPS source, plans, and
+scan output from the CutSec test environment are fine to send to
+`multi-ai-code-review`. Client data is not part of CHAPS development; do not
+treat CutSec test-environment output as sensitive material.
+
+---
+
 ## Project Scope
 
 ### In Scope
@@ -164,6 +186,7 @@ Follow the standard code quality rules for this project's languages:
 - Question assumptions and challenge problematic approaches
 - Ground claims in evidence, not reflexive validation
 - When stuck, explain what was tried and ask specific questions
+- For human-facing deliverables (README, docs, release notes, announcements), avoid AI writing tells; the `humanizer` skill covers this
 
 ---
 
@@ -177,6 +200,7 @@ When making changes, update the appropriate documents:
 | Phase completion | claude-dev/PLAN.md |
 | Session activity | claude-dev/RESUME.md |
 | Problem encountered | claude-dev/RESUME.md |
+| Durable decision or lesson | claude-dev/VIBE_HISTORY.md |
 | New check added | README.md, all three scripts |
 | Usage change | README.md |
 
@@ -190,9 +214,10 @@ When making changes, update the appropriate documents:
 2. Read claude-dev/ARCHITECTURE.md
 3. Read claude-dev/PLAN.md
 4. Read claude-dev/RESUME.md
-5. State your understanding of current status
-6. List proposed next steps
-7. Wait for confirmation before proceeding
+5. Read claude-dev/VIBE_HISTORY.md (newest entry)
+6. State your understanding of current status
+7. List proposed next steps
+8. Wait for confirmation before proceeding
 
 ### During Development
 
@@ -205,5 +230,6 @@ When making changes, update the appropriate documents:
 
 1. Update claude-dev/RESUME.md with what was accomplished
 2. Update claude-dev/PLAN.md with completion status
-3. List any blockers or open questions
-4. Provide summary of session
+3. Add durable decisions or lessons to claude-dev/VIBE_HISTORY.md
+4. List any blockers or open questions
+5. Provide summary of session
