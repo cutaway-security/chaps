@@ -9,6 +9,8 @@ Consolidate branch work into claude-dev, fix broken checks in PSv3, add new chec
 **Phase**: Released (post-release branding update landed)
 **Status**: v2 shipped 2026-04-14; acronym + logo update cherry-picked to master same day
 **Focus**: CHAPS v2 released to master. Tags `dev-v2` and `v2` pushed. GitHub release published at https://github.com/cutaway-security/chaps/releases/tag/v2. Follow-on: CHAPS acronym expansion corrected ("Configuration Hardening Assessment PowerShell Scripts") and project logo added to README; cherry-picked to master as commit `8cd1715`. v2 tag immutable at `1bb098d` (verified).
+**Next Steps**: Verify the GitHub social preview render (LinkedIn composer or opengraph.xyz); post the LinkedIn v2 announcement (draft not committed to the repo); watch for issues/PRs against v2. Backlog lives in the phase sections below -- Phase 10 role-aware severity and batch mode, Phase 12 deferred `test-fleet.sh`, and knowledge-base expansion as users report unmatched findings.
+**Blockers**: None.
 
 ## Phases
 

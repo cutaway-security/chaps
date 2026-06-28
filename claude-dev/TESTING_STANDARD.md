@@ -249,7 +249,7 @@ Record the following for each test:
 Update:
 - Test matrices in this file (date-stamped results, Sections 3.2-3.4)
 - Parity matrix if a parity run (Section 5.3)
-- `claude-dev/RESUME.md` with a test summary
+- `claude-dev/PLAN.md` (status) and `claude-dev/VIBE_HISTORY.md` (durable test result)
 - Per-OS quirks in Section 7 below
 
 ### 6.3 Re-testing after changes

@@ -15,9 +15,8 @@ Before starting any development session, read these documents in order:
 
 1. **CLAUDE.md** - This file. Project rules, constraints, and conventions
 2. **claude-dev/ARCHITECTURE.md** - System design, data structures, script organization
-3. **claude-dev/PLAN.md** - Project roadmap, current phase, milestones, completion status
-4. **claude-dev/RESUME.md** - Development status, what is in progress, blockers, session context
-5. **claude-dev/VIBE_HISTORY.md** - Decision trail and lessons. AI session-continuity memory: Claude writes and reads it, it is not a document you are expected to maintain by hand
+3. **claude-dev/PLAN.md** - Project roadmap, current phase and focus, next steps, blockers, completion status
+4. **claude-dev/VIBE_HISTORY.md** - Decision trail and lessons. AI session-continuity memory: Claude writes and reads it, it is not a document you are expected to maintain by hand
 
 **At session start**: Confirm you have read these documents before proceeding. List your understanding of the current state and next steps. Wait for confirmation before proceeding.
 
@@ -31,7 +30,7 @@ When encountering issues during development:
 2. **DIAGNOSE** - Identify root cause with specific error messages and line numbers
 3. **FIX** - Implement a solution
 4. **VERIFY** - Confirm the fix works with actual testing
-5. **DOCUMENT** - Record the issue and solution in RESUME.md
+5. **DOCUMENT** - Record the issue and solution in PLAN.md (Current Phase: blockers / next steps); capture any durable lesson in VIBE_HISTORY.md
 6. **ASK** - If unable to resolve after reasonable attempts, STOP and ask for clarifying directions
 
 **Never assume code works without testing. Never move forward with unresolved issues.**
@@ -42,7 +41,7 @@ Before moving to the next phase:
 
 1. **Verify** - All components of current phase working
 2. **Test** - Run tests relevant to the phase
-3. **Document** - Update RESUME.md with session activity
+3. **Document** - Update PLAN.md with status and next steps
 4. **Summarize** - Provide summary of completed work
 5. **Plan** - List steps for next phase
 6. **Confirm** - Wait for user confirmation before proceeding
@@ -198,8 +197,8 @@ When making changes, update the appropriate documents:
 |-------------|--------|
 | Architecture change | claude-dev/ARCHITECTURE.md |
 | Phase completion | claude-dev/PLAN.md |
-| Session activity | claude-dev/RESUME.md |
-| Problem encountered | claude-dev/RESUME.md |
+| Session activity / status | claude-dev/PLAN.md (Current Phase) |
+| Problem encountered / blocker | claude-dev/PLAN.md (Current Phase: Blockers) |
 | Durable decision or lesson | claude-dev/VIBE_HISTORY.md |
 | New check added | README.md, all three scripts |
 | Usage change | README.md |
@@ -213,23 +212,21 @@ When making changes, update the appropriate documents:
 1. Read CLAUDE.md (this file)
 2. Read claude-dev/ARCHITECTURE.md
 3. Read claude-dev/PLAN.md
-4. Read claude-dev/RESUME.md
-5. Read claude-dev/VIBE_HISTORY.md (newest entry)
-6. State your understanding of current status
-7. List proposed next steps
-8. Wait for confirmation before proceeding
+4. Read claude-dev/VIBE_HISTORY.md (newest entry)
+5. State your understanding of current status
+6. List proposed next steps
+7. Wait for confirmation before proceeding
 
 ### During Development
 
 1. Work on one task at a time
 2. Test each change before moving on
-3. Document issues in RESUME.md
+3. Document issues in PLAN.md (Current Phase: Blockers)
 4. Stop and ask if encountering persistent issues
 
 ### Ending a Session
 
-1. Update claude-dev/RESUME.md with what was accomplished
-2. Update claude-dev/PLAN.md with completion status
-3. Add durable decisions or lessons to claude-dev/VIBE_HISTORY.md
-4. List any blockers or open questions
+1. Update claude-dev/PLAN.md with status, completion, and next steps
+2. Add durable decisions or lessons to claude-dev/VIBE_HISTORY.md
+3. List any blockers or open questions
 5. Provide summary of session

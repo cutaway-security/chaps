@@ -7,6 +7,41 @@ project's lifetime.
 
 ---
 
+## 2026-06-28 -- Migrated to the RESUME-retired model (PLAN + VIBE_HISTORY)
+
+**What landed**
+
+- `claude-dev/RESUME.md` -- **retired and removed.** CHAPS now follows the current
+  Cutaway model: PLAN.md carries the working state, VIBE_HISTORY carries the
+  decision trail and the resume pointer. RESUME's durable content was already in
+  the v2 entry below; its live next-steps moved to PLAN's Current Phase.
+- `claude-dev/PLAN.md` -- Current Phase block gained **Next Steps** (verify the v2
+  social preview, post the LinkedIn announcement, watch for v2 issues) and
+  **Blockers: None**.
+- `CLAUDE.md` -- session protocol now reads CLAUDE -> ARCHITECTURE -> PLAN ->
+  VIBE_HISTORY; doc-update table and Session Workflow repointed off RESUME.
+- `claude-dev/ARCHITECTURE.md`, `GIT_RELEASE_STEPS.md`, `TESTING_STANDARD.md`,
+  and `release.sh` (preflight checklist) repointed off RESUME.
+
+**Durable decisions**
+
+- CHAPS adopts the framework-wide RESUME retirement codified on 2026-06-28. The
+  model was piloted on the live cutsec_website project, then rolled into
+  `templates/common/` and the `cutsec-init` skill; CHAPS is the first existing
+  project migrated to it.
+- No source or script logic (PSv2/PSv3/CMD, the analyzer) changed -- this is a
+  dev-doc and process-doc migration only. RESUME was dev-only and stripped at
+  release, so master is unaffected.
+
+**Next session**
+
+- v2 is released and stable; no active phase. Immediate items are the post-release
+  user-facing next steps now tracked in PLAN's Current Phase. Backlog (Phase 10
+  role-aware severity and batch mode, Phase 12 `test-fleet.sh`, knowledge-base
+  expansion) lives in the PLAN phase sections.
+
+---
+
 ## 2026-06-28 -- claude-dev prepped for skills + VIBE_HISTORY
 
 **What landed**

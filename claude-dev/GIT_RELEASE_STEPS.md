@@ -36,8 +36,8 @@ The remainder of this document is the underlying manual procedure that `release.
 ## Pre-Release Checklist
 
 - [ ] All changes committed and pushed on `claude-dev`
-- [ ] PLAN.md reflects current completion status
-- [ ] RESUME.md is up to date
+- [ ] PLAN.md reflects current completion status, focus, and next steps
+- [ ] VIBE_HISTORY.md has an entry for this release
 - [ ] README.md is accurate for the public release
 - [ ] LICENSE and NOTICE files are present and current
 - [ ] README "Project License" section matches NOTICE
@@ -144,7 +144,7 @@ gh release create v# --title "v#" --notes "Release notes here"
 ## Post-Release
 
 - Update PLAN.md on claude-dev with next phase goals
-- Update RESUME.md with release summary
+- Add a release-summary entry to VIBE_HISTORY.md
 
 ## Rollback
 
@@ -163,8 +163,8 @@ The following files exist only on the `claude-dev` branch and are stripped befor
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | Claude Code project configuration |
-| `claude-dev/PLAN.md` | Development plan and task tracking |
-| `claude-dev/RESUME.md` | Session history and context |
+| `claude-dev/PLAN.md` | Development plan, current focus, task tracking |
+| `claude-dev/VIBE_HISTORY.md` | AI session-continuity memory (decisions, lessons) |
 | `claude-dev/ARCHITECTURE.md` | Technical architecture reference |
 | `claude-dev/GIT_RELEASE_STEPS.md` | This file |
 | `claude-dev/code-standards/powershell.md` | PowerShell coding standards |

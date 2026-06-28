@@ -57,8 +57,8 @@ chaps/
     .gitignore
     claude-dev/
         ARCHITECTURE.md             # This file
-        PLAN.md                     # Development roadmap and tracking
-        RESUME.md                   # Session context and status
+        PLAN.md                     # Development roadmap, current focus, tracking
+        VIBE_HISTORY.md             # AI session-continuity memory (decisions, lessons)
         GIT_RELEASE_STEPS.md        # Release process
         REMOTE_TESTING.md           # Proxmox VM testing setup and procedures
         TESTING_STANDARD.md         # Test matrix, pass criteria, parity testing
